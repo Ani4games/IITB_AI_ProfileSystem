@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | IITBNF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+</head>
+<body class="login-page">
+  <div class="grid-bg"></div>
+  <div class="grain"></div>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="logo-mark">⬡</span>
+        <span class="logo-text">IITBNF</span>
+      </div>
+      <h1 class="login-title">Sign In</h1>
+      <p class="login-sub">Use your slotbooking credentials to continue.</p>
+
+      {% if error %}
+      <div class="login-error">{{ error }}</div>
+      {% endif %}
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+        <div class="login-flash login-flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="/login" class="login-form">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" name="email" class="form-input"
+                 placeholder="you@iitb.ac.in" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" name="password" class="form-input"
+                 placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-primary btn-full">Sign In →</button>
+      </form>
+
+      <p class="login-footer">
+        <a href="/">← Back to home</a>
+      </p>
+    </div>
+  </div>
+</body>
+</html>

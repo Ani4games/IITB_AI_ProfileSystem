@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IITBNF Profile — {{ person.display_name }}</title>
+  <style>
+    /* ── PAGE SETUP ── */
+    @page {
+      size: A4;
+      margin: 1.2cm 1.4cm 1.4cm 1.4cm;
+      @bottom-center {
+        content: "IITBNF Personnel Profiling System  ·  Member #{{ '%04d' % member_id }}  ·  Confidential";
+        font-family: 'Courier New', monospace;
+        font-size: 7pt;
+        color: #999;
+      }
+      @bottom-right {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: 'Courier New', monospace;
+        font-size: 7pt;
+        color: #999;
+      }
+    }
+
+    /* ── RESET ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9.5pt;
+      color: #111;
+      background: #fff;
+      line-height: 1.5;
+    }
+
+    /* ── HEADER BAND ── */
+    .pdf-header {
+      background: #111;
+      color: #fff;
+      padding: 14pt 16pt 12pt;
+      margin-bottom: 10pt;
+    }
+    .hdr-table { width: 100%; border-collapse: collapse; }
+    .hdr-table td { vertical-align: top; padding: 0; border: none; background: none; }
+    .hdr-name {
+      font-family: 'Courier New', monospace;
+      font-size: 17pt;
+      font-weight: bold;
+      color: #fbbf24;
+      letter-spacing: 0.02em;
+      margin-bottom: 3pt;
+    }
+    .hdr-sub    { font-size: 8pt; color: #9ca3af; margin-bottom: 4pt; }
+    .hdr-tags   { font-size: 8pt; color: #d1d5db; }
+    .hdr-id     { font-family: 'Courier New', monospace; font-size: 26pt; font-weight: bold; color: #fbbf24; text-align: right; }
+    .hdr-meta   { font-family: 'Courier New', monospace; font-size: 7pt; color: #9ca3af; text-align: right; margin-top: 3pt; }
+    .role-pill  {
+      display: inline-block;
+      font-family: 'Courier New', monospace;
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 1pt 5pt;
+      border: 1px solid #fbbf24;
+      color: #fbbf24;
+      border-radius: 2pt;
+    }
+
+    /* ── IDENTITY STRIP ── */
+    .identity-strip {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 4pt;
+      padding: 8pt 10pt;
+      margin-bottom: 8pt;
+    }
+    .ident-table { width: 100%; border-collapse: collapse; }
+    .ident-table td { padding: 0 14pt 0 0; vertical-align: top; border: none; background: none; }
+    .id-label { font-family: 'Courier New', monospace; font-size: 6pt; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 2pt; }
+    .id-value { font-size: 9pt; font-weight: bold; color: #111; }
+
+    /* ── AI SUMMARY BOX ── */
+    .ai-box {
+      border-left: 3pt solid #d97706;
+      padding: 7pt 10pt;
+      background: #fffbeb;
+      font-style: italic;
+      font-size: 9pt;
+      color: #444;
+      margin-bottom: 8pt;
+      border-radius: 0 4pt 4pt 0;
+    }
+    .ai-label {
+      font-family: 'Courier New', monospace;
+      font-size: 6.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #d97706;
+      font-style: normal;
+      margin-bottom: 3pt;
+    }
+
+    /* ── SECTION ── */
+    .section {
+      border: 1px solid #e5e7eb;
+      border-radius: 4pt;
+      margin-bottom: 7pt;
+      page-break-inside: avoid;
+      overflow: hidden;
+    }
+    .section-hdr {
+      background: #f3f4f6;
+      padding: 5pt 9pt;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .section-title {
+      font-family: 'Courier New', monospace;
+      font-size: 7.5pt;
+      font-weight: bold;
+      letter-spacing: 0.07em;
+      color: #374151;
+      text-transform: uppercase;
+    }
+    .section-icon { color: #d97706; margin-right: 4pt; }
+    .section-body { padding: 8pt 9pt; }
+
+    /* ── ANOMALIES ── */
+    .anomaly {
+      padding: 5pt 8pt;
+      border-radius: 3pt;
+      margin-bottom: 4pt;
+      font-size: 8.5pt;
+    }
+    .anomaly-critical { background: #fef2f2; border-left: 3pt solid #dc2626; }
+    .anomaly-warning  { background: #fffbeb; border-left: 3pt solid #d97706; }
+    .anomaly-info     { background: #eff6ff; border-left: 3pt solid #3b82f6; }
+    .anomaly-dot-critical { color: #dc2626; font-weight: bold; margin-right: 5pt; }
+    .anomaly-dot-warning  { color: #d97706; font-weight: bold; margin-right: 5pt; }
+    .anomaly-dot-info     { color: #3b82f6; font-weight: bold; margin-right: 5pt; }
+
+    /* ── METRICS ── */
+    .metric-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }
+    .metric-table td {
+      text-align: center;
+      padding: 6pt 4pt;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      vertical-align: middle;
+    }
+    .metric-val {
+      font-family: 'Courier New', monospace;
+      font-size: 15pt;
+      font-weight: bold;
+      color: #d97706;
+      display: block;
+    }
+    .metric-val-good { color: #059669; }
+    .metric-val-bad  { color: #dc2626; }
+    .metric-key {
+      font-size: 6.5pt;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: block;
+      margin-top: 2pt;
+    }
+
+    /* ── PROGRESS BAR ── */
+    .prog-wrap { margin-bottom: 7pt; }
+    .prog-labels { width: 100%; border-collapse: collapse; margin-bottom: 2pt; }
+    .prog-labels td { font-size: 7.5pt; color: #9ca3af; border: none; background: none; padding: 0; }
+    .prog-outer { width: 100%; height: 5pt; background: #e5e7eb; border-radius: 999pt; overflow: hidden; }
+    .prog-fill   { height: 5pt; border-radius: 999pt; }
+    .prog-green  { background: #059669; }
+    .prog-amber  { background: #d97706; }
+    .prog-red    { background: #dc2626; }
+
+    /* ── TABLES ── */
+    table.data { width: 100%; border-collapse: collapse; font-size: 8pt; margin-top: 5pt; }
+    table.data th {
+      background: #f3f4f6;
+      font-family: 'Courier New', monospace;
+      font-size: 6.5pt;
+      color: #d97706;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 4pt 6pt;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    table.data td {
+      padding: 4pt 6pt;
+      border-bottom: 1px solid #f3f4f6;
+      color: #333;
+      vertical-align: top;
+    }
+    table.data tr:last-child td { border-bottom: none; }
+    table.data tr:nth-child(even) td { background: #f9fafb; }
+
+    /* ── TAGS ── */
+    .tag {
+      display: inline-block;
+      font-family: 'Courier New', monospace;
+      font-size: 6.5pt;
+      padding: 1pt 4pt;
+      border-radius: 2pt;
+      border: 1px solid #ccc;
+      color: #555;
+      text-transform: uppercase;
+    }
+    .tag-green { color: #059669; border-color: #059669; }
+    .tag-amber { color: #d97706; border-color: #d97706; }
+    .tag-red   { color: #dc2626; border-color: #dc2626; }
+
+    /* ── PROJECT CARD ── */
+    .proj-card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 3pt;
+      padding: 6pt 8pt;
+      margin-bottom: 5pt;
+    }
+    .proj-title { font-size: 9pt; font-weight: bold; margin-bottom: 2pt; }
+    .proj-meta  { font-size: 7.5pt; color: #6b7280; }
+
+    /* ── PAPER ROW ── */
+    .paper-table { width: 100%; border-collapse: collapse; }
+    .paper-table td { padding: 4pt 6pt; border-bottom: 1px solid #f3f4f6; vertical-align: top; font-size: 8.5pt; }
+    .paper-year { font-family: 'Courier New', monospace; color: #d97706; width: 38pt; font-size: 8pt; }
+    .paper-title { font-weight: 600; }
+    .paper-conf  { color: #9ca3af; font-style: italic; font-size: 8pt; }
+
+    /* ── COMPARISON ── */
+    .comp-table { width: 100%; border-collapse: collapse; }
+    .comp-table td { padding: 5pt 7pt; border-bottom: 1px solid #f3f4f6; font-size: 8.5pt; vertical-align: middle; }
+    .comp-label { font-weight: bold; width: 120pt; }
+    .comp-mine  { font-family: 'Courier New', monospace; color: #d97706; width: 60pt; text-align: center; }
+    .comp-avg   { font-family: 'Courier New', monospace; color: #6b7280; width: 60pt; text-align: center; }
+    .comp-arrow-up   { color: #059669; font-weight: bold; }
+    .comp-arrow-down { color: #dc2626; font-weight: bold; }
+    .comp-insight { font-size: 8pt; color: #6b7280; font-style: italic; }
+
+    /* ── PAGE BREAK ── */
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="pdf-header">
+    <table class="hdr-table">
+      <tr>
+        <td style="width:75%">
+          <div class="hdr-name">{{ person.display_name }}</div>
+          <div class="hdr-sub">IIT Bombay Nanofabrication Facility &mdash; Personnel Profile</div>
+          <div class="hdr-tags">
+            <span class="role-pill">{{ person.role_name }}</span>
+            {% if person.designation %}&nbsp;&nbsp;{{ person.designation }}{% endif %}
+            {% if person.team %}&nbsp;&middot;&nbsp;{{ person.team }}{% endif %}
+          </div>
+        </td>
+        <td style="width:25%">
+          <div class="hdr-id">{{ '%04d' % member_id }}</div>
+          <div class="hdr-meta">Generated<br>{{ now }}</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- IDENTITY STRIP -->
+  <div class="identity-strip">
+    <table class="ident-table">
+      <tr>
+        {% if person.email %}
+        <td>
+          <div class="id-label">Email</div>
+          <div class="id-value">{{ person.email }}</div>
+        </td>
+        {% endif %}
+        {% if person.type_of_appointment %}
+        <td>
+          <div class="id-label">Appointment</div>
+          <div class="id-value">{{ person.type_of_appointment }}</div>
+        </td>
+        {% endif %}
+        {% if person.joining_date and person.joining_date != '0000-00-00' %}
+        <td>
+          <div class="id-label">Joined</div>
+          <div class="id-value">{{ person.joining_date }}</div>
+        </td>
+        {% endif %}
+        {% if person.leaving_date and person.leaving_date != '0000-00-00' %}
+        <td>
+          <div class="id-label">Leaving</div>
+          <div class="id-value">{{ person.leaving_date }}</div>
+        </td>
+        {% endif %}
+        {% if person.qualification %}
+        <td>
+          <div class="id-label">Qualification</div>
+          <div class="id-value">{{ person.qualification }}</div>
+        </td>
+        {% endif %}
+      </tr>
+    </table>
+  </div>
+
+  <!-- AI SUMMARY -->
+  {% if ai_summary and ai_summary != '(AI summary omitted in PDF export)' %}
+  <div class="ai-box">
+    <div class="ai-label">AI-Generated Summary</div>
+    {{ ai_summary }}
+  </div>
+  {% endif %}
+
+  <!-- ANOMALY ALERTS -->
+  {% if anomalies %}
+  <div class="section">
+    <div class="section-hdr">
+      <span class="section-icon">!</span>
+      <span class="section-title">Anomaly Detection</span>
+    </div>
+    <div class="section-body">
+      {% for a in anomalies %}
+      <div class="anomaly anomaly-{{ a.level }}">
+        <span class="anomaly-dot-{{ a.level }}">
+          {% if a.level == 'critical' %}[!]{% elif a.level == 'warning' %}[~]{% else %}[i]{% endif %}
+        </span>{{ a.message }}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ATTENDANCE -->
+  <div class="section">
+    <div class="section-hdr">
+      <span class="section-icon">*</span>
+      <span class="section-title">Attendance Intelligence</span>
+    </div>
+    <div class="section-body">
+
+      <table class="metric-table">
+        <tr>
+          <td>
+            <span class="metric-val {% if att.attendance_pct >= 90 %}metric-val-good{% elif att.attendance_pct < 75 %}metric-val-bad{% endif %}">
+              {{ att.attendance_pct }}%
+            </span>
+            <span class="metric-key">Compliance</span>
+          </td>
+          <td>
+            <span class="metric-val">{{ att.days_present }}</span>
+            <span class="metric-key">Days Present</span>
+          </td>
+          <td>
+            <span class="metric-val">{{ att.mandatory_days }}</span>
+            <span class="metric-key">Mandatory Days</span>
+          </td>
+          <td>
+            <span class="metric-val">{{ att.leave_utilisation_pct }}%</span>
+            <span class="metric-key">Leave Utilised</span>
+          </td>
+        </tr>
+      </table>
+
+      <div class="prog-wrap">
+        <table class="prog-labels">
+          <tr>
+            <td>Attendance this year</td>
+            <td style="text-align:right">{{ att.days_present }} / {{ att.mandatory_days }} days</td>
+          </tr>
+        </table>
+        <div class="prog-outer">
+          <div class="prog-fill {% if att.attendance_pct >= 90 %}prog-green{% elif att.attendance_pct >= 75 %}prog-amber{% else %}prog-red{% endif %}"
+               style="width:{{ [att.attendance_pct, 100]|min }}%"></div>
+        </div>
+      </div>
+
+      {% if att.leave_summary %}
+      <table class="data" style="margin-top:6pt">
+        <thead>
+          <tr><th>Leave Type</th><th>Taken</th><th>Max Allowed</th><th>Utilisation</th></tr>
+        </thead>
+        <tbody>
+          {% for l in att.leave_summary %}
+          <tr>
+            <td>{{ l.type_of_leave }}</td>
+            <td>{{ l.days_taken }} days</td>
+            <td>{{ l.max_allowed or '—' }}</td>
+            <td>{% if l.util_pct %}{{ l.util_pct }}%{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- EQUIPMENT USAGE -->
+  {% if equip.available %}
+  <div class="section">
+    <div class="section-hdr">
+      <span class="section-icon">+</span>
+      <span class="section-title">Equipment Usage Analytics</span>
+    </div>
+    <div class="section-body">
+      <table class="metric-table">
+        <tr>
+          <td>
+            <span class="metric-val">{{ equip.total_slots }}</span>
+            <span class="metric-key">Total Requests</span>
+          </td>
+          <td>
+            <span class="metric-val">{{ equip.tools_count }}</span>
+            <span class="metric-key">Tools Used</span>
+          </td>
+          {% if equip.approval_stats %}
+          <td>
+            <span class="metric-val metric-val-good">{{ equip.approval_stats.approved or 0 }}</span>
+            <span class="metric-key">Approved</span>
+          </td>
+          <td>
+            <span class="metric-val">{{ equip.approval_stats.pending or 0 }}</span>
+            <span class="metric-key">Pending</span>
+          </td>
+          {% endif %}
+        </tr>
+      </table>
+
+      {% if equip.tools_used %}
+      <table class="data">
+        <thead><tr><th>Tool Name</th><th>Times Booked</th></tr></thead>
+        <tbody>
+          {% for t in equip.tools_used[:10] %}
+          <tr>
+            <td>{{ t.tool_name }}</td>
+            <td>{{ t.times_booked }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- COMPARATIVE STATS -->
+  {% if comparison and comparison.comparisons %}
+  <div class="section">
+    <div class="section-hdr">
+      <span class="section-icon">=</span>
+      <span class="section-title">Team Comparison &mdash; {{ comparison.team }} ({{ comparison.team_size }} members)</span>
+    </div>
+    <div class="section-body">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <td class="comp-label" style="font-family:'Courier New',monospace; font-size:6.5pt; color:#d97706; text-transform:uppercase;">Metric</td>
+            <td class="comp-mine"  style="font-family:'Courier New',monospace; font-size:6.5pt; color:#d97706; text-transform:uppercase;">Mine</td>
+            <td class="comp-avg"   style="font-family:'Courier New',monospace; font-size:6.5pt; color:#d97706; text-transform:uppercase;">Team Avg</td>
+            <td style="font-family:'Courier New',monospace; font-size:6.5pt; color:#d97706; text-transform:uppercase;">Insight</td>
+          </tr>
+        </thead>
+        {% for c in comparison.comparisons %}
+        <tr>
+          <td class="comp-label">{{ c.label }}</td>
+          <td class="comp-mine">{{ c.mine }}</td>
+          <td class="comp-avg">{{ c.team_avg }}</td>
+          <td>
+            <span class="{% if c.direction == 'up' %}comp-arrow-up{% elif c.direction == 'down' %}comp-arrow-down{% endif %}">
+              {% if c.direction == 'up' %}+{% elif c.direction == 'down' %}-{% endif %}
+            </span>
+            <span class="comp-insight">{{ c.insight }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- PROJECTS -->
+  {% if projects.available and projects.projects %}
+  <div class="section">
+    <div class="section-hdr">
+      <span class="section-icon">o</span>
+      <span class="section-title">Project Involvement</span>
+    </div>
+    <div class="section-body">
+      {% for p in projects.projects %}
+      <div class="proj-card">
+        <div class="proj-title">{{ p.project }}</div>
+        <div class="proj-meta">
+          {% if p.category_name %}{{ p.category_name }}{% endif %}
+          {% if p.project_end_date %} &middot; End: {{ p.project_end_date }}{% endif %}
+          &middot; <span class="tag {% if p.active %}tag-green{% else %}tag-amber{% endif %}">
+            {% if p.active %}Active{% else %}Ended{% endif %}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if projects.balance %}
+      <table class="metric-table" style="margin-top:8pt">
+        <tr>
+          <td>
+            <span class="metric-val metric-val-good">Rs.{{ projects.balance.total_credit or 0 }}</span>
+            <span class="metric-key">Credits</span>
+          </td>
+          <td>
+            <span class="metric-val metric-val-bad">Rs.{{ projects.balance.total_debit or 0 }}</span>
+            <span class="metric-key">Debits</span>
+          </td>
+          <td>
+            <span class="metric-val">{{ projects.balance.total_transactions or 0 }}</span>
+            <span class="metric-key">Transactions</span>
+          </td>
+        </tr>
+      </table>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- PUBLICATIONS -->
+  {% if projects.available and projects.papers %}
+  <div class="section">
+    <div class="section-hdr">
+      <span class="section-icon">#</span>
+      <span class="section-title">Publications</span>
+    </div>
+    <div class="section-body">
+      <table class="paper-table">
+        {% for p in projects.papers %}
+        <tr>
+          <td class="paper-year">{{ p.year }}</td>
+          <td class="paper-title">{{ p.title }}</td>
+          <td class="paper-conf">{{ p.conf_name or '' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- MONTHLY REPORTS -->
+  {% if monthly %}
+  <div class="section page-break">
+    <div class="section-hdr">
+      <span class="section-icon">@</span>
+      <span class="section-title">Monthly Reports</span>
+    </div>
+    <div class="section-body">
+      <table class="data">
+        <thead>
+          <tr><th>Year</th><th>Month</th><th>Status</th><th>Stars</th><th>Comment</th></tr>
+        </thead>
+        <tbody>
+          {% for r in monthly %}
+          <tr>
+            <td>{{ r.report_year }}</td>
+            <td>{{ r.report_month }}</td>
+            <td>
+              {% if r.status == 1 %}
+              <span class="tag tag-green">Endorsed</span>
+              {% else %}
+              <span class="tag tag-amber">Pending</span>
+              {% endif %}
+            </td>
+            <td>{% if r.star %}{{ r.star }}/5{% else %}—{% endif %}</td>
+            <td>{{ r.comment or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- COMMITTEES -->
+  {% if committees %}
+  <div class="section">
+    <div class="section-hdr">
+      <span class="section-icon">*</span>
+      <span class="section-title">Committee Involvement</span>
+    </div>
+    <div class="section-body">
+      {% for c in committees %}
+      <div class="proj-card">
+        <div class="proj-title">{{ c.committee_name }}</div>
+        {% if c.position %}<div class="proj-meta">Position: {{ c.position }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Not Found | IITBNF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <style>
+    .notfound-wrap {
+      display: flex; align-items: center; justify-content: center;
+      min-height: calc(100vh - var(--nav-h));
+      padding: 2rem 1rem;
+      position: relative; z-index: 10;
+    }
+    .notfound-card {
+      background: var(--bg2); border: 1px solid var(--border2);
+      border-radius: var(--radius-lg); padding: 3rem 2.5rem;
+      max-width: 480px; width: 100%; text-align: center;
+    }
+    .notfound-glitch {
+      font-family: var(--mono); font-size: clamp(4rem, 15vw, 7rem);
+      font-weight: 700; color: var(--amber); opacity: .15;
+      line-height: 1; margin-bottom: 1.5rem;
+      position: relative; user-select: none;
+    }
+    .notfound-glitch::before,
+    .notfound-glitch::after {
+      content: '404';
+      position: absolute; left: 50%; transform: translateX(-50%);
+      top: 0; opacity: .6;
+    }
+    .notfound-glitch::before {
+      color: var(--red); clip-path: polygon(0 0, 100% 0, 100% 40%, 0 40%);
+      animation: glitch-top 3s infinite;
+    }
+    .notfound-glitch::after {
+      color: var(--blue); clip-path: polygon(0 60%, 100% 60%, 100% 100%, 0 100%);
+      animation: glitch-bot 3s infinite;
+    }
+    @keyframes glitch-top {
+      0%,90%,100% { transform: translateX(-50%); }
+      92% { transform: translateX(calc(-50% - 4px)); }
+      94% { transform: translateX(calc(-50% + 4px)); }
+    }
+    @keyframes glitch-bot {
+      0%,90%,100% { transform: translateX(-50%); }
+      93% { transform: translateX(calc(-50% + 3px)); }
+      95% { transform: translateX(calc(-50% - 3px)); }
+    }
+    .notfound-title {
+      font-family: var(--mono); font-size: 1.1rem; color: var(--fg);
+      margin-bottom: .5rem; font-weight: 700;
+    }
+    .notfound-desc {
+      font-size: .9rem; color: var(--muted); margin-bottom: 2rem; line-height: 1.6;
+    }
+    .notfound-id {
+      display: inline-block; font-family: var(--mono); font-size: .85rem;
+      color: var(--amber); background: rgba(251,191,36,.1);
+      border: 1px solid rgba(251,191,36,.25);
+      padding: .2rem .65rem; border-radius: 4px; margin: 0 .2rem;
+    }
+    .notfound-actions {
+      display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap;
+    }
+    .notfound-actions a {
+      font-family: var(--mono); font-size: .75rem; font-weight: 700;
+      padding: .6rem 1.25rem; border-radius: var(--radius);
+      text-decoration: none; transition: all .15s; letter-spacing: .04em;
+    }
+    .btn-home {
+      background: var(--amber); color: #000;
+    }
+    .btn-home:hover { background: var(--amber2); }
+    .btn-back {
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--faint);
+    }
+    .btn-back:hover { color: var(--fg); border-color: var(--fg); }
+    .notfound-hint {
+      margin-top: 2rem; padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: .78rem; color: var(--faint);
+    }
+    .notfound-hint a { color: var(--muted); text-decoration: none; transition: color .15s; }
+    .notfound-hint a:hover { color: var(--amber); }
+  </style>
+</head>
+<body class="landing-page">
+  <div class="grid-bg"></div>
+  <div class="grain"></div>
+
+  <nav class="topnav">
+    <a href="/dashboard" class="back-btn">← Dashboard</a>
+    <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Not Found</span></span>
+    <span></span>
+  </nav>
+
+  <div class="notfound-wrap">
+    <div class="notfound-card">
+      <div class="notfound-glitch">404</div>
+
+      <div class="notfound-title">Profile Not Found</div>
+      <div class="notfound-desc">
+        {% if member_id %}
+        No profile exists for Member ID
+        <span class="notfound-id">{{ '%04d' % member_id }}</span>.<br>
+        The record may have been removed or the ID is incorrect.
+        {% else %}
+        The page you're looking for doesn't exist or has been moved.
+        {% endif %}
+      </div>
+
+      <div class="notfound-actions">
+        <a href="/dashboard" class="btn-home">← Back to Dashboard</a>
+        <a href="javascript:history.back()" class="btn-back">Go Back</a>
+      </div>
+
+      <div class="notfound-hint">
+        Looking for someone? Try searching on the
+        <a href="/dashboard">dashboard</a>.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

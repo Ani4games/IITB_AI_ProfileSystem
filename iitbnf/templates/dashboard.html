@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <title>Dashboard | IITBNF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    /* ── Announcements Carousel ── */
+    .announce-carousel {
+      background: rgba(217,119,6,0.07);
+      border: 1px solid rgba(217,119,6,0.25);
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      margin-bottom: 1.1rem;
+      overflow: hidden;
+      position: relative;
+    }
+    .announce-track {
+      display: flex;
+      transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+    }
+    .announce-slide {
+      min-width: 100%;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      font-size: 0.88rem;
+      color: var(--text, #f3f4f6);
+      line-height: 1.55;
+    }
+    .announce-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
+    .announce-text { flex: 1; }
+    .announce-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      margin-top: 0.75rem;
+    }
+    .announce-ctrl {
+      background: rgba(217,119,6,0.15);
+      border: 1px solid rgba(217,119,6,0.3);
+      color: var(--amber, #d97706);
+      border-radius: 50%;
+      width: 1.6rem; height: 1.6rem;
+      font-size: 1rem; line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .announce-ctrl:hover { background: rgba(217,119,6,0.28); }
+    .announce-dots { display: flex; gap: 0.35rem; align-items: center; }
+    .announce-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(217,119,6,0.3);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .announce-dot.active {
+      background: var(--amber, #d97706);
+      transform: scale(1.3);
+    }
+  </style>
+  <style>
+    .analytics-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem; }
+    .dash-year-selector { display:flex; align-items:center; gap:0.5rem; }
+    .year-label { font-size:0.72rem; color:var(--muted,#6b7280); text-transform:uppercase; letter-spacing:0.05em; }
+    .year-select {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text,#f3f4f6);
+      border-radius: 6px;
+      padding: 0.28rem 0.6rem;
+      font-size: 0.83rem;
+      cursor: pointer;
+      outline: none;
+    }
+    .year-select:focus { border-color: var(--amber,#d97706); }
+  </style>
+</head>
+<body class="landing-page">
+  <script>
+    NProgress.configure({ showSpinner: false, trickleSpeed: 80 });
+    window.addEventListener("load", () => NProgress.done());
+  </script>
+  <div class="grid-bg"></div>
+  <div class="grain"></div>
+
+  <!-- NAV -->
+  <nav class="topnav">
+    <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Dashboard</span></span>
+    
+    <div class="nav-right">
+      <span class="nav-user">{{ session.full_name }}</span>
+      
+      <a href="/admin" class="admin-nav-link">⚙ Admin</a>
+      <a href="/logout" class="logout-btn">Logout</a>
+      <button class="dash-hamburger" onclick="toggleRightPanel()" title="Expiry Alerts">⚠</button>
+    </div>
+  </nav>
+
+  <!-- DASHBOARD GRID: left (main) + right (expiry only) -->
+  <div class="dash-grid">
+
+    <!-- ══════════════════════════════
+         LEFT / MAIN COLUMN
+    ══════════════════════════════ -->
+    <div class="dash-left">
+
+      <!-- RECENTLY VIEWED -->
+      <div class="recent-panel" id="recent-panel" style="display:none">
+        <div class="recent-header">
+          <span>◷ Recently Viewed</span>
+          <button class="recent-clear" onclick="clearRecent()">Clear</button>
+        </div>
+        <div class="recent-list" id="recent-list"></div>
+      </div>
+
+
+      <!-- ANNOUNCEMENTS CAROUSEL -->
+      {% if announcements %}
+      <div class="announce-carousel" id="announce-carousel">
+        <div class="announce-track" id="announce-track">
+          {% for a in announcements %}
+          <div class="announce-slide">
+            <span class="announce-icon">📢</span>
+            <span class="announce-text">{{ a.announcement }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% if announcements | length > 1 %}
+        <div class="announce-controls">
+          <button class="announce-ctrl" onclick="announceNav(-1)">‹</button>
+          <div class="announce-dots" id="announce-dots">
+            {% for a in announcements %}
+            <span class="announce-dot {% if loop.first %}active{% endif %}"
+                  onclick="announceGo({{ loop.index0 }})"></span>
+            {% endfor %}
+          </div>
+          <button class="announce-ctrl" onclick="announceNav(1)">›</button>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- TABS -->
+      <div class="dash-tabs">
+        <button class="dash-tab active" onclick="switchTab('staff', this)">
+          Staff Profiles <span class="tab-count">{{ members | length }}</span>
+        </button>
+        <button class="dash-tab" onclick="switchTab('lab', this)">
+          Lab Users <span class="tab-count">{{ lab_users | length }}</span>
+        </button>
+      </div>
+
+      <!-- STAFF TAB -->
+      <div id="tab-staff" class="tab-pane active">
+        <div class="search-panel">
+          <div class="search-label">SEARCH STAFF</div>
+          <input type="text" id="staff-search" class="search-input"
+                 placeholder="Name, ID, designation, team, role…" autocomplete="off">
+          <div class="member-list" id="staff-list" style="display:none">
+            {% for m in members %}
+            <a href="/profile/{{ m.member_id }}" class="member-row"
+               data-search="{{ m.display_name }} {{ '%04d' % m.member_id }} {{ m.designation or '' }} {{ m.team or '' }} {{ m.role_name or '' }}">
+              <div class="member-row-id">{{ '%04d' % m.member_id }}</div>
+              <div class="member-row-info">
+                <span class="member-row-name">{{ m.display_name }}</span>
+                <span class="member-row-sub">{{ m.designation or 'No designation' }}{% if m.team %} · {{ m.team }}{% endif %}</span>
+              </div>
+              <div class="member-row-role">
+                <span class="role-tag role-{{ m.role_name | lower | replace(' ','_') }}">{{ m.role_name }}</span>
+              </div>
+              <div class="member-row-arrow">→</div>
+            </a>
+            {% endfor %}
+          </div>
+          <div class="search-footer">
+            <span id="staff-count">{{ members | length }} members</span>
+            <span class="footer-tip">Opens HR profile</span>
+          </div>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-item">
+            <span class="stat-val">{{ members | length }}</span>
+            <span class="stat-key">Total Staff</span>
+          </div>
+          {% for role, group in role_groups.items() %}
+          <div class="stat-item">
+            <span class="stat-val">{{ group | length }}</span>
+            <span class="stat-key">{{ role }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- LAB USERS TAB -->
+      <div id="tab-lab" class="tab-pane" style="display:none">
+        <div class="search-panel">
+          <div class="search-label">SEARCH LAB USERS</div>
+          <input type="text" id="lab-search" class="search-input"
+                 placeholder="Name, email, position, department…" autocomplete="off">
+          <div class="member-list" id="lab-list" style="display:none">
+            {% for u in lab_users %}
+            <a href="/lab/{{ u.memberid }}" class="member-row"
+               data-search="{{ u.fname }} {{ u.lname }} {{ u.email or '' }} {{ u.position or '' }} {{ u.department or '' }}">
+              <div class="member-row-id">{{ '%04d' % u.memberid }}</div>
+              <div class="member-row-info">
+                <span class="member-row-name">{{ u.fname }} {{ u.lname }}</span>
+                <span class="member-row-sub">{{ u.department or '—' }}</span>
+              </div>
+              <div class="member-row-role">
+                <span class="role-tag role-lab">{{ u.position or 'Unknown' }}</span>
+              </div>
+              <div class="member-row-arrow">→</div>
+            </a>
+            {% endfor %}
+          </div>
+          <div class="search-footer">
+            <span id="lab-count">{{ lab_users | length }} users</span>
+            <span class="footer-tip">Opens lab profile</span>
+          </div>
+        </div>
+        <div class="stats-bar">
+          <div class="stat-item">
+            <span class="stat-val">{{ lab_users | length }}</span>
+            <span class="stat-key">Total Lab Users</span>
+          </div>
+          {% for pos, group in pos_groups.items() %}
+          <div class="stat-item">
+            <span class="stat-val">{{ group | length }}</span>
+            <span class="stat-key">{{ pos }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- ── SYSTEM OVERVIEW + CHARTS (full width, below tabs) ── -->
+      {% if health %}
+      <div class="center-analytics">
+
+        <!-- Metrics row -->
+        <div class="analytics-header">
+          <span class="analytics-title">◉ System Overview</span>
+          <div class="dash-year-selector">
+            <label class="year-label">Year</label>
+            <select class="year-select" onchange="switchDashYear(this.value)">
+              {% for y in dash_avail_years %}
+              <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="analytics-metrics">
+          <div class="analytics-metric">
+            <span class="am-val">{{ health.total_staff }}</span>
+            <span class="am-key">Staff Members</span>
+          </div>
+          <div class="analytics-metric">
+            <span class="am-val">{{ health.total_lab }}</span>
+            <span class="am-key">Lab Users</span>
+          </div>
+          <div class="analytics-metric">
+            <span class="am-val {% if health.avg_attendance >= 90 %}hval-green{% elif health.avg_attendance >= 75 %}hval-amber{% else %}hval-red{% endif %}">{{ health.avg_attendance }}%</span>
+            <span class="am-key">Avg Attendance</span>
+          </div>
+          <div class="analytics-metric">
+            <span class="am-val">{{ health.active_projects }}</span>
+            <span class="am-key">Active Projects</span>
+          </div>
+          <div class="analytics-metric">
+            <span class="am-val">{{ health.total_papers }}</span>
+            <span class="am-key">Publications</span>
+          </div>
+          <div class="analytics-metric">
+            <span class="am-val">{{ health.total_tools }}</span>
+            <span class="am-key">Equipment</span>
+          </div>
+        </div>
+
+        <!-- Charts row -->
+        <div class="analytics-charts">
+          <div class="analytics-chart-box">
+            <div class="analytics-chart-title">Lab Users by Position</div>
+            <canvas id="chart-positions" height="220"></canvas>
+          </div>
+          <div class="analytics-chart-box">
+            <div class="analytics-chart-title">Monthly Active Staff — {{ selected_year }}</div>
+            <canvas id="chart-monthly" height="220"></canvas>
+          </div>
+        </div>
+
+      </div>
+      {% endif %}
+
+    </div><!-- end dash-left -->
+
+    <!-- ══════════════════════════════
+         RIGHT COLUMN — Expiry Only
+    ══════════════════════════════ -->
+    <aside class="dash-right" id="dash-right">
+      <button class="right-panel-close" onclick="toggleRightPanel()">✕ Close</button>
+
+      {% if expiry_alerts %}
+      <div class="expiry-sidebar">
+        <div class="expiry-sidebar-header">
+          <span class="expiry-sidebar-icon">⚠</span>
+          <div>
+            <div class="expiry-sidebar-title">Upcoming Expirations</div>
+            <div class="expiry-sidebar-sub">Next 60 days · {{ expiry_alerts | length }} member{% if expiry_alerts|length != 1 %}s{% endif %}</div>
+          </div>
+          <span class="expiry-sidebar-badge">{{ expiry_alerts | length }}</span>
+        </div>
+        <div class="expiry-sidebar-list">
+          {% for a in expiry_alerts %}
+          <a href="{{ a.link }}" class="expiry-sidebar-row expiry-{{ a.level }}">
+            <div class="expiry-sidebar-info">
+              <span class="expiry-sidebar-name">{{ a.name }}</span>
+              <span class="expiry-sidebar-detail">{{ a.detail }}</span>
+              <span class="expiry-sidebar-date">{{ a.date }}</span>
+            </div>
+            <span class="expiry-days {% if a.days_left <= 14 %}days-critical{% else %}days-warn{% endif %}">{{ a.days_left }}d</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="expiry-sidebar">
+        <div class="expiry-sidebar-header">
+          <span class="expiry-sidebar-icon">✓</span>
+          <div>
+            <div class="expiry-sidebar-title">No Upcoming Expirations</div>
+            <div class="expiry-sidebar-sub">All clear for next 60 days</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+    </aside>
+
+  </div><!-- end dash-grid -->
+
+  <script>
+    // ── TAB SWITCHING ──────────────────────────────────────────
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.dash-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+      document.getElementById('tab-' + tab).style.display = 'block';
+      btn.classList.add('active');
+    }
+
+    // ── MOBILE RIGHT PANEL ─────────────────────────────────────
+    function toggleRightPanel() {
+      document.getElementById('dash-right').classList.toggle('right-open');
+    }
+
+    // ── SEARCH ────────────────────────────────────────────────
+    function setupSearch(inputId, listId, countId, type) {
+      const input = document.getElementById(inputId);
+      const list  = document.getElementById(listId);
+      const label = document.getElementById(countId);
+      if (!input || !list || !label) return;
+      const rows = list.querySelectorAll('.member-row');
+
+      input.addEventListener('focus', () => { list.style.display = 'block'; });
+      document.addEventListener('click', e => {
+        if (!e.target.closest('.search-panel')) list.style.display = 'none';
+      });
+      input.addEventListener('input', () => {
+        const q = input.value.toLowerCase().trim();
+        let visible = 0;
+        rows.forEach(row => {
+          const match = !q || row.dataset.search.toLowerCase().includes(q);
+          row.style.display = match ? 'flex' : 'none';
+          if (match) visible++;
+        });
+        label.textContent = visible + (type === 'staff' ? ' members' : ' users');
+        list.style.display = 'block';
+      });
+
+      rows.forEach(row => {
+        row.addEventListener('click', () => {
+          NProgress.start();
+          saveRecent({
+            id:   row.querySelector('.member-row-id').textContent.trim(),
+            name: row.querySelector('.member-row-name').textContent.trim(),
+            url:  row.getAttribute('href'),
+            type
+          });
+        });
+      });
+    }
+
+    setupSearch('staff-search', 'staff-list', 'staff-count', 'staff');
+    setupSearch('lab-search',   'lab-list',   'lab-count',   'lab');
+
+    // ── AI Q&A ────────────────────────────────────────────────
+
+    // ── RECENT PROFILES ───────────────────────────────────────
+    const RECENT_KEY = 'iitbnf_recent_profiles';
+    const MAX_RECENT = 8;
+
+    function getRecent() {
+      try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); }
+      catch(e) { return []; }
+    }
+    function saveRecent(item) {
+      try {
+        let list = getRecent().filter(r => !(r.id === item.id && r.type === item.type));
+        list.unshift(item);
+        if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
+        localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+      } catch(e) {}
+    }
+    function clearRecent() {
+      localStorage.removeItem(RECENT_KEY);
+      renderRecent();
+    }
+    function renderRecent() {
+      const list  = getRecent();
+      const panel = document.getElementById('recent-panel');
+      const cont  = document.getElementById('recent-list');
+      if (!panel || !cont) return;
+      if (!list.length) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      cont.innerHTML = list.map(r =>
+        `<a href="${r.url}" class="recent-row">
+          <span class="recent-id">${r.id}</span>
+          <span class="recent-name">${r.name}</span>
+          <span class="recent-type recent-type-${r.type}">${r.type === 'staff' ? 'Staff' : 'Lab'}</span>
+        </a>`
+      ).join('');
+    }
+    renderRecent();
+
+    // ── CHARTS ────────────────────────────────────────────────
+    {% if health %}
+    const posLabels = {{ health.positions | map(attribute="position") | list | tojson }};
+    const posCounts = {{ health.positions | map(attribute="cnt")      | list | tojson }};
+    const monLabels = {{ health.monthly_active | map(attribute="month")  | list | tojson }};
+    const monData   = {{ health.monthly_active | map(attribute="active") | list | tojson }};
+    const colors    = ["#fbbf24","#60a5fa","#34d399","#f87171","#a78bfa","#fb923c","#38bdf8","#4ade80","#f472b6","#facc15"];
+    const tickColor = "#9ca3af";
+    const gridColor = "#1f2937";
+
+    const posCtx = document.getElementById("chart-positions");
+    if (posCtx) {
+      new Chart(posCtx, {
+        type: "doughnut",
+        data: { labels: posLabels, datasets: [{ data: posCounts, backgroundColor: colors, borderWidth: 0 }] },
+        options: {
+          plugins: { legend: { position: "right", labels: { color: tickColor, font: { family: "DM Sans" }, boxWidth: 12, padding: 10 } } },
+          cutout: "60%"
+        }
+      });
+    }
+
+    const monCtx = document.getElementById("chart-monthly");
+    if (monCtx) {
+      new Chart(monCtx, {
+        type: "bar",
+        data: { labels: monLabels, datasets: [{ label: "Active Staff", data: monData, backgroundColor: "rgba(251,191,36,0.7)", borderColor: "#fbbf24", borderWidth: 1, borderRadius: 4 }] },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: tickColor }, grid: { color: gridColor } },
+            y: { ticks: { color: tickColor }, grid: { color: gridColor } }
+          }
+        }
+      });
+    }
+    {% endif %}
+  </script>
+
+  <script>
+    // ── Announcements Carousel ──
+    (function() {
+      let current = 0;
+      const track  = document.getElementById('announce-track');
+      const dots   = document.querySelectorAll('.announce-dot');
+      const total  = dots.length || 1;
+      let timer;
+
+      function go(n) {
+        current = (n + total) % total;
+        if (track) track.style.transform = `translateX(-${current * 100}%)`;
+        dots.forEach((d, i) => d.classList.toggle('active', i === current));
+      }
+
+      window.announceNav = (dir) => { clearInterval(timer); go(current + dir); startAuto(); };
+      window.announceGo  = (n)   => { clearInterval(timer); go(n); startAuto(); };
+
+      function startAuto() {
+        if (total > 1) timer = setInterval(() => go(current + 1), 6000);
+      }
+      startAuto();
+    })();
+  </script>
+
+
+  <script>
+    function switchDashYear(year) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('year', year);
+      window.location.href = url.toString();
+    }
+  </script>
+
+</body>
+</html>

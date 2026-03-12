@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IITBNF — Personnel Profiling System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+</head>
+<body class="landing-page">
+  <div class="grid-bg"></div>
+  <div class="grain"></div>
+
+  <nav class="topnav">
+    <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Personnel Intelligence</span></span>
+    <a href="/login" class="login-btn">Login →</a>
+  </nav>
+
+  <main class="landing-main">
+    <header class="landing-hero">
+      <p class="hero-eyebrow">IIT Bombay Nanofabrication Facility</p>
+      <h1 class="hero-title">Personnel <span class="hero-accent">Profiling</span><br>System</h1>
+      <p class="hero-desc">AI-assisted staff and lab user analytics — attendance intelligence, equipment usage, research activity and more.</p>
+      <div class="hero-actions">
+        <a href="/login" class="btn-primary">Get Started →</a>
+      </div>
+    </header>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">◉</div>
+        <div class="feature-title">Attendance Intelligence</div>
+        <div class="feature-desc">Compliance tracking, leave analytics, and daily logs for IITBNF staff.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⬡</div>
+        <div class="feature-title">Equipment Analytics</div>
+        <div class="feature-desc">Tool usage, slot reservations, and approval tracking for lab users.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◇</div>
+        <div class="feature-title">Research Profiles</div>
+        <div class="feature-desc">Project involvement, publications, and balance tracking.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">◈</div>
+        <div class="feature-title">AI Summaries</div>
+        <div class="feature-desc">Auto-generated narrative profiles powered by open-source LLMs.</div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

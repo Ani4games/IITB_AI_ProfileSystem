@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <title>{{ person.display_name }} | IITBNF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  <style>
+    .ai-commentary {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      background: rgba(217,119,6,0.07);
+      border-left: 3px solid var(--amber, #d97706);
+      border-radius: 0 8px 8px 0;
+      padding: 0.75rem 1rem;
+      margin-top: 1.25rem;
+    }
+    .ai-commentary-icon {
+      color: var(--amber, #d97706);
+      font-size: 1rem;
+      margin-top: 0.1rem;
+      flex-shrink: 0;
+    }
+    .ai-commentary-text {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--text-muted, #9ca3af);
+      line-height: 1.6;
+      font-style: italic;
+    }
+  </style>
+  <style>
+    .pcard-actions { display:flex; gap:0.5rem; align-items:center; }
+    .deep-btn { background:transparent; border:1px solid var(--amber,#d97706); color:var(--amber,#d97706); border-radius:6px; padding:0.3rem 0.75rem; font-size:0.8rem; cursor:pointer; transition:background 0.2s; }
+    .deep-btn:hover { background:rgba(217,119,6,0.1); }
+    .deep-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .ai-header-block { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.5rem; background:rgba(255,255,255,0.03); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; }
+    .ai-header-row { display:flex; flex-direction:column; gap:0.15rem; }
+    .ai-header-label { font-size:0.7rem; color:var(--muted,#6b7280); text-transform:uppercase; letter-spacing:0.05em; }
+    .ai-header-val { font-size:0.92rem; font-weight:600; color:var(--text,#f3f4f6); }
+    .deep-divider { display:flex; align-items:center; gap:0.75rem; color:var(--amber,#d97706); font-size:0.8rem; font-weight:600; margin-bottom:0.75rem; }
+    .deep-divider::before, .deep-divider::after { content:''; flex:1; height:1px; background:rgba(217,119,6,0.25); }
+    .deep-content { font-size:0.9rem; line-height:1.7; color:var(--text-muted,#9ca3af); white-space:pre-wrap; }
+    .deep-loading { display:flex; align-items:center; gap:0.75rem; color:var(--muted,#6b7280); font-style:italic; font-size:0.88rem; padding:1rem 0; }
+  </style>
+  <style>
+    .topnav-actions { display:flex; gap:0.5rem; align-items:center; }
+    .topnav-btn {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text-muted, #9ca3af);
+      border-radius: 6px;
+      padding: 0.35rem 0.8rem;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .topnav-btn:hover {
+      background: rgba(255,255,255,0.1);
+      color: var(--text, #f3f4f6);
+      border-color: rgba(255,255,255,0.2);
+    }
+    .topnav-btn-amber {
+      background: rgba(217,119,6,0.12);
+      border-color: rgba(217,119,6,0.4);
+      color: var(--amber, #d97706);
+    }
+    .topnav-btn-amber:hover {
+      background: rgba(217,119,6,0.22);
+      border-color: var(--amber, #d97706);
+      color: var(--amber, #d97706);
+    }
+    .topnav-btn-red {
+  background: rgba(220,38,38,0.10);
+  border-color: rgba(220,38,38,0.35);
+  color: #f87171;
+}
+.topnav-btn-red:hover {
+  background: rgba(220,38,38,0.20);
+  border-color: #f87171;
+  color: #fca5a5;
+}
+  </style>
+  <style>
+    .year-selector { display:flex; align-items:center; gap:0.5rem; }
+    .year-label { font-size:0.75rem; color:var(--muted,#6b7280); text-transform:uppercase; letter-spacing:0.05em; }
+    .year-select {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: var(--text,#f3f4f6);
+      border-radius: 6px;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      outline: none;
+    }
+    .year-select:focus { border-color: var(--amber,#d97706); }
+    .note-cell.muted { color: var(--muted,#6b7280); }
+  </style>
+</head>
+<body class="profile-page">
+  <script>
+    NProgress.configure({ showSpinner: false, trickleSpeed: 80 });
+    NProgress.start();
+    window.addEventListener("load", () => NProgress.done());
+  </script>
+
+  <div class="grain"></div>
+
+  <nav class="topnav">
+    <a href="/dashboard" class="back-btn">← All Members</a>
+    <div class="year-selector">
+      <label class="year-label">Year</label>
+      <select class="year-select" onchange="switchYear(this.value)">
+        {% for y in avail_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Profile</span></span>
+    <div class="topnav-actions">
+      <button onclick="window.print()" class="topnav-btn">🖨 Print</button>
+      <button onclick="downloadPDF({{ member_id }})" class="topnav-btn topnav-btn-amber" id="pdf-btn-{{ member_id }}">⬇ PDF</button>
+      <a href="/logout" class="topnav-btn topnav-btn-red">⏻ Logout</a>
+    </div>
+
+<!-- Add this modal for showing progress -->
+<div id="pdf-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box" style="max-width: 400px;">
+        <div class="modal-header">
+            <span class="modal-title">Generating PDF</span>
+            <button class="modal-close" onclick="closePDFModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 1.5rem; text-align: center;">
+            <div class="spinner" style="margin: 1rem auto;">
+                <div class="loading-spinner"></div>
+            </div>
+            <p id="pdf-status-message">Starting PDF generation...</p>
+            <div class="progress-bar" style="margin: 1rem 0; height: 8px; background: var(--bg3); border-radius: 4px;">
+                <div id="pdf-progress" class="progress-fill" style="width: 0%; height: 100%; background: var(--amber); border-radius: 4px;"></div>
+            </div>
+            <p id="pdf-estimate" style="font-size: 0.8rem; color: var(--muted);">Estimated time: 2-3 seconds</p>
+        </div>
+    </div>
+</div>
+
+  </nav>
+
+  <!-- Mobile header (visible only on small screens) -->
+  <div class="mobile-header">
+    <div class="mobile-avatar">{{ '%04d' % member_id }}</div>
+    <div class="mobile-info">
+      <div class="mobile-name">{{ person.display_name }}</div>
+      <div class="mobile-role">
+        <span class="role-tag role-{{ person.role_name | lower | replace(' ','_') }}">{{ person.role_name }}</span>
+      </div>
+      <div class="mobile-desig">{{ person.designation or 'No designation' }}</div>
+    </div>
+  </div>
+
+  <div class="profile-layout">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+      <div class="id-card">
+        <div class="id-avatar">{{ '%04d' % member_id }}</div>
+        <div class="id-name">{{ person.display_name }}</div>
+        <div class="id-role">
+          <span class="role-tag role-{{ person.role_name | lower | replace(' ','_') }}">{{ person.role_name }}</span>
+        </div>
+        <div class="id-desig">{{ person.designation or 'No Designation' }}</div>
+        <div class="id-team">{{ person.team or '—' }}</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">IDENTITY</div>
+        {% macro kv(k, v) %}
+        {% if v and v != '0000-00-00' %}
+        <div class="kv-row">
+          <span class="kv-key">{{ k }}</span>
+          <span class="kv-val">{{ v }}</span>
+        </div>
+        {% endif %}
+        {% endmacro %}
+        {{ kv('Email',       person.email) }}
+        {{ kv('Appointment', person.type_of_appointment) }}
+        {{ kv('Qualification', person.qualification) }}
+        {{ kv('Project Code', person.p_project_code) }}
+        {{ kv('IITB Joined', person.iitb_joining_date) }}
+        {{ kv('Joined',      person.joining_date) }}
+        {{ kv('Leaving',     person.leaving_date) }}
+      </div>
+
+      {% if permissions %}
+      <div class="sidebar-section">
+        <div class="sidebar-label">PERMISSIONS</div>
+        {% for p in permissions %}
+        <div class="tag-pill">{{ p.field }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">JUMP TO</div>
+        <nav class="section-nav">
+          <a href="#ai-summary">AI Summary</a>
+          <a href="#anomalies">Anomalies</a>
+          <a href="#comparison">Team Comparison</a>
+          <a href="#attendance">Attendance</a>
+          <a href="#equipment">Equipment</a>
+          <a href="#projects">Projects</a>
+          <a href="#appraisals">Appraisals</a>
+          {% if monthly %}<a href="#monthly">Reports</a>{% endif %}
+          {% if reservations %}<a href="#reservations">Reservations</a>{% endif %}
+          {% if training %}<a href="#training">Training</a>{% endif %}
+          {% if full_access and tracking %}<a href="#tracking">Profile History</a>{% endif %}
+          {% if committees %}<a href="#committees">Committees</a>{% endif %}
+          {% if full_access and perf_rating %}<a href="#appraisals">Appraisals</a>{% endif %}
+          <a href="#ai-report">AI Report</a>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- ── MAIN ── -->
+    <main class="profile-main" id="profile-main">
+
+
+      <!-- ANOMALY ALERTS -->
+      {% if anomalies %}
+      <section class="pcard anomaly-card" id="anomalies">
+        <div class="pcard-header">
+          <span class="pcard-icon">⚠</span>
+          <span class="pcard-title">AI Anomaly Detection</span>
+          <span class="pending-tag">{{ anomalies | length }} signal{% if anomalies|length != 1 %}s{% endif %}</span>
+        </div>
+        <div class="anomaly-list">
+          {% for a in anomalies %}
+          <div class="anomaly-row anomaly-{{ a.level }}">
+            <span class="anomaly-icon">{% if a.level == "critical" %}🔴{% elif a.level == "warning" %}🟡{% else %}🔵{% endif %}</span>
+            <span class="anomaly-msg">{{ a.message }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+      <!-- AI SUMMARY -->
+      <section class="pcard ai-card" id="ai-summary">
+        <div class="pcard-header">
+          <span class="pcard-icon">◈</span>
+          <span class="pcard-title">AI Profile Summary</span>
+          <div class="pcard-actions">
+            <button class="regen-btn" onclick="regenSummary()">↺ Regenerate</button>
+            <button class="deep-btn" id="deep-btn" onclick="runDeepAnalysis()">⬡ Deep Analysis</button>
+          </div>
+        </div>
+
+        <div class="ai-header-block">
+          <div class="ai-header-row">
+            <span class="ai-header-label">Name</span>
+            <span class="ai-header-val">{{ person.display_name }}</span>
+          </div>
+          <div class="ai-header-row">
+            <span class="ai-header-label">Role</span>
+            <span class="ai-header-val">{{ person.role_name }}</span>
+          </div>
+          <div class="ai-header-row">
+            <span class="ai-header-label">Designation</span>
+            <span class="ai-header-val">{{ person.designation or '—' }}</span>
+          </div>
+          <div class="ai-header-row">
+            <span class="ai-header-label">Team</span>
+            <span class="ai-header-val">{{ person.team or '—' }}</span>
+          </div>
+        </div>
+
+        <div class="ai-summary-text" id="ai-text">{{ ai_summary }}</div>
+
+        <div id="deep-panel" style="display:none; margin-top:1.25rem;">
+          <div class="deep-divider"><span>◈ Deep Analysis</span></div>
+          <div id="deep-content" class="deep-content">
+            <div class="deep-loading">
+              <div class="loading-spinner"></div>
+              <span>Running deep analysis… this may take 20–30 seconds</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ATTENDANCE -->
+      <section class="pcard" id="attendance">
+        <div class="pcard-header">
+          <span class="pcard-icon">◉</span>
+          <span class="pcard-title">Attendance Intelligence</span>
+        </div>
+
+        <div class="metric-row">
+          <div class="metric-box">
+            <div class="metric-val {% if att.attendance_pct >= 90 %}good{% elif att.attendance_pct >= 75 %}warn{% else %}bad{% endif %}">
+              {{ att.attendance_pct }}%
+            </div>
+            <div class="metric-key">Compliance</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">{{ att.days_present }}</div>
+            <div class="metric-key">Days Present</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">{{ att.mandatory_days }}</div>
+            <div class="metric-key">Mandatory Days</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val {% if att.leave_utilisation_pct < 80 %}good{% else %}warn{% endif %}">
+              {{ att.leave_utilisation_pct }}%
+            </div>
+            <div class="metric-key">Leave Utilised</div>
+          </div>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Attendance this year</span>
+            <span>{{ att.days_present }} / {{ att.mandatory_days }} days</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill {% if att.attendance_pct >= 90 %}fill-green{% elif att.attendance_pct >= 75 %}fill-amber{% else %}fill-red{% endif %}"
+                 style="width: {{ [att.attendance_pct, 100]|min }}%"></div>
+          </div>
+        </div>
+
+
+        {% if trend %}
+        <div class="sub-section">
+          <div class="sub-title">Monthly Attendance Trend ({{ trend[0].month }} — {{ trend[-1].month }})</div>
+          <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+          <script>
+          (function(){
+            const labels = {{ trend | map(attribute="month") | list | tojson }};
+            const present = {{ trend | map(attribute="present") | list | tojson }};
+            const mandatory = {{ trend | map(attribute="mandatory") | list | tojson }};
+            new Chart(document.getElementById("trend-chart"), {
+              type: "bar",
+              data: { labels, datasets: [
+                { label: "Days Present", data: present, backgroundColor: "rgba(251,191,36,0.7)", borderColor: "#fbbf24", borderWidth:1, borderRadius:4 },
+                { label: "Mandatory", data: mandatory, backgroundColor: "rgba(55,65,81,0.5)", borderColor: "#374151", borderWidth:1, borderRadius:4 }
+              ]},
+              options: { responsive:true, plugins:{ legend:{ labels:{ color:"#9ca3af" } } },
+                scales: { x:{ ticks:{color:"#9ca3af"}, grid:{color:"#1f2937"} }, y:{ ticks:{color:"#9ca3af"}, grid:{color:"#1f2937"} } } }
+            });
+          })();
+          </script>
+        </div>
+        {% endif %}
+        {% if att.leave_summary %}
+        <div class="sub-section">
+          <div class="sub-title">Leave Summary</div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Type</th><th>Taken</th><th>Max</th><th>Utilisation</th></tr></thead>
+              <tbody>
+              {% for l in att.leave_summary %}
+              <tr>
+                <td>{{ l.type_of_leave }}</td>
+                <td>{{ l.days_taken }} days</td>
+                <td>{{ l.max_allowed or '—' }}</td>
+                <td>
+                  {% if l.util_pct is not none %}
+                  <div class="mini-bar">
+                    <div class="mini-fill {% if l.util_pct < 80 %}fill-green{% else %}fill-amber{% endif %}"
+                         style="width:{{ [l.util_pct,100]|min }}%"></div>
+                  </div>
+                  {{ l.util_pct }}%
+                  {% else %}—{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if ai_sections and ai_sections.attendance_commentary %}
+        <div class="ai-commentary">
+          <span class="ai-commentary-icon">◈</span>
+          <p class="ai-commentary-text" id="ai-att-commentary">{{ ai_sections.attendance_commentary }}</p>
+        </div>
+        {% endif %}
+
+        {% if att.recent_log %}
+        <details class="details-block">
+          <summary>Recent Attendance Log (last 30 entries)</summary>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Date</th><th>Entry</th><th>Exit</th></tr></thead>
+              <tbody>
+              {% for r in att.recent_log %}
+              <tr>
+                <td>{{ r.date }}</td>
+                <td>{{ r.entry_time }}</td>
+                <td>{{ r.exit_time or '—' }}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+        {% endif %}
+      </section>
+
+
+      <!-- COMPARATIVE STATS -->
+      {% if comparison and comparison.comparisons %}
+      <section class="pcard compare-card" id="comparison">
+        <div class="pcard-header">
+          <span class="pcard-icon">⇄</span>
+          <span class="pcard-title">Team Comparison</span>
+          <span class="pending-tag">vs {{ comparison.team }} team · {{ comparison.team_size }} members</span>
+        </div>
+        {% for c in comparison.comparisons %}
+        <div class="compare-row">
+          <div class="compare-label">
+            <span class="compare-name">{{ c.label }}</span>
+            <span class="compare-insight {% if c.direction == "up" %}insight-up{% elif c.direction == "down" %}insight-down{% else %}insight-eq{% endif %}">
+              {% if c.direction == "up" %}↑{% elif c.direction == "down" %}↓{% else %}→{% endif %}
+              {{ c.insight }}
+            </span>
+          </div>
+          <div class="compare-bars">
+            <div class="compare-bar-wrap">
+              <span class="compare-bar-label">You</span>
+              <div class="compare-bar-track">
+                <div class="compare-bar-fill fill-amber" style="width:{{ c.mine_pct }}%"></div>
+              </div>
+              <span class="compare-bar-val">{{ c.mine }}</span>
+            </div>
+            <div class="compare-bar-wrap">
+              <span class="compare-bar-label">Team avg</span>
+              <div class="compare-bar-track">
+                <div class="compare-bar-fill fill-muted" style="width:{{ c.team_pct }}%"></div>
+              </div>
+              <span class="compare-bar-val">{{ c.team_avg }}</span>
+            </div>
+          </div>
+        </div>
+        {% if not loop.last %}<div class="compare-divider"></div>{% endif %}
+        {% endfor %}
+      </section>
+      {% endif %}
+      <!-- EQUIPMENT USAGE -->
+      <section class="pcard" id="equipment">
+        <div class="pcard-header">
+          <span class="pcard-icon">⬡</span>
+          <span class="pcard-title">Equipment Usage Analytics</span>
+          {% if not equip.available %}
+          <span class="pending-tag">No Lab Record</span>
+          {% endif %}
+        </div>
+
+        {% if equip.available %}
+        <div class="metric-row">
+          <div class="metric-box">
+            <div class="metric-val">{{ equip.total_slots }}</div>
+            <div class="metric-key">Total Requests</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">{{ equip.tools_count }}</div>
+            <div class="metric-key">Tools Used</div>
+          </div>
+          {% if equip.approval_stats %}
+          <div class="metric-box">
+            <div class="metric-val good">{{ equip.approval_stats.approved or 0 }}</div>
+            <div class="metric-key">Approved</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val bad">{{ equip.approval_stats.rejected or 0 }}</div>
+            <div class="metric-key">Rejected</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val warn">{{ equip.approval_stats.pending or 0 }}</div>
+            <div class="metric-key">Pending</div>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if equip.tools_used %}
+        <div class="sub-section">
+          <div class="sub-title">Tool Usage Breakdown</div>
+          <div class="chart-wrap">
+            <canvas id="tools-bar"></canvas>
+          </div>
+          <script>
+          (function(){
+            const labels = {{ equip.tools_used | map(attribute='tool_name') | list | tojson }};
+            const data   = {{ equip.tools_used | map(attribute='times_booked') | list | tojson }};
+            new Chart(document.getElementById('tools-bar'), {
+              type: 'bar',
+              data: { labels, datasets: [{
+                label: 'Requests', data,
+                backgroundColor: 'rgba(251,191,36,0.7)',
+                borderColor: '#fbbf24', borderWidth: 1, borderRadius: 4
+              }]},
+              options: {
+                indexAxis: 'y', responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } },
+                  y: { ticks: { color: '#d1d5db' }, grid: { color: '#374151' } }
+                }
+              }
+            });
+          })();
+          </script>
+        </div>
+        {% endif %}
+
+        {% if equip.lab_access_log %}
+        <div class="sub-section">
+          <details class="details-block">
+            <summary>Lab Access Log</summary>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Date</th><th>Equipments</th><th>Period</th><th>Status</th></tr></thead>
+                <tbody>
+                {% for r in equip.lab_access_log %}
+                <tr>
+                  <td>{{ r.access_date }}</td>
+                  <td class="note-cell">{{ r.equipments }}</td>
+                  <td>{{ r.access_period }} days</td>
+                  <td>
+                    {% if r.approval == 1 %}<span class="tag tag-green">Approved</span>
+                    {% elif r.approval == 2 %}<span class="tag tag-red">Rejected</span>
+                    {% else %}<span class="tag tag-amber">Pending</span>{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+        {% endif %}
+
+        {% if ai_sections and ai_sections.equipment_commentary %}
+        <div class="ai-commentary">
+          <span class="ai-commentary-icon">◈</span>
+          <p class="ai-commentary-text" id="ai-equ-commentary">{{ ai_sections.equipment_commentary }}</p>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="placeholder-card">
+          <div class="ph-icon">⬡</div>
+          <div class="ph-title">No Lab Usage Record</div>
+          <div class="ph-desc">This member's email does not match any record in the slotbooking database.</div>
+        </div>
+        {% endif %}
+      </section>
+
+      <!-- PROJECTS -->
+      <section class="pcard" id="projects">
+        <div class="pcard-header">
+          <span class="pcard-icon">◇</span>
+          <span class="pcard-title">Research & Project Involvement</span>
+          {% if not projects.available %}<span class="pending-tag">No Lab Record</span>{% endif %}
+        </div>
+
+        {% if projects.available %}
+          {% if projects.projects %}
+          <div class="sub-section">
+            <div class="sub-title">Projects</div>
+            {% for p in projects.projects %}
+            <div class="project-card">
+              <div class="proj-title">{{ p.project_title }}</div>
+              <div class="proj-meta">
+                {% if p.project_code %}<span>{{ p.project_code }}</span>{% endif %}
+                {% if p.category_name %}<span>{{ p.category_name }}</span>{% endif %}
+                {% if p.area_name %}<span>{{ p.area_name }}</span>{% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="empty-state">No projects found.</p>
+          {% endif %}
+
+          {% if projects.balance %}
+          <div class="sub-section">
+            <div class="sub-title">Equipment Budget</div>
+            <div class="metric-row">
+              <div class="metric-box">
+                <div class="metric-val">₹{{ projects.balance.total_amount }}</div>
+                <div class="metric-key">Allocated</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-val bad">₹{{ projects.balance.used_amount }}</div>
+                <div class="metric-key">Used</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-val good">₹{{ projects.balance.remaining_amount }}</div>
+                <div class="metric-key">Remaining</div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if projects.papers %}
+          <div class="sub-section">
+            <div class="sub-title">Publications</div>
+            {% for p in projects.papers %}
+            <div class="paper-row">
+              <span class="paper-year">{{ p.year }}</span>
+              <span class="paper-title">{{ p.title }}</span>
+              <span class="paper-journal">{{ p.journal }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+        {% else %}
+        <div class="placeholder-card">
+          <div class="ph-icon">◇</div>
+          <div class="ph-title">No Project Record</div>
+          <div class="ph-desc">Project and publication data unavailable for this member.</div>
+        </div>
+        {% endif %}
+      </section>
+
+      <!-- MONTHLY REPORTS -->
+      {% if monthly %}
+      <section class="pcard" id="monthly">
+        <div class="pcard-header">
+          <span class="pcard-icon">▣</span>
+          <span class="pcard-title">Monthly Reports</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Year</th><th>Month</th><th>Status</th><th>Stars</th><th>Comment</th><th>Submitted</th></tr></thead>
+            <tbody>
+            {% for r in monthly %}
+            <tr>
+              <td>{{ r.report_year }}</td>
+              <td>{{ r.report_month }}</td>
+              <td>
+                {% if r.status == 1 %}<span class="tag tag-green">Endorsed</span>
+                {% elif r.status == 0 %}<span class="tag tag-amber">Pending</span>
+                {% else %}<span class="tag">{{ r.status }}</span>{% endif %}
+              </td>
+              <td>{% if r.star %}{{ '★' * r.star }}{% else %}—{% endif %}</td>
+              <td class="note-cell">{{ r.comment or '—' }}</td>
+              <td>{{ r.submitted_at }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        {% if ai_sections and ai_sections.appraisal_commentary %}
+        <div class="ai-commentary" style="margin-top:1rem;">
+          <span class="ai-commentary-icon">◈</span>
+          <p class="ai-commentary-text" id="ai-apr-commentary">{{ ai_sections.appraisal_commentary }}</p>
+        </div>
+        {% endif %}
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- RESERVATIONS -->
+      {% if reservations %}
+      <section class="pcard" id="reservations">
+        <div class="pcard-header">
+          <span class="pcard-icon">⬡</span>
+          <span class="pcard-title">Equipment Reservations</span>
+          <span class="pending-tag">{{ reservations | length }} records</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Equipment</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Summary</th>
+                <th>Project</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for r in reservations %}
+            <tr>
+              <td>{{ r.tool_name }}</td>
+              <td>{{ r.start_dt }}</td>
+              <td>{{ r.end_dt }}</td>
+              <td class="note-cell">{{ r.summary or '—' }}</td>
+              <td>{{ r.project or '—' }}</td>
+              <td>
+                {% if r.booking_status == 'Completed' %}
+                  <span class="tag tag-green">Completed</span>
+                {% elif r.booking_status == 'Upcoming' %}
+                  <span class="tag tag-amber">Upcoming</span>
+                {% else %}
+                  <span class="tag">{{ r.booking_status }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- COMMITTEES -->
+      {% if committees %}
+      <section class="pcard" id="committees">
+        <div class="pcard-header">
+          <span class="pcard-icon">◈</span>
+          <span class="pcard-title">Committee Involvement</span>
+        </div>
+        {% for c in committees %}
+        <div class="project-card">
+          <div class="proj-title">{{ c.committee_name }}</div>
+          {% if c.description %}<div class="proj-meta"><span>{{ c.description }}</span></div>{% endif %}
+          {% if c.position %}<div class="proj-meta"><span>Position: {{ c.position }}</span></div>{% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+
+
+      <!-- TRAINING RECORDS -->
+      {% if training %}
+      <section class="pcard" id="training">
+        <div class="pcard-header">
+          <span class="pcard-icon">◎</span>
+          <span class="pcard-title">Equipment Training</span>
+          <span class="pending-tag">{{ training | length }} records</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Equipment</th><th>Type</th><th>Trained On</th><th>Trainer</th><th>Material</th><th>Notes</th></tr></thead>
+            <tbody>
+            {% for t in training %}
+            <tr>
+              <td><strong>{{ t.tool_name }}</strong></td>
+              <td>{% if t.run_type == 'Authorization' %}<span class="tag tag-green">Authorized</span>
+                  {% else %}<span class="tag tag-amber">{{ t.run_type }}</span>{% endif %}</td>
+              <td>{{ t.trained_on | string | truncate(10, True, '') if t.trained_on else '—' }}</td>
+              <td>{{ t.trainer_name or '—' }}</td>
+              <td>{{ '✓' if t.read_material == 'yes' else '—' }}</td>
+              <td class="note-cell">{{ t.comment or '—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- PROFILE HISTORY (admin only) -->
+      {% if full_access and tracking %}
+      <section class="pcard" id="tracking">
+        <div class="pcard-header">
+          <span class="pcard-icon">◷</span>
+          <span class="pcard-title">Profile Change History</span>
+          <span class="pending-tag">{{ tracking | length }} changes</span>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Field</th><th>From</th><th>To</th><th>Changed By</th><th>When</th></tr></thead>
+            <tbody>
+            {% for t in tracking %}
+            <tr>
+              <td><strong>{{ t.column_name }}</strong></td>
+              <td class="note-cell muted">{{ t.old_value or '—' }}</td>
+              <td class="note-cell">{{ t.new_value or '—' }}</td>
+              <td>{{ t.updated_by_name or '—' }}</td>
+              <td>{{ t.timestamp }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      {% endif %}
+
+<!-- APPRAISALS (admin only) -->
+{% if full_access and (perf_rating or self_appraisal or appraisal_360 or objectives) %}
+<section class="pcard" id="appraisals">
+  <div class="pcard-header">
+    <span class="pcard-icon">◈</span>
+    <span class="pcard-title">Performance Appraisals</span>
+    <span class="pending-tag">{{ perf_rating | length }} cycle{% if perf_rating|length != 1 %}s{% endif %}</span>
+  </div>
+
+  {% set all_cycles = perf_rating | map(attribute='review_name') | list %}
+
+  {% for pr in perf_rating %}
+  {% set cycle = pr.review_name %}
+  <div class="sub-section">
+
+    <!-- Cycle header -->
+    <div class="sub-title" style="display:flex; justify-content:space-between; align-items:center;">
+      <span>{{ cycle | title }}</span>
+      {% if pr.performance_score %}
+        <span class="tag {% if pr.performance_score >= 4 %}tag-green{% elif pr.performance_score >= 3 %}tag-amber{% else %}tag-red{% endif %}">
+          Final Score: {{ pr.performance_score }}
+        </span>
+      {% endif %}
+    </div>
+
+    <!-- Score tiles -->
+    <div class="metric-row" style="margin-bottom:0.75rem;">
+      {% if pr.performance_score %}
+      <div class="metric-box">
+        <div class="metric-val {% if pr.performance_score >= 4 %}good{% elif pr.performance_score >= 3 %}warn{% else %}bad{% endif %}">
+          {{ pr.performance_score }}
+        </div>
+        <div class="metric-key">Final Score</div>
+      </div>
+      {% endif %}
+      {% if pr.self_app_score %}
+      <div class="metric-box">
+        <div class="metric-val">{{ pr.self_app_score }}</div>
+        <div class="metric-key">Self Score</div>
+      </div>
+      {% endif %}
+      {% if pr.guide_score %}
+      <div class="metric-box">
+        <div class="metric-val">{{ pr.guide_score }}</div>
+        <div class="metric-key">Guide Score</div>
+      </div>
+      {% endif %}
+      {% if pr.other_score %}
+      <div class="metric-box">
+        <div class="metric-val">{{ pr.other_score }}</div>
+        <div class="metric-key">Peer Score</div>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if pr.comment %}
+    <div class="ai-commentary" style="margin-bottom:0.75rem;">
+      <span class="ai-commentary-icon">◈</span>
+      <p class="ai-commentary-text">{{ pr.comment }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Self appraisal detail -->
+    {% if self_appraisal and cycle in self_appraisal %}
+    {% set sa = self_appraisal[cycle] %}
+    <details class="details-block">
+      <summary>Self Appraisal Detail</summary>
+      {% if sa.ratings %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Question</th><th>Score</th></tr></thead>
+          <tbody>
+          {% for r in sa.ratings %}
+          <tr>
+            <td>{{ r.field_name }}</td>
+            <td>
+              <span class="tag {% if r.value|float >= 4 %}tag-green{% elif r.value|float >= 3 %}tag-amber{% else %}tag-red{% endif %}">
+                {{ r.value }} / 5
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% for c in sa.comments %}
+      <div class="kv-row" style="margin-top:0.5rem;">
+        <span class="kv-key">{{ c.field_name }}</span>
+        <span class="kv-val note-cell">{{ c.value }}</span>
+      </div>
+      {% endfor %}
+    </details>
+    {% endif %}
+
+    <!-- 360 appraisal detail -->
+    {% if appraisal_360 and cycle in appraisal_360 %}
+    {% set a360 = appraisal_360[cycle] %}
+    <details class="details-block">
+      <summary>360° Appraisal Detail</summary>
+      {% if a360.ratings %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Question</th><th>Avg Score</th><th>Reviewers</th></tr></thead>
+          <tbody>
+          {% for r in a360.ratings %}
+          <tr>
+            <td>{{ r.field_name }}</td>
+            <td>
+              <span class="tag {% if r.value >= 4 %}tag-green{% elif r.value >= 3 %}tag-amber{% else %}tag-red{% endif %}">
+                {{ r.value }} / 5
+              </span>
+            </td>
+            <td class="note-cell muted">{{ r.reviewer_count }} reviewer{% if r.reviewer_count != 1 %}s{% endif %}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% for c in a360.comments %}
+      <div class="kv-row" style="margin-top:0.5rem;">
+        <span class="kv-key">{{ c.field_name }}</span>
+        <span class="kv-val note-cell">{{ c.value }}</span>
+      </div>
+      {% endfor %}
+    </details>
+    {% endif %}
+{% if committee_scores and cycle in committee_scores %}
+<details class="details-block">
+  <summary>Committee Scores</summary>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Score</th><th>Comment</th><th>Entered By</th></tr></thead>
+      <tbody>
+      {% for c in committee_scores[cycle] %}
+      <tr>
+        <td>
+          <span class="tag {% if c.committee_score|float >= 4 %}tag-green{% elif c.committee_score|float >= 3 %}tag-amber{% else %}tag-red{% endif %}">
+            {{ c.committee_score }}
+          </span>
+        </td>
+        <td class="note-cell">{{ c.committee_comment or '—' }}</td>
+        <td>{{ c.entered_by_name or '—' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</details>
+{% endif %}
+    <!-- Objectives detail -->
+    {% if objectives and cycle in objectives %}
+    {% set obj = objectives[cycle] %}
+    <details class="details-block">
+      <summary>Objectives & KRAs</summary>
+      {% if obj.ratings %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Objective</th><th>Score</th></tr></thead>
+          <tbody>
+          {% for r in obj.ratings %}
+          <tr>
+            <td>{{ r.field_name }}</td>
+            <td>
+              <span class="tag {% if r.value|float >= 4 %}tag-green{% elif r.value|float >= 3 %}tag-amber{% else %}tag-red{% endif %}">
+                {{ r.value }} / 5
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% for c in obj.comments %}
+      <div class="kv-row" style="margin-top:0.5rem;">
+        <span class="kv-key">{{ c.field_name }}</span>
+        <span class="kv-val note-cell">{{ c.value }}</span>
+      </div>
+      {% endfor %}
+    </details>
+    {% endif %}
+
+  </div>
+  {% if not loop.last %}<hr style="border-color:rgba(255,255,255,0.06); margin:0.5rem 0;">{% endif %}
+  {% endfor %}
+
+</section>
+{% endif %}
+
+      <!-- AI WRITTEN REPORT -->
+      <section class="pcard" id="ai-report">
+        <div class="pcard-header">
+          <span class="pcard-icon">◈</span>
+          <span class="pcard-title">AI Profile Report</span>
+          <span style="margin-left:auto;font-size:0.72rem;background:rgba(251,191,36,0.15);color:var(--amber,#d97706);padding:2px 10px;border-radius:12px;border:1px solid rgba(251,191,36,0.3);">Ollama</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
+          <label for="report-audience" style="color:var(--muted,#6b7280);font-size:0.9rem;">Generate for:</label>
+          <select id="report-audience" style="background:rgba(255,255,255,0.06);color:var(--text,#f3f4f6);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 10px;font-size:0.9rem;outline:none;">
+            <option value="management">Management</option>
+            <option value="individual">Individual</option>
+          </select>
+          <button id="report-gen-btn" class="topnav-btn topnav-btn-amber" data-member-id="{{ member_id }}">
+            ◈ Generate Report
+          </button>
+        </div>
+        <div id="report-output" style="display:none;margin-top:1rem;">
+          <div id="report-loading" style="display:none;color:var(--muted,#6b7280);font-size:0.9rem;font-style:italic;align-items:center;gap:0.5rem;">
+            <span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.1);border-top-color:var(--amber,#d97706);border-radius:50%;animation:report-spin 0.8s linear infinite;"></span>
+            Generating report, please wait…
+          </div>
+          <div id="report-error" style="display:none;color:#f87171;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:6px;padding:10px;font-size:0.9rem;"></div>
+          <div id="report-text" class="ai-commentary" style="display:none;">
+            <span class="ai-commentary-icon">◈</span>
+            <p class="ai-commentary-text" id="report-text-inner" style="white-space:pre-wrap;font-style:normal;font-size:0.93rem;line-height:1.75;"></p>
+          </div>
+          <div id="report-copy-wrap" style="display:none;margin-top:0.75rem;">
+            <button id="report-copy-btn" class="deep-btn">Copy to Clipboard</button>
+          </div>
+        </div>
+      </section>
+      <style>@keyframes report-spin { to { transform: rotate(360deg); } }</style>
+      <script>
+      (function(){
+        const btn       = document.getElementById("report-gen-btn");
+        const sel       = document.getElementById("report-audience");
+        const output    = document.getElementById("report-output");
+        const loading   = document.getElementById("report-loading");
+        const errBox    = document.getElementById("report-error");
+        const textWrap  = document.getElementById("report-text");
+        const textInner = document.getElementById("report-text-inner");
+        const copyWrap  = document.getElementById("report-copy-wrap");
+        const copyBtn   = document.getElementById("report-copy-btn");
+        btn.addEventListener("click", async () => {
+          output.style.display    = "block";
+          loading.style.display   = "flex";
+          errBox.style.display    = "none";
+          textWrap.style.display  = "none";
+          copyWrap.style.display  = "none";
+          btn.disabled = true;
+          try {
+            const res  = await fetch("/api/report", {
+              method: "POST", headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({ member_id: parseInt(btn.dataset.memberId), audience: sel.value })
+            });
+            const data = await res.json();
+            if (data.success) {
+              textInner.textContent  = data.report;
+              textWrap.style.display = "flex";
+              copyWrap.style.display = "block";
+            } else {
+              errBox.textContent   = data.error || "An error occurred.";
+              errBox.style.display = "block";
+            }
+          } catch(e) {
+            errBox.textContent   = "Could not reach the server. Is Ollama running?";
+            errBox.style.display = "block";
+          } finally {
+            loading.style.display = "none";
+            btn.disabled = false;
+          }
+        });
+        copyBtn.addEventListener("click", () => {
+          navigator.clipboard.writeText(textInner.textContent).then(() => {
+            copyBtn.textContent = "Copied!";
+            setTimeout(() => copyBtn.textContent = "Copy to Clipboard", 2000);
+          });
+        });
+      })();
+      </script>
+    </main>
+  </div>
+
+  <script>
+    async function regenSummary() {
+      const btn = document.querySelector('.regen-btn');
+      const txt = document.getElementById('ai-text');
+      btn.innerHTML = '<span class="spin">↺</span> Generating…';
+      btn.disabled = true;
+      txt.style.opacity = '0.4';
+      try {
+        const res  = await fetch('/api/ai-summary', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({member_id: {{ member_id }}})
+        });
+        const data = await res.json();
+        txt.textContent = data.summary || 'No summary generated.';
+        // Update section commentaries if returned
+        if (data.sections) {
+          const attEl  = document.getElementById('ai-att-commentary');
+          const equEl  = document.getElementById('ai-equ-commentary');
+          const aprEl  = document.getElementById('ai-apr-commentary');
+          if (attEl && data.sections.attendance_commentary)  attEl.textContent  = data.sections.attendance_commentary;
+          if (equEl && data.sections.equipment_commentary)   equEl.textContent  = data.sections.equipment_commentary;
+          if (aprEl && data.sections.appraisal_commentary)   aprEl.textContent  = data.sections.appraisal_commentary;
+        }
+      } catch (e) {
+        txt.textContent = 'Failed to regenerate. Try again.';
+      }
+      txt.style.opacity = '1';
+      btn.innerHTML = '↺ Regenerate';
+      btn.disabled = false;
+    }
+
+
+    async function runDeepAnalysis() {
+      const btn     = document.getElementById('deep-btn');
+      const panel   = document.getElementById('deep-panel');
+      const content = document.getElementById('deep-content');
+      if (panel.style.display === 'block') {
+        panel.style.display = 'none';
+        btn.textContent = '⬡ Deep Analysis';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '⬡ Analysing…';
+      panel.style.display = 'block';
+      content.innerHTML = '<div class="deep-loading"><div class="loading-spinner"></div><span>Running deep analysis… this may take 20–30 seconds</span></div>';
+      try {
+        const res  = await fetch('/api/ai-insights/analyse', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({member_id: {{ member_id }}})
+        });
+        const data = await res.json();
+        content.textContent = data.analysis || 'No analysis returned.';
+      } catch(e) {
+        content.textContent = 'Deep analysis failed — check your AI connection.';
+      }
+      btn.disabled = false;
+      btn.textContent = '⬡ Hide Analysis';
+    }
+
+    document.querySelectorAll('.section-nav a').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelector(a.getAttribute('href'))
+          ?.scrollIntoView({behavior: 'smooth', block: 'start'});
+      });
+    });
+  </script>
+  <script>
+    // Inject print date into profile-main
+    document.getElementById("profile-main").setAttribute(
+      "data-date", new Date().toLocaleDateString("en-IN", {day:"2-digit",month:"short",year:"numeric"})
+    );
+
+    // Track this profile visit for recent history
+    try {
+      const RECENT_KEY = "iitbnf_recent_profiles";
+      const MAX_RECENT = 8;
+      const item = {
+        id:   "{{ "%04d" % member_id }}",
+        name: "{{ person.display_name }}",
+        url:  "/profile/{{ member_id }}",
+        type: "staff"
+      };
+      let list = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+      list = list.filter(r => !(r.id === item.id && r.type === item.type));
+      list.unshift(item);
+      if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+    } catch(e) {}
+    function downloadPDF(memberId) {
+        const modal = document.getElementById('pdf-modal');
+        const msg   = document.getElementById('pdf-status-message');
+        const prog  = document.getElementById('pdf-progress');
+
+        // Show modal with progress animation
+        modal.style.display = 'flex';
+        msg.textContent = 'Generating PDF, please wait…';
+        msg.style.color = '';
+        prog.style.width = '0%';
+
+        // Animate progress bar while WeasyPrint works (purely cosmetic)
+        let pct = 0;
+        const ticker = setInterval(() => {
+            pct = Math.min(pct + Math.random() * 12, 85);
+            prog.style.width = pct + '%';
+        }, 400);
+
+        // Use a hidden iframe so the page doesn't navigate away
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = `/profile/${memberId}/pdf`;
+        document.body.appendChild(iframe);
+
+        // WeasyPrint typically takes 2-5s; close modal once browser receives the file
+        iframe.onload = () => {
+            clearInterval(ticker);
+            prog.style.width = '100%';
+            msg.textContent = 'Download started!';
+            setTimeout(closePDFModal, 1200);
+            iframe.remove();
+        };
+
+        // Fallback: close after 15s in case onload never fires
+        setTimeout(() => {
+            clearInterval(ticker);
+            closePDFModal();
+            iframe.remove();
+        }, 15000);
+    }
+
+    function closePDFModal() {
+        document.getElementById('pdf-modal').style.display = 'none';
+        document.getElementById('pdf-progress').style.width = '0%';
+        document.getElementById('pdf-status-message').textContent = 'Generating PDF, please wait…';
+        document.getElementById('pdf-status-message').style.color = '';
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closePDFModal();
+    });
+  </script>
+
+  <script>
+    function switchYear(year) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('year', year);
+      window.location.href = url.toString();
+    }
+  </script>
+
+</body>
+</html>
