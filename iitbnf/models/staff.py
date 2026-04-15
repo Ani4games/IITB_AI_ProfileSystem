@@ -4,12 +4,13 @@ models/staff.py — All data queries for staff (hr_portal) profiles.
 from datetime import date, timedelta
 from collections import defaultdict
 from db import hr_query, slots_query
-from cache import cached
 from utils import get_display_name, clean_role, calc_mandatory_days
-
+from models.lab import get_system_owner_track
+from cache import cached
 
 # ── Member lists ──────────────────────────────────────────────────────────────
-@cached(ttl_seconds=3600)
+
+@cached(ttl_seconds=300)
 def get_all_members():
     rows = hr_query("""
         SELECT p.member_id, p.designation, p.team, p.email,
@@ -24,7 +25,8 @@ def get_all_members():
             (p.designation IS NULL OR p.designation = '') AND
             (p.team IS NULL OR p.team = '')
         )
-        AND (p.leaving_date IS NULL OR p.leaving_date = '0000-00-00' OR p.leaving_date >= CURDATE())
+        AND (p.leaving_date IS NULL OR p.leaving_date = '0000-00-00' OR p.leaving_date >= '2025-01-01')
+        AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         ORDER BY p.member_id
     """)
     processed = []
@@ -35,8 +37,6 @@ def get_all_members():
         processed.append(m)
     return processed
 
-
-@cached(ttl_seconds=1800)
 def get_person(member_id):
     rows = hr_query("""
         SELECT p.*,
@@ -48,8 +48,10 @@ def get_person(member_id):
         FROM profile p
         LEFT JOIN role r          ON r.memberid = p.member_id
         LEFT JOIN role_master rm  ON rm.role_id = r.role
-        LEFT JOIN slotbooking.login l ON l.memberid = p.member_id
-        WHERE p.member_id = %s LIMIT 1
+        LEFT JOIN slotbooking.login l ON LOWER(TRIM(l.email)) = LOWER(TRIM(p.email))
+        WHERE p.member_id = %s
+          AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
+        LIMIT 1
     """, (member_id,))
     if not rows:
         return None
@@ -65,7 +67,7 @@ def get_permissions(member_id):
 
 
 # ── Attendance ────────────────────────────────────────────────────────────────
-@cached(ttl_seconds=1800)
+
 def get_attendance_stats(member_id, year=None):
     today    = date.today()
     year     = year or today.year
@@ -116,8 +118,15 @@ def get_attendance_stats(member_id, year=None):
         util  = round(taken / max_a * 100, 1) if max_a else None
         if util is not None:
             util_vals.append(util)
-        leave_summary.append({"type_of_leave": leave_type, "days_taken": taken,
-                               "max_allowed": max_a, "util_pct": util})
+        leave_summary.append({
+            "type_of_leave": leave_type,
+            "days_taken": taken,
+            "max_allowed": max_a,
+            "util_pct": util
+        })
+
+    # ✅ ADD TREND HERE
+    trend = get_attendance_trend(member_id)
 
     return {
         "days_present":          days_present,
@@ -126,24 +135,44 @@ def get_attendance_stats(member_id, year=None):
         "leave_summary":         leave_summary,
         "leave_utilisation_pct": round(sum(util_vals) / len(util_vals), 1) if util_vals else 0,
         "recent_log":            (all_rows or [])[:30],
+        "trend":                 trend   # ✅ IMPORTANT FIX
     }
 
-
+@cached(ttl_seconds=120)
 def get_available_years(member_id=None, memberid=None):
-    """Years with data for the year dropdown — always includes current year."""
+    """
+    Years with data for the year dropdown.
+    Returns sorted list (descending) and always includes current year.
+    Also returns the best default year — most recent year with actual data.
+    """
     years = {date.today().year}
+    data_years = set()  # years that actually have data
+
     if member_id:
         for r in (hr_query("SELECT DISTINCT YEAR(date) AS yr FROM user_attendance WHERE memberid=%s", (member_id,)) or []):
-            if r.get("yr"): years.add(int(r["yr"]))
+            if r.get("yr"):
+                years.add(int(r["yr"]))
+                data_years.add(int(r["yr"]))
         for r in (hr_query("SELECT DISTINCT report_year AS yr FROM monthly_report WHERE member_id=%s", (member_id,)) or []):
-            if r.get("yr"): years.add(int(r["yr"]))
+            if r.get("yr"):
+                years.add(int(r["yr"]))
+                data_years.add(int(r["yr"]))
     if memberid:
         for r in (slots_query("SELECT DISTINCT YEAR(FROM_UNIXTIME(startdate)) AS yr FROM reservations WHERE memberid=%s", (memberid,)) or []):
-            if r.get("yr"): years.add(int(r["yr"]))
-    return sorted(years, reverse=True)
+            if r.get("yr"):
+                years.add(int(r["yr"]))
+                data_years.add(int(r["yr"]))
+        for r in (slots_query("SELECT DISTINCT YEAR(date_of_request) AS yr FROM equipment_usage_approval WHERE requestedby=%s", (memberid,)) or []):
+            if r.get("yr"):
+                years.add(int(r["yr"]))
+                data_years.add(int(r["yr"]))
+
+    sorted_years = sorted(years, reverse=True)
+    return sorted_years, max(data_years) if data_years else date.today().year
 
 
 # ── Monthly reports & committees ──────────────────────────────────────────────
+
 def get_monthly_reports(member_id, year=None):
     if year:
         return hr_query("""
@@ -173,19 +202,221 @@ def get_committee_involvement(member_id):
 
 
 # ── Equipment usage (staff) ───────────────────────────────────────────────────
-@cached(ttl_seconds=1800)
+
+@cached(ttl_seconds=300)
 def _get_uid_from_member_cached(email):
     if not email:
         return None
-    r = slots_query("SELECT memberid FROM login WHERE email=%s LIMIT 1", (email,))
+    r = slots_query("SELECT memberid FROM login WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s)) LIMIT 1", (email,))
     return r[0]["memberid"] if r else None
 
+def get_staff_owner_track(member_id: int) -> list:
+    """
+    Ownership span history for a staff member.
 
+    Resolution strategy
+    ───────────────────
+    1. Resolve HR member_id → slotbooking memberid via _get_uid_from_member.
+    2. If that uid already has system_owner_track rows, return them directly.
+    3. If the standard resolver returned a uid but it has zero track rows
+       (possible when the person registered under a different email), search
+       all slotbooking accounts that share the same email-username prefix and
+       pick the one with the highest system_owner_track row count.  This
+       tiebreaker is intentionally different from _get_uid_from_member, which
+       uses reservation count — system owners may have few or zero reservations.
+    4. Return [] only when no candidate account can be found at all.
+    """
+    from models.lab import get_system_owner_track
+
+    uid = _get_uid_from_member(member_id)
+
+    if uid:
+        track = get_system_owner_track(uid)
+        if track:
+            return track
+
+    # ── Fallback: pick the candidate with the most track rows ─────────────
+    p = hr_query(
+        "SELECT email FROM profile WHERE member_id = %s LIMIT 1",
+        (member_id,)
+    )
+    if not p or not p[0].get("email"):
+        return get_system_owner_track(uid) if uid else []
+
+    email      = p[0]["email"]
+    email_user = email.split("@")[0] if "@" in email else ""
+    candidates = []
+
+    if email_user:
+        candidates = slots_query("""
+            SELECT memberid FROM login
+            WHERE LOWER(TRIM(email)) LIKE LOWER(%s)
+        """, (f"{email_user}@%",)) or []
+
+    if not candidates:
+        candidates = slots_query("""
+            SELECT memberid FROM login
+            WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s)) LIMIT 5
+        """, (email,)) or []
+
+    if not candidates:
+        return get_system_owner_track(uid) if uid else []
+
+    best_uid, best_cnt = uid, 0
+    for c in candidates:
+        mid = c["memberid"]
+        row = slots_query(
+            "SELECT COUNT(*) AS cnt FROM system_owner_track WHERE memberid = %s",
+            (mid,)
+        )
+        cnt = int(row[0]["cnt"]) if row else 0
+        if cnt > best_cnt:
+            best_cnt = cnt
+            best_uid = mid
+
+    return get_system_owner_track(best_uid) if best_uid else []
+
+
+@cached(ttl_seconds=600)
 def _get_uid_from_member(member_id):
-    p = hr_query("SELECT email FROM profile WHERE member_id=%s LIMIT 1", (member_id,))
+    """
+    Resolve HR member_id to slotbooking memberid.
+
+    Strategy:
+      1. Email match (exact, case-insensitive) — most reliable
+      2. Name match fallback — handles cases where the person registered
+         with a different email in slotbooking (e.g. gmail vs iitb.ac.in)
+         Matches on fname + lname against the HR display name.
+    """
+    p = hr_query("""
+        SELECT p.email,
+               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS display_name,
+               l.fname AS slot_fname, l.lname AS slot_lname
+        FROM profile p
+        LEFT JOIN slotbooking.login l ON LOWER(TRIM(l.email)) = LOWER(TRIM(p.email))
+        WHERE p.member_id = %s LIMIT 1
+    """, (member_id,))
     if not p:
         return None
-    return _get_uid_from_member_cached(p[0].get("email"))
+
+    row   = p[0]
+    email = row.get("email", "")
+
+    # Step 1 — email match
+    uid = _get_uid_from_member_cached(email)
+
+    if uid is not None:
+        return uid
+
+    # Step 2 — name-based fallback
+    # Get name directly from slotbooking by email domain variants,
+    # or search all staff positions by name derived from the HR email prefix.
+    # Since HR profile has no name fields, we search slotbooking by
+    # the email username part (e.g. "anjum04" from "anjum04@gmail.com")
+    # combined with position filter — then verify by checking reservations exist.
+
+    # First try: search slotbooking for same email username with any domain
+    # No position filter — staff may be registered under any position
+    email_user = email.split("@")[0] if "@" in email else ""
+    if email_user:
+        r = slots_query("""
+            SELECT memberid, fname, lname FROM login
+            WHERE LOWER(TRIM(email)) LIKE LOWER(%s)
+            LIMIT 5
+        """, (f"{email_user}@%",))
+
+        if r:
+            # If only one result, use it directly
+            if len(r) == 1:
+                return r[0]["memberid"]
+            # If multiple, pick the one with the most reservations (most likely correct)
+            best_uid, best_cnt = None, -1
+            for candidate in r:
+                cnt_row = slots_query(
+                    "SELECT COUNT(*) AS cnt FROM reservations WHERE memberid = %s",
+                    (candidate["memberid"],)
+                )
+                cnt = cnt_row[0]["cnt"] if cnt_row else 0
+                if cnt > best_cnt:
+                    best_cnt = cnt
+                    best_uid = candidate["memberid"]
+            if best_uid:
+                return best_uid
+
+    # Step 3: Use the accidental memberid match in slotbooking to get the name
+    # e.g. HR member_id=2457 → slotbooking has memberid=2457 as "Avinash Gangurde"
+    # but their REAL slotbooking account is under a different memberid
+    # So: get name from slotbooking[memberid=hr_member_id] → search all accounts with same name
+    name_row = slots_query("""
+        SELECT fname, lname FROM login
+        WHERE memberid = %s LIMIT 1
+    """, (member_id,))
+
+    if name_row:
+        fname = (name_row[0].get("fname") or "").strip()
+        lname = (name_row[0].get("lname") or "").strip()
+        if fname and lname:
+            r = slots_query("""
+                SELECT memberid FROM login
+                WHERE LOWER(TRIM(fname)) = LOWER(%s)
+                  AND LOWER(TRIM(lname)) = LOWER(%s)
+                ORDER BY memberid DESC
+                LIMIT 5
+            """, (fname, lname))
+
+            if r:
+                if len(r) == 1:
+                    return r[0]["memberid"]
+                # Multiple matches — pick the one with most reservations
+                best_uid, best_cnt = None, -1
+                for candidate in r:
+                    cnt_row = slots_query(
+                        "SELECT COUNT(*) AS cnt FROM reservations WHERE memberid = %s",
+                        (candidate["memberid"],)
+                    )
+                    cnt = cnt_row[0]["cnt"] if cnt_row else 0
+                    if cnt > best_cnt:
+                        best_cnt = cnt
+                        best_uid = candidate["memberid"]
+                if best_uid:
+                    return best_uid
+
+    # Step 4: email-based name lookup (last resort)
+    name_row = slots_query("""
+        SELECT fname, lname FROM login
+        WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s)) LIMIT 1
+    """, (email,))
+
+    if not name_row:
+        return None
+
+    fname = (name_row[0].get("fname") or "").strip()
+    lname = (name_row[0].get("lname") or "").strip()
+    if not fname or not lname:
+        return None
+
+    r = slots_query("""
+        SELECT memberid FROM login
+        WHERE LOWER(TRIM(fname)) = LOWER(%s)
+          AND LOWER(TRIM(lname)) = LOWER(%s)
+        LIMIT 5
+    """, (fname, lname))
+
+    if not r:
+        return None
+    if len(r) == 1:
+        return r[0]["memberid"]
+    best_uid, best_cnt = None, -1
+    for candidate in r:
+        cnt_row = slots_query(
+            "SELECT COUNT(*) AS cnt FROM reservations WHERE memberid = %s",
+            (candidate["memberid"],)
+        )
+        cnt = cnt_row[0]["cnt"] if cnt_row else 0
+        if cnt > best_cnt:
+            best_cnt = cnt
+            best_uid = candidate["memberid"]
+    return best_uid
 
 
 def get_equipment_stats(member_id, year=None):
@@ -215,8 +446,8 @@ def get_equipment_stats(member_id, year=None):
     """, (uid, date_param))
 
     total = slots_query(f"""
-        SELECT COUNT(*) AS cnt FROM equipment_usage_approval
-        WHERE requestedby = %s {date_filter}
+        SELECT COUNT(*) AS cnt FROM equipment_usage_approval e
+        WHERE e.requestedby = %s {date_filter}
     """, (uid, date_param))
 
     lab_params = [uid]
@@ -243,7 +474,7 @@ def get_equipment_stats(member_id, year=None):
 
 
 # ── Projects & publications ───────────────────────────────────────────────────
-@cached(ttl_seconds=3600)
+
 def _get_lab_projects(uid):
     projects = slots_query("""
         SELECT fp.project, pc.project_category AS category_name,
@@ -272,10 +503,12 @@ def get_project_data(member_id):
 
 
 # ── Profile tracking & training ───────────────────────────────────────────────
+
 def get_profile_tracking(member_id, year=None):
     year_filter = "AND YEAR(pt.timestamp) = %s" if year else ""
     params = (member_id, year) if year else (member_id,)
-    return hr_query(f"""
+
+    rows = hr_query(f"""
         SELECT pt.column_name, pt.old_value, pt.new_value, pt.timestamp,
         TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS updated_by_name
         FROM profile_tracking pt
@@ -284,22 +517,15 @@ def get_profile_tracking(member_id, year=None):
         ORDER BY pt.timestamp DESC LIMIT 100
     """, params) or []
 
+    # 🔧 FIX: serialize timestamp
+    for r in rows:
+        if r.get("timestamp"):
+            r["timestamp"] = r["timestamp"].isoformat()
 
-def get_staff_training(member_id, year=None):
-    uid_row = slots_query("SELECT memberid FROM login WHERE memberid=%s LIMIT 1", (member_id,))
-    if not uid_row:
-        email_row = hr_query("SELECT email FROM profile WHERE member_id=%s LIMIT 1", (member_id,))
-        if not email_row or not email_row[0].get("email"):
-            return []
-        uid_row = slots_query("SELECT memberid FROM login WHERE email=%s LIMIT 1", (email_row[0]["email"],))
-    if not uid_row:
-        return []
-    from models.lab import get_training_report
-    return get_training_report(uid_row[0]["memberid"], year)
-
+    return rows
 
 # ── Anomaly detection ─────────────────────────────────────────────────────────
-@cached(ttl_seconds=1800)
+
 def get_anomalies(member_id, att, equip):
     alerts = []
     today  = date.today()
@@ -352,13 +578,13 @@ def get_anomalies(member_id, att, equip):
     return alerts
 
 
-@cached(ttl_seconds=1800)
-def get_attendance_trend(member_id):
+def get_attendance_trend(member_id, year=None):
     today    = date.today()
-    year     = today.year
-    holidays = set()  # simplified; full version uses get_holidays()
+    year     = year or today.year
+    holidays = set()
     results  = []
-    for month in range(1, today.month + 1):
+    max_month = 12 if year < today.year else today.month
+    for month in range(1, max_month + 1):
         end   = date(year, month, (date(year, month + 1, 1) - timedelta(days=1)).day if month < today.month else today.day)
         start = date(year, month, 1)
         mandatory = sum(1 for i in range((end - start).days + 1)
@@ -370,8 +596,6 @@ def get_attendance_trend(member_id):
                          "mandatory": mandatory, "pct": round(present / mandatory * 100, 1) if mandatory else 0})
     return results
 
-
-@cached(ttl_seconds=1800)
 def get_comparative_stats(member_id, att, equip):
     person = hr_query("SELECT team FROM profile WHERE member_id=%s LIMIT 1", (member_id,))
     if not person or not person[0].get("team"):
@@ -385,6 +609,7 @@ def get_comparative_stats(member_id, att, equip):
     team_members = hr_query("""
         SELECT member_id FROM profile
         WHERE team LIKE %s AND member_id != %s AND email IS NOT NULL AND email != ''
+        AND (taken_clearance IS NULL OR taken_clearance = 0)
     """, (f"%{primary}%", member_id))
     if not team_members:
         return []
@@ -455,30 +680,8 @@ def get_comparative_stats(member_id, att, equip):
         })
 
     return {"team": primary, "team_size": len(team_ids), "comparisons": comparisons}
-def get_self_appraisal(member_id):
-    return hr_query("""
-        SELECT d.review_name, f.field_name, f.type_of_field, 
-               f.order_of_display, d.value
-        FROM self_appraisal_data d
-        JOIN self_appraisal_fields f
-            ON f.variable_name = d.variable_name
-            AND f.review_name = d.review_name
-        WHERE d.memberid = %s
-        ORDER BY d.review_name DESC, f.order_of_display
-    """, (member_id,))
 
 
-def get_360_appraisal(member_id):
-    return hr_query("""
-        SELECT d.review_name, f.field_name, f.type_of_field,
-               f.order_of_display, d.value, d.appraisal_by
-        FROM 360degree_appraisal_data d
-        JOIN 360degree_appraisal_fields f
-            ON f.variable_name = d.variable_name
-            AND f.review_name = d.review_name
-        WHERE d.appraisal_of = %s
-        ORDER BY d.review_name DESC, f.order_of_display
-    """, (member_id,))
 def get_objectives(member_id):
     return hr_query("""
         SELECT d.review_name, f.field_name, f.type_of_field,
@@ -493,19 +696,45 @@ def get_objectives(member_id):
 
 
 def get_performance_rating(member_id):
-    return hr_query("""
-        SELECT review_name, guide_score, other_score,
-               self_app_score, performance_score, comment, timestamp
+    """
+    Return per-cycle performance ratings for a staff member.
+    Rows are ordered most-recent cycle first.
+    """
+    rows = hr_query("""
+        SELECT review_name, rating, grade, remarks
         FROM performance_rating
-        WHERE member_id = %s
-        ORDER BY timestamp DESC
+        WHERE memberid = %s
+        ORDER BY review_name DESC
     """, (member_id,))
-def get_committee_score(member_id):
-    return hr_query("""
-        SELECT c.review_name, c.committee_score, c.committee_comment,
-               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS entered_by_name
-        FROM commitee_score c
-        LEFT JOIN slotbooking.login l ON l.memberid = c.entered_by
-        WHERE c.memberid = %s
-        ORDER BY c.review_name DESC
-    """, (member_id,))
+    return rows or []
+
+
+# ── System ownership (staff) ──────────────────────────────────────────────────
+
+def get_staff_system_owned(member_id: int) -> list:
+    """Tools for which this staff member is system owner."""
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return []
+    from models.lab import get_system_owner_tools
+    return get_system_owner_tools(uid)
+
+def get_staff_tool_perms_rich(member_id: int) -> list:
+    """Enriched tool permissions for a staff member."""
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return []
+    from models.lab import get_member_tool_permissions
+    return get_member_tool_permissions(uid)
+
+
+def get_staff_reservations(member_id: int, year=None) -> list:
+    """
+    Slot reservations for a staff member — fetched via slotbooking memberid.
+    Staff members use the same reservations table as lab users.
+    """
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return []
+    from models.lab import get_lab_reservations
+    return get_lab_reservations(uid, year) or []

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<head>
+<meta charset="UTF-8">
+<title>AI Summary Panel</title>
+
+</head>
+
+
+<!-- ══ AI FLOATING BUBBLE ═════════════════════════════════════════ -->
+<div id="ai-bubble" onclick="openAIPanel()" aria-label="Open AI summary panel" role="button" aria-haspopup="dialog" title="AI Summary">
+  <span>✦ AI</span>
+</div>
+
+<div id="ai-panel" role="dialog" aria-modal="false" aria-label="AI profile summary">
+  <div id="ai-panel-header">
+    <span id="ai-panel-title">✦ AI Summary</span>
+    <button onclick="closeAIPanel()" id="ai-close-btn">✕</button>
+  </div>
+
+  <div id="ai-panel-options">
+    <button class="ai-opt-btn" onclick="quickStream('short summary', this)">Short Summary</button>
+    <button class="ai-opt-btn" onclick="quickStream('executive briefing', this)">Executive Summary</button>
+  </div>
+
+  <div id="ai-panel-output"></div>
+  <div id="ai-panel-cursor" style="display:none;">▌</div>
+
+  <div id="ai-panel-input-row">
+    <input id="ai-panel-input" type="text" placeholder="e.g. give me a formal report…" autocomplete="off" />
+    <button id="ai-panel-send" onclick="sendMessage()">↑</button>
+  </div>
+</div>
+<script>
+    let _aiStream = null;
+
+function openAIPanel() {
+  document.getElementById('ai-panel').classList.add('open');
+}
+
+function closeAIPanel() {
+  document.getElementById('ai-panel').classList.remove('open');
+  if (_aiStream) {
+    _aiStream.close();
+    _aiStream = null;
+  }
+}
+
+function quickStream(phrase, btn) {
+  const input = document.getElementById('ai-panel-input');
+  input.value = phrase;
+
+  document.querySelectorAll('.ai-opt-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  startStream(phrase);
+}
+
+function sendMessage() {
+  const input = document.getElementById('ai-panel-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  startStream(msg);
+}
+
+function startStream(message) {
+  const output = document.getElementById('ai-panel-output');
+  const cursor = document.getElementById('ai-panel-cursor');
+
+  output.textContent = '';
+  cursor.style.display = 'block';
+
+  if (_aiStream) {
+    _aiStream.close();
+    _aiStream = null;
+  }
+
+  const memberId = document.body.dataset.memberId;
+
+  const url = `/api/ai/stream?profile_type=lab&profile_id=${memberId}&message=${encodeURIComponent(message)}`;
+
+  _aiStream = new EventSource(url);
+
+  _aiStream.onmessage = function(e) {
+    if (e.data === '[DONE]') {
+      cursor.style.display = 'none';
+      document.querySelectorAll('.ai-opt-btn').forEach(b => b.classList.remove('active'));
+      _aiStream.close();
+      _aiStream = null;
+      return;
+    }
+
+    if (e.data.startsWith('[ERROR]')) {
+      output.textContent = e.data;
+      cursor.style.display = 'none';
+      _aiStream.close();
+      _aiStream = null;
+      return;
+    }
+
+    try {
+      output.textContent += JSON.parse(e.data);
+      output.scrollTop = output.scrollHeight;
+    } catch(err) {}
+  };
+
+  _aiStream.onerror = function() {
+    cursor.style.display = 'none';
+    if (output.textContent === '') {
+      output.textContent = 'Connection error. Is the server running?';
+    }
+    _aiStream.close();
+    _aiStream = null;
+  };
+}
+</script>

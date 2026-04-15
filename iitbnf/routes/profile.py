@@ -1,205 +1,205 @@
 """
 routes/profile.py — /profile/<id> and /profile/<id>/pdf
 """
+
 import time
+import re
 from datetime import date, datetime
 from flask import Blueprint, render_template, request, make_response
 from auth import staff_required, is_full_access
+from models.lab import safe_json
 from utils import run_parallel, safe_dict
-from models.staff import (get_360_appraisal, get_committee_score, get_person, get_attendance_stats, get_equipment_stats,
-                           get_project_data, get_monthly_reports, get_committee_involvement,
-                           get_permissions, get_self_appraisal, get_staff_training, get_profile_tracking,
-                           get_anomalies, get_attendance_trend, get_comparative_stats,
-                           get_available_years, get_performance_rating, get_objectives)
-from models.ai import generate_staff_report
+
+from models.staff import (
+    get_person, get_attendance_stats, get_equipment_stats,
+    get_project_data, get_monthly_reports, get_committee_involvement,
+    get_permissions, get_profile_tracking,
+    get_attendance_trend, get_available_years,
+    get_staff_system_owned, get_staff_owner_track,
+    get_staff_tool_perms_rich, get_staff_reservations
+)
 
 bp = Blueprint("profile", __name__)
 
 
+# ========================= HELPERS =========================
+
+def safe_date(val):
+    """Convert any date/datetime to string (PDF safe)."""
+    if not val:
+        return None
+
+    if isinstance(val, (datetime, date)):
+        return val.strftime("%Y-%m-%d")
+
+    try:
+        return str(val)
+    except:
+        return None
+
+
+def sanitize_list(data):
+    """Ensure list of dicts is fully JSON + PDF safe."""
+    out = []
+    for row in data or []:
+        clean = {}
+        for k, v in row.items():
+            if isinstance(v, (datetime, date)):
+                clean[k] = v.strftime("%Y-%m-%d")
+            else:
+                clean[k] = v
+        out.append(clean)
+    return out
+
+
+# ========================= NORMAL PROFILE =========================
+
 @bp.route("/profile/<int:member_id>")
 @staff_required
 def profile(member_id):
+
     start_total = time.time()
 
-    year         = request.args.get("year", type=int) or date.today().year
-    avail_years  = get_available_years(member_id=member_id)
-    full_access  = is_full_access()  # evaluate before threads — session unavailable inside threads
+    # Resolve slotbooking uid ONCE here so we can pass it to get_available_years.
+    # Without this, equipment/reservation years (e.g. 2013 for member 189) are
+    # never included because those tables live in slotbooking, not hr_portal.
+    from models.staff import _get_uid_from_member
+    _slot_uid = _get_uid_from_member(member_id)
+    avail_years, best_year = get_available_years(member_id=member_id, memberid=_slot_uid)
+    year = request.args.get("year", type=int) or best_year
+    full_access = is_full_access()
 
     data = run_parallel({
-        "person":      lambda: get_person(member_id),
-        "attendance":  lambda: get_attendance_stats(member_id, year),
-        "equipment":   lambda: get_equipment_stats(member_id, year),
-        "projects":    lambda: get_project_data(member_id),
-        "monthly":     lambda: get_monthly_reports(member_id, year),
-        "committees":  lambda: get_committee_involvement(member_id),
+        "person": lambda: get_person(member_id),
+        "attendance": lambda: get_attendance_stats(member_id, year),
+        "equipment": lambda: get_equipment_stats(member_id, year),
+        "projects": lambda: get_project_data(member_id),
+        "monthly": lambda: get_monthly_reports(member_id, year),
+        "committees": lambda: get_committee_involvement(member_id),
         "permissions": lambda: get_permissions(member_id),
-        "training":    lambda: get_staff_training(member_id, year),
-        "tracking":    lambda: get_profile_tracking(member_id, year) if full_access else [],
-        'self_appraisal': lambda: get_self_appraisal(member_id) if full_access else [],
-        'appraisal_360':  lambda: get_360_appraisal(member_id) if full_access else [],
-        'objectives':      lambda: get_objectives(member_id) if full_access else [],
-        'perf_rating':     lambda: get_performance_rating(member_id) if full_access else [],
-        'committee_score': lambda: get_committee_score(member_id) if full_access else [],
+        "tracking": lambda: get_profile_tracking(member_id, year) if full_access else [],
+        "reservations": lambda: get_staff_reservations(member_id, year),
+        "system_owned": lambda: get_staff_system_owned(member_id),
+        "owner_track": lambda: get_staff_owner_track(member_id),
+        "tool_perms_rich": lambda: get_staff_tool_perms_rich(member_id),
+        "trend": lambda: get_attendance_trend(member_id) or []
     })
 
     if not data.get("person"):
         return render_template("not_found.html", member_id=member_id), 404
 
-    person   = data["person"]
-    att      = data.get("attendance", {})
-    equip    = data.get("equipment",  {})
-    projects = data.get("projects",   {})
-    self_appraisal = structure_appraisal(data.get('self_appraisal', []))
-    appraisal_360  = structure_360(data.get('appraisal_360', []))
-    perf_rating    = data.get('perf_rating', [])  # already structured, just sort by year
-    objectives     = structure_appraisal(data.get('objectives', []))  # same structure as self
-    anomalies  = get_anomalies(member_id, att, equip) if att and equip else []
-    trend      = get_attendance_trend(member_id)
-    comparison = get_comparative_stats(member_id, att, equip) if att and equip else {}
-    person_safe = safe_dict(person)
-    ai_summary = generate_staff_report(member_id=member_id, audience="management").get("report", "")
-    raw_committee = data.get('committee_score') or []
-    committee_scores = {}
-    for r in raw_committee:
-        cycle = r['review_name']
-        if cycle not in committee_scores:
-            committee_scores[cycle] = []
-        committee_scores[cycle].append(r)
-    total_ms = round((time.time() - start_total) * 1000, 2)
-    html_content = render_template("profile.html",
-        person=person_safe, att=att, appr={}, equip=equip, projects=projects,
-        monthly=data.get("monthly", []), committees=data.get("committees", []),
+    person = safe_dict(data["person"])
+
+    html = render_template(
+        "profile.html",
+        person=person,
+        att=safe_json(data.get("attendance", {})),
+        equip=data.get("equipment", {}),
+        projects=data.get("projects", {}),
+        monthly=data.get("monthly", []),
+        committees=data.get("committees", []),
         permissions=data.get("permissions", []),
-        anomalies=anomalies, trend=trend, comparison=comparison,
-        ai_summary=ai_summary,
+        trend=data.get("trend", []),
         training=data.get("training", []),
         tracking=data.get("tracking", []),
         full_access=full_access,
-        selected_year=year, avail_years=avail_years,
+        selected_year=year,
+        avail_years=avail_years,
         member_id=member_id,
-        self_appraisal=self_appraisal,
-        appraisal_360=appraisal_360,
-        objectives=objectives,
-        perf_rating=perf_rating,
-        committee_score=committee_scores,
+        reservations=data.get("reservations", []),
+        system_owned=data.get("system_owned", []),
+        owner_track=data.get("owner_track", []),
+        tool_perms_rich=data.get("tool_perms_rich", []),
     )
-    response = make_response(html_content)
-    response.headers["X-Total-Time"] = f"{total_ms}ms"
+
+    response = make_response(html)
+    response.headers["X-Total-Time"] = f"{round((time.time()-start_total)*1000,2)}ms"
     return response
 
+
+# ========================= PDF PROFILE =========================
 
 @bp.route("/profile/<int:member_id>/pdf")
 @staff_required
 def profile_pdf(member_id):
-    import traceback
-    try:
-        data = run_parallel({
-            "person":      lambda: get_person(member_id),
-            "attendance":  lambda: get_attendance_stats(member_id),
-            "equipment":   lambda: get_equipment_stats(member_id),
-            "projects":    lambda: get_project_data(member_id),
-            "monthly":     lambda: get_monthly_reports(member_id),
-            "committees":  lambda: get_committee_involvement(member_id),
-            "permissions": lambda: get_permissions(member_id),
 
+    import traceback
+
+    try:
+        year = request.args.get("year", type=int) or date.today().year
+        full_access = is_full_access()
+
+        data = run_parallel({
+            "person": lambda: get_person(member_id),
+            "attendance": lambda: get_attendance_stats(member_id, year),
+            "equipment": lambda: get_equipment_stats(member_id, year),
+            "projects": lambda: get_project_data(member_id),
+            "monthly": lambda: get_monthly_reports(member_id, year),
+            "committees": lambda: get_committee_involvement(member_id),
+            "permissions": lambda: get_permissions(member_id),
+            "tracking": lambda: get_profile_tracking(member_id, year) if full_access else [],
+            "reservations": lambda: get_staff_reservations(member_id, year),
+            "owner_track": lambda: get_staff_owner_track(member_id),
+            "tool_perms_rich": lambda: get_staff_tool_perms_rich(member_id),
         })
+
         if not data.get("person"):
             return render_template("not_found.html", member_id=member_id), 404
 
-        person   = data["person"]
-        att      = data.get("attendance", {})
-        equip    = data.get("equipment",  {})
-        projects = data.get("projects",   {})
-        anomalies  = get_anomalies(member_id, att, equip) if att and equip else []
-        trend      = get_attendance_trend(member_id)
-        comparison = get_comparative_stats(member_id, att, equip) if att and equip else {}
-        now        = datetime.now().strftime("%d %b %Y, %I:%M %p")
+        # ✅ SANITIZE CRITICAL DATA (THIS FIXES YOUR ISSUE)
+        owner_track = sanitize_list(data.get("owner_track"))
+        reservations = sanitize_list(data.get("reservations"))
+        training = sanitize_list(data.get("training"))
+        tracking = sanitize_list(data.get("tracking"))
+        tool_perms = sanitize_list(data.get("tool_perms_rich"))
 
-        html_content = render_template("profile_pdf.html",
-            person=safe_dict(person), att=att, appr={}, equip=equip, projects=projects,
-            monthly=data.get("monthly", []), committees=data.get("committees", []),
+        # 🔥 FIX FIELD MISMATCH (VERY IMPORTANT)
+        for row in owner_track:
+            row["ownership_date"] = safe_date(row.get("owned_since"))
+            row["removal_date"] = safe_date(row.get("removed_on"))
+
+        html = render_template(
+            "profile_pdf.html",
+            person=safe_dict(data["person"]),
+            att=safe_json(data.get("attendance", {})),
+            equip=data.get("equipment", {}),
+            projects=data.get("projects", {}),
             permissions=data.get("permissions", []),
-            anomalies=anomalies, trend=trend, comparison=comparison,
-            ai_summary="(AI summary omitted in PDF export)",
-            member_id=member_id, now=now,
+            trend=get_attendance_trend(member_id),
+            training=training,
+            tracking=tracking,
+            reservations=reservations,
+            system_owner_track=owner_track,  # matches template
+            tool_perms_rich=tool_perms,
+            member_id=member_id,
+            now=datetime.now().strftime("%d %b %Y, %I:%M %p"),
+            selected_year=year,
         )
 
-        from weasyprint import HTML
-        try:
-            pdf_bytes = HTML(string=html_content, base_url=request.host_url).write_pdf()
-        except TypeError:
-            from weasyprint.text.fonts import FontConfiguration
-            pdf_bytes = HTML(string=html_content, base_url=request.host_url).write_pdf(
-                font_config=FontConfiguration()
-            )
+        # ================= PDF GENERATION =================
 
-        response = make_response(pdf_bytes)
+        from weasyprint import HTML
+
+        pdf = HTML(
+            string=html,
+            base_url=request.host_url
+        ).write_pdf()
+
+        response = make_response(pdf)
         response.headers["Content-Type"] = "application/pdf"
-        response.headers["Content-Disposition"] = f'attachment; filename="IITBNF_Profile_{member_id:04d}.pdf"'
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename="IITBNF_Profile_{member_id}_{year}.pdf"'
+        )
+
         return response
 
     except Exception as e:
         traceback.print_exc()
-        return f"PDF generation failed: {e}", 500
-import re
+        return f"PDF generation failed: {str(e)}", 500
+
+
+# ========================= UTIL =========================
 
 def extract_year(name):
     m = re.search(r'\d{4}', name)
     return int(m.group()) if m else 0
-
-def structure_appraisal(rows):
-    """Group rows into {review_name: {ratings: [], comments: []}}"""
-    cycles = {}
-    for r in (rows or []):
-        cycle = r['review_name']
-        if cycle not in cycles:
-            cycles[cycle] = {'ratings': [], 'comments': []}
-        if r['type_of_field'] == 'radio':
-            cycles[cycle]['ratings'].append({
-                'field_name': r['field_name'],
-                'value': r['value'],
-                'order': r['order_of_display']
-            })
-        else:
-            if r['value'].strip():  # skip blank text responses
-                cycles[cycle]['comments'].append({
-                    'field_name': r['field_name'],
-                    'value': r['value'],
-                    'order': r['order_of_display']
-                })
-    # Sort cycles by year descending
-    return dict(sorted(cycles.items(), key=lambda x: extract_year(x[0]), reverse=True))
-
-def structure_360(rows):
-    """Same as above but average ratings across multiple reviewers."""
-    from collections import defaultdict
-    cycles = {}
-    rating_buckets = defaultdict(list)  # (cycle, field_name) -> [values]
-
-    for r in (rows or []):
-        cycle = r['review_name']
-        if cycle not in cycles:
-            cycles[cycle] = {'ratings': [], 'comments': []}
-        key = (cycle, r['field_name'])
-        if r['type_of_field'] == 'radio':
-            try:
-                rating_buckets[key].append(float(r['value']))
-            except ValueError:
-                pass
-        else:
-            if r['value'].strip():
-                cycles[cycle]['comments'].append({
-                    'field_name': r['field_name'],
-                    'value': r['value'],
-                    'order': r['order_of_display']
-                })
-
-    # Average the ratings
-    for (cycle, field_name), values in rating_buckets.items():
-        cycles[cycle]['ratings'].append({
-            'field_name': field_name,
-            'value': round(sum(values) / len(values), 1),
-            'reviewer_count': len(values)
-        })
-
-    return dict(sorted(cycles.items(), key=lambda x: extract_year(x[0]), reverse=True))

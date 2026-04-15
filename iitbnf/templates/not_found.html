@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Not Found | IITBNF</title>
+  <meta name="description" content="The requested profile or page could not be found in the IITBNF Personnel Profiling System.">
+  <meta name="author" content="IIT Bombay Nanofabrication Facility">
+  <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -88,22 +91,30 @@
     .notfound-hint a { color: var(--muted); text-decoration: none; transition: color .15s; }
     .notfound-hint a:hover { color: var(--amber); }
   </style>
+
+  <script>
+    (function() {
+      const t = localStorage.getItem('iitbnf_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body class="landing-page">
   <div class="grid-bg"></div>
   <div class="grain"></div>
 
-  <nav class="topnav">
+  <nav class="topnav" role="navigation" aria-label="Main navigation">
     <a href="/dashboard" class="back-btn">← Dashboard</a>
     <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Not Found</span></span>
     <span></span>
+    <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" aria-label="Toggle light and dark mode">Light Mode</button>
   </nav>
 
-  <div class="notfound-wrap">
+  <main class="notfound-wrap" id="main-content" role="main">
     <div class="notfound-card">
       <div class="notfound-glitch">404</div>
 
-      <div class="notfound-title">Profile Not Found</div>
+      <div class="notfound-title" role="alert">Profile Not Found</div>
       <div class="notfound-desc">
         {% if member_id %}
         No profile exists for Member ID
@@ -115,8 +126,8 @@
       </div>
 
       <div class="notfound-actions">
-        <a href="/dashboard" class="btn-home">← Back to Dashboard</a>
-        <a href="javascript:history.back()" class="btn-back">Go Back</a>
+        <a href="/dashboard" class="btn-home" aria-label="Return to dashboard">← Back to Dashboard</a>
+        <a href="javascript:history.back()" class="btn-back" aria-label="Go back to previous page">Go Back</a>
       </div>
 
       <div class="notfound-hint">
@@ -124,6 +135,24 @@
         <a href="/dashboard">dashboard</a>.
       </div>
     </div>
-  </div>
+  </main>
+
+  <script>
+    // ── Theme toggle ──────────────────────────────────────────
+    function toggleTheme() {
+      const html = document.documentElement;
+      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('iitbnf_theme', next);
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent = next === 'dark' ? 'Light Mode' : 'Dark Mode';
+    }
+    // Set correct label on load
+    (function() {
+      const btn = document.getElementById('theme-btn');
+      if (btn) btn.textContent =
+        document.documentElement.getAttribute('data-theme') === 'dark' ? 'Light Mode' : 'Dark Mode';
+    })();
+  </script>
 </body>
 </html>

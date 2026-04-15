@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel | IITBNF</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script>(function(){const t=localStorage.getItem('iitbnf_theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+
+  <style>
+    :root {
+      --bg:#07090e; --surface:#0c0f18; --surface2:#121623; --surface3:#181d2c;
+      --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
+      --fg:#eef0f6; --muted:#7c859e; --faint:#3a4155;
+      --amber:#f5a623; --amber-dim:rgba(245,166,35,0.12);
+      --green:#22c55e; --green-dim:rgba(34,197,94,0.12);
+      --red:#f43f5e; --red-dim:rgba(244,63,94,0.12);
+      --blue:#38bdf8; --blue-dim:rgba(56,189,248,0.12);
+      --purple:#a78bfa;
+      --font-display:'Syne',sans-serif; --font-body:'DM Sans',sans-serif;
+      --font-mono:'Space Mono',monospace; --font-num:'DM Sans',sans-serif;
+      --radius:10px; --radius-lg:16px; --nav-h:56px; --sidebar-w:220px;
+      --tr:0.18s cubic-bezier(.4,0,.2,1);
+    }
+    [data-theme="light"] {
+      --bg:#f0f2f7; --surface:#ffffff; --surface2:#f7f8fc; --surface3:#ebedf5;
+      --border:rgba(0,0,0,.08); --border2:rgba(0,0,0,.13);
+      --fg:#111520; --muted:#55607a; --faint:#bec6da;
+      --amber-dim:rgba(245,166,35,.1); --green-dim:rgba(34,197,94,.1);
+      --red-dim:rgba(244,63,94,.1); --blue-dim:rgba(56,189,248,.1);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%;overflow:hidden}
+    body{display:flex;flex-direction:column;font-family:var(--font-body);background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+
+    /* ── TOP NAV ── */
+    .ap-nav{
+      height:var(--nav-h);flex-shrink:0;z-index:100;
+      background:var(--surface);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 1.5rem;gap:1rem;
+    }
+    [data-theme="light"] .ap-nav{background:#fff}
+    .ap-brand{display:flex;align-items:center;gap:.75rem}
+    .ap-brand-mark{
+      width:32px;height:32px;border-radius:8px;
+      background:var(--amber-dim);border:1px solid rgba(245,166,35,.3);
+      display:flex;align-items:center;justify-content:center;
+      font-family:var(--font-mono);font-size:.65rem;font-weight:700;color:var(--amber);
+    }
+    .ap-brand-text{font-family:var(--font-mono);font-size:.78rem;font-weight:700;color:var(--fg);letter-spacing:.06em}
+    .ap-brand-sub{font-size:.65rem;color:var(--muted);letter-spacing:.04em;margin-left:.35rem}
+    .ap-nav-center{
+      position:absolute;left:50%;transform:translateX(-50%);
+      font-family:var(--font-mono);font-size:.72rem;color:var(--muted);
+    }
+    #live-clock{color:var(--fg);font-weight:700}
+    .ap-nav-right{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+    .nav-user{font-size:.75rem;color:var(--muted)}
+    .theme-toggle{
+      font-family:var(--font-mono);font-size:.62rem;font-weight:700;
+      padding:.28rem .65rem;border-radius:6px;cursor:pointer;
+      background:var(--amber-dim);border:1px solid rgba(245,166,35,.3);color:var(--amber);
+      transition:all var(--tr);
+    }
+    .theme-toggle:hover{background:rgba(245,166,35,.2)}
+    .logout-link{
+      font-family:var(--font-mono);font-size:.62rem;color:var(--muted);
+      border:1px solid var(--faint);padding:.28rem .65rem;border-radius:6px;
+      text-decoration:none;transition:all var(--tr);
+    }
+    .logout-link:hover{color:var(--red);border-color:var(--red)}
+
+    /* ── BODY SPLIT ── */
+    .ap-body{display:flex;flex:1;overflow:hidden}
+
+    /* ── SIDEBAR ── */
+    .ap-sidebar{
+      width:var(--sidebar-w);flex-shrink:0;
+      background:var(--surface);border-right:1px solid var(--border);
+      display:flex;flex-direction:column;
+      overflow-y:auto;overflow-x:hidden;
+      padding:.75rem .65rem;
+    }
+    [data-theme="light"] .ap-sidebar{background:#fff}
+    .ap-sidebar::-webkit-scrollbar{width:3px}
+    .ap-sidebar::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+    .sb-group-label{
+      font-family:var(--font-mono);font-size:.55rem;color:var(--faint);
+      letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+      padding:.85rem .6rem .3rem;
+    }
+    .sb-item{
+      display:flex;align-items:center;gap:.6rem;
+      padding:.52rem .6rem;cursor:pointer;
+      font-size:.8rem;color:var(--muted);
+      border-radius:var(--radius);border:1px solid transparent;
+      transition:all var(--tr);background:transparent;
+      width:100%;text-align:left;text-decoration:none;margin-bottom:1px;
+    }
+    .sb-item:hover{color:var(--fg);background:var(--surface2);border-color:var(--border)}
+    .sb-item.active{color:var(--amber);background:var(--amber-dim);border-color:rgba(245,166,35,.25);font-weight:600}
+    .sb-icon{font-size:.85rem;width:1.1rem;text-align:center;flex-shrink:0;opacity:.8}
+    .sb-item.active .sb-icon{opacity:1}
+    .sb-divider{height:1px;background:var(--border);margin:.5rem .2rem}
+
+    /* ── CONTENT ── */
+    .ap-content{flex:1;overflow-y:auto;overflow-x:hidden;background:var(--bg)}
+    .ap-content::-webkit-scrollbar{width:5px}
+    .ap-content::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+    .ap-pane{display:none;padding:1.5rem;min-height:100%}
+    .ap-pane.active{display:block}
+
+    /* ── FLASH ── */
+    .flash-stack{position:fixed;top:calc(var(--nav-h) + .75rem);right:1rem;z-index:500;display:flex;flex-direction:column;gap:.4rem}
+    .flash-msg{
+      display:flex;align-items:center;justify-content:space-between;gap:.75rem;
+      padding:.65rem 1rem;border-radius:var(--radius);font-size:.82rem;
+      box-shadow:0 4px 20px rgba(0,0,0,.35);min-width:260px;max-width:420px;
+      animation:slideIn .2s ease;
+    }
+    @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+    .flash-success{background:var(--green-dim);border:1px solid rgba(34,197,94,.3);color:var(--green)}
+    .flash-error{background:var(--red-dim);border:1px solid rgba(244,63,94,.3);color:var(--red)}
+    .flash-dismiss{background:none;border:none;cursor:pointer;color:inherit;opacity:.6;font-size:1rem;padding:0}
+
+    /* ── PANE HEADER ── */
+    .pane-header{margin-bottom:1.5rem}
+    .pane-title{font-family:var(--font-display);font-size:1.4rem;font-weight:700;color:var(--fg);margin-bottom:.2rem}
+    .pane-sub{font-size:.82rem;color:var(--muted)}
+    .pane-header-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem}
+
+    /* ── SEARCH HUB ── */
+
+    .hub-tabs{display:flex;gap:.5rem;margin-bottom:.75rem}
+    .hub-stab{
+      font-family:var(--font-mono);font-size:.72rem;font-weight:700;letter-spacing:.07em;
+      background:var(--surface);border:1px solid var(--border2);color:var(--muted);
+      padding:.4rem 1rem;border-radius:999px;cursor:pointer;transition:all var(--tr);
+    }
+    .hub-stab:hover{color:var(--amber);border-color:rgba(245,166,35,.4)}
+    .hub-stab.active{background:var(--amber);color:#000;border-color:var(--amber)}
+
+    .hub-search-wrap{position:relative}
+    .hub-search-box{
+      display:flex;align-items:center;background:var(--surface);
+      border:1px solid var(--border2);border-radius:var(--radius-lg);
+      transition:border-color var(--tr);
+    }
+    .hub-search-box.focused{border-color:var(--amber);border-bottom-left-radius:0;border-bottom-right-radius:0}
+    .hub-search-icon{padding:0 .9rem;color:var(--faint);font-size:1rem}
+    .hub-search-input{
+      flex:1;padding:.85rem 0;background:transparent;border:none;
+      color:var(--fg);font-family:var(--font-body);font-size:.92rem;outline:none;
+    }
+    .hub-search-input::placeholder{color:var(--faint)}
+    .hub-search-clear{background:none;border:none;color:var(--faint);font-size:1.1rem;padding:0 .9rem;cursor:pointer;transition:color var(--tr);line-height:1}
+    .hub-search-clear:hover{color:var(--fg)}
+    .hub-dropdown{
+      position:absolute;left:0;right:0;top:100%;
+      background:var(--surface);border:1px solid var(--amber);border-top:none;
+      border-radius:0 0 var(--radius-lg) var(--radius-lg);
+      max-height:460px;overflow-y:auto;display:none;z-index:50;
+      box-shadow:0 12px 40px rgba(0,0,0,.5);
+    }
+    .hub-dropdown.open{display:block}
+    .hub-dropdown::-webkit-scrollbar{width:4px}
+    .hub-dropdown::-webkit-scrollbar-thumb{background:var(--faint)}
+    .dd-section{
+      display:flex;justify-content:space-between;
+      padding:.38rem 1rem .25rem;font-family:var(--font-mono);font-size:.62rem;
+      color:var(--faint);text-transform:uppercase;letter-spacing:.1em;
+      background:var(--surface2);border-top:1px solid var(--border);
+    }
+    .dd-section:first-child{border-top:none}
+    .dd-count{color:var(--amber)}
+    .dd-row{
+      display:flex;align-items:center;gap:.7rem;padding:.55rem 1rem;
+      border-bottom:1px solid var(--border);cursor:pointer;
+      text-decoration:none;color:var(--fg);transition:background var(--tr);
+    }
+    .dd-row:last-of-type{border-bottom:none}
+    .dd-row:hover,.dd-row.hl{background:var(--amber-dim)}
+    .dd-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:.6rem;font-weight:700;flex-shrink:0}
+    .dd-av-s{color:var(--amber);background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25)}
+    .dd-av-l{color:var(--blue);background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25)}
+    .dd-id{font-family:var(--font-mono);font-size:.75rem;color:var(--amber);min-width:36px;flex-shrink:0}
+    .dd-id.l{color:var(--blue)}
+    .dd-info{flex:1;min-width:0}
+    .dd-name{font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dd-name mark{background:rgba(245,166,35,.22);color:var(--amber);border-radius:2px;padding:0 1px}
+    .dd-sub{font-size:.75rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dd-arr{color:var(--faint);font-size:.7rem;flex-shrink:0}
+    .dd-empty{padding:1.25rem;text-align:center;color:var(--muted);font-size:.82rem}
+
+    /* ── CRUD CARD ── */
+    .crud-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius-lg);overflow:hidden;margin-bottom:1rem;
+    }
+    .crud-card-hdr{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:.85rem 1.1rem;border-bottom:1px solid var(--border);
+      flex-wrap:wrap;gap:.5rem;
+    }
+    .crud-hdr-left{display:flex;align-items:center;gap:.65rem}
+    .crud-hdr-icon{font-size:.9rem;color:var(--amber)}
+    .crud-hdr-title{font-family:var(--font-mono);font-size:.72rem;font-weight:700;color:var(--fg);letter-spacing:.06em}
+    .crud-hdr-count{font-family:var(--font-mono);font-size:.65rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border2);padding:.1rem .45rem;border-radius:999px}
+    .crud-hdr-right{display:flex;align-items:center;gap:.5rem}
+    .crud-search{
+      font-family:var(--font-body);font-size:.8rem;
+      background:var(--surface2);border:1px solid var(--border2);color:var(--fg);
+      border-radius:var(--radius);padding:.3rem .7rem;outline:none;
+      transition:border-color var(--tr);width:190px;
+    }
+    .crud-search:focus{border-color:var(--amber)}
+    .crud-add-btn{
+      font-family:var(--font-mono);font-size:.65rem;font-weight:700;
+      background:var(--amber-dim);border:1px solid rgba(245,166,35,.35);color:var(--amber);
+      padding:.3rem .75rem;border-radius:var(--radius);cursor:pointer;transition:all var(--tr);
+    }
+    .crud-add-btn:hover{background:rgba(245,166,35,.2)}
+
+    /* Add form */
+    .add-form-wrap{background:var(--surface2);border-top:1px solid var(--border);padding:1rem;display:none}
+    .add-form-wrap.open{display:block}
+    .form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.65rem;margin-bottom:.85rem}
+    .fg-label{font-family:var(--font-mono);font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:.25rem}
+    .fg-input{
+      width:100%;background:var(--surface);border:1px solid var(--border2);color:var(--fg);
+      font-family:var(--font-body);font-size:.82rem;padding:.42rem .65rem;
+      border-radius:var(--radius);outline:none;transition:border-color var(--tr);
+    }
+    .fg-input:focus{border-color:var(--amber)}
+    .form-actions{display:flex;gap:.6rem}
+    .btn-save{background:var(--amber);color:#000;font-family:var(--font-mono);font-size:.72rem;font-weight:700;padding:.48rem 1.2rem;border-radius:var(--radius);border:none;cursor:pointer;transition:opacity var(--tr)}
+    .btn-save:hover{opacity:.85}
+    .btn-cancel-form{background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:.72rem;padding:.48rem 1rem;border-radius:var(--radius);border:1px solid var(--faint);cursor:pointer;transition:all var(--tr)}
+    .btn-cancel-form:hover{color:var(--fg);border-color:var(--fg)}
+
+    /* Table */
+    .crud-table-wrap{overflow-x:auto;max-height:440px;overflow-y:auto}
+    .crud-table-wrap::-webkit-scrollbar{width:4px;height:4px}
+    .crud-table-wrap::-webkit-scrollbar-thumb{background:var(--faint);border-radius:2px}
+    .c-table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:580px}
+    .c-table th{
+      font-family:var(--font-mono);font-size:.58rem;color:var(--amber);
+      letter-spacing:.07em;text-transform:uppercase;padding:.4rem .7rem;
+      text-align:left;border-bottom:1px solid var(--border2);
+      background:var(--surface2);white-space:nowrap;position:sticky;top:0;z-index:1;
+    }
+    .c-table td{padding:.4rem .7rem;border-bottom:1px solid var(--border);color:var(--fg);vertical-align:middle}
+    .c-table tr:last-child td{border-bottom:none}
+    .c-table tr:hover td{background:rgba(245,166,35,.04)}
+    .mono-id{font-family:var(--font-mono);font-size:.75rem;color:var(--amber)}
+    .mono-id.lab{color:var(--blue)}
+    .role-tag{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.06em;text-transform:uppercase;padding:.1rem .38rem;border-radius:4px;border:1px solid var(--faint);color:var(--muted)}
+    .action-btns{display:flex;gap:.28rem;flex-wrap:nowrap}
+    .a-btn{
+      font-family:var(--font-mono);font-size:.57rem;font-weight:700;padding:.18rem .48rem;
+      border-radius:4px;cursor:pointer;border:1px solid transparent;text-decoration:none;
+      transition:all var(--tr);text-transform:uppercase;letter-spacing:.04em;background:none;white-space:nowrap;
+    }
+    .a-view{color:var(--blue);border-color:var(--blue)} .a-view:hover{background:var(--blue-dim)}
+    .a-edit{color:var(--amber);border-color:var(--amber)} .a-edit:hover{background:var(--amber-dim)}
+    .a-deact{color:var(--muted);border-color:var(--faint)} .a-deact:hover{color:var(--fg);border-color:var(--fg)}
+    .a-del{color:var(--red);border-color:var(--red)} .a-del:hover{background:var(--red-dim)}
+
+    /* ── ANNOUNCEMENTS ── */
+    .ann-add-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius-lg);padding:1.1rem;margin-bottom:1rem;display:none;
+    }
+    .ann-add-card.open{display:block}
+    .ann-list{display:flex;flex-direction:column;gap:.65rem}
+    .ann-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-left:3px solid var(--amber);border-radius:var(--radius-lg);
+      padding:.9rem 1.1rem;transition:border-color var(--tr);
+    }
+    .ann-card:hover{border-color:rgba(245,166,35,.4)}
+    .ann-text{font-size:.86rem;color:var(--fg);line-height:1.55;margin-bottom:.65rem}
+    .ann-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+    .ann-dates{font-size:.68rem;color:var(--muted);font-family:var(--font-mono)}
+    .ann-actions{display:flex;gap:.35rem}
+
+    /* ── HEALTH PANE ── */
+    .health-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.65rem;margin-bottom:1.25rem}
+    .hkpi{
+      background:var(--surface);border:1px solid var(--border);
+      border-top:2px solid var(--faint);border-radius:var(--radius-lg);
+      padding:.9rem .75rem;text-align:center;transition:border-color var(--tr);
+    }
+    .hkpi:hover{border-color:var(--border2)}
+    .hkpi.kpi-amber{border-top-color:var(--amber)}
+    .hkpi.kpi-green{border-top-color:var(--green)}
+    .hkpi.kpi-blue{border-top-color:var(--blue)}
+    .hkpi.kpi-red{border-top-color:var(--red)}
+    .hkpi.kpi-purple{border-top-color:var(--purple)}
+    .hkpi-val{
+      font-family:var(--font-num);font-size:1.9rem;font-weight:700;
+      font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;
+      color:var(--fg);line-height:1;letter-spacing:-.02em;
+    }
+    .hkpi.kpi-amber .hkpi-val{color:var(--amber)}
+    .hkpi.kpi-green .hkpi-val{color:var(--green)}
+    .hkpi.kpi-blue .hkpi-val{color:var(--blue)}
+    .hkpi.kpi-red .hkpi-val{color:var(--red)}
+    .hkpi.kpi-purple .hkpi-val{color:var(--purple)}
+    .hkpi-key{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-top:.3rem}
+
+    .health-charts-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+    .hchart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem}
+    .hchart-title{font-family:var(--font-mono);font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.75rem}
+    .hchart-canvas{position:relative;height:200px}
+
+    .role-bars{display:flex;flex-direction:column;gap:.55rem}
+    .rb-row{display:flex;align-items:center;gap:.6rem}
+    .rb-name{font-size:.75rem;color:var(--fg);width:110px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .rb-track{flex:1;height:4px;background:var(--surface3);border-radius:999px;overflow:hidden}
+    .rb-fill{height:100%;border-radius:999px;transition:width .8s ease}
+    .rb0{background:linear-gradient(90deg,var(--amber),#fcd34d)}
+    .rb1{background:linear-gradient(90deg,var(--blue),#93c5fd)}
+    .rb2{background:linear-gradient(90deg,var(--green),#6ee7b7)}
+    .rb3{background:linear-gradient(90deg,#a78bfa,#c4b5fd)}
+    .rb4{background:linear-gradient(90deg,#fb923c,#fdba74)}
+    .rb-count{font-family:var(--font-mono);font-size:.68rem;color:var(--muted);min-width:22px;text-align:right;flex-shrink:0}
+
+    .exp-list-card{background:var(--surface);border:1px solid rgba(245,166,35,.2);border-radius:var(--radius-lg);overflow:hidden}
+    .exp-list-hdr{
+      padding:.7rem 1rem;border-bottom:1px solid var(--border);background:var(--amber-dim);
+      font-family:var(--font-mono);font-size:.65rem;color:var(--amber);
+      letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .exp-list-count{font-size:.68rem;background:rgba(245,166,35,.15);padding:.1rem .45rem;border-radius:999px}
+    .exp-item{
+      display:flex;align-items:center;gap:.7rem;padding:.55rem 1rem;
+      border-bottom:1px solid var(--border);text-decoration:none;
+      transition:background var(--tr);border-left:3px solid transparent;
+    }
+    .exp-item:hover{background:var(--surface2)}
+    .exp-item:last-child{border-bottom:none}
+    .exp-item.crit{border-left-color:var(--red)}
+    .exp-item.warn{border-left-color:#f59e0b}
+    .exp-info{flex:1;min-width:0}
+    .exp-name{font-size:.82rem;font-weight:600;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .exp-detail{font-size:.68rem;color:var(--muted)}
+    .exp-days{font-family:var(--font-mono);font-size:.68rem;font-weight:700;padding:.1rem .42rem;border-radius:4px;flex-shrink:0}
+    .days-crit{background:rgba(244,63,94,.14);color:var(--red)}
+    .days-warn{background:rgba(245,158,11,.12);color:#f59e0b}
+
+    /* ── MODALS ── */
+    .ap-modal-overlay{
+      position:fixed;inset:0;z-index:400;
+      background:rgba(0,0,0,.75);backdrop-filter:blur(5px);
+      display:flex;align-items:center;justify-content:center;padding:1.5rem;
+    }
+    .ap-modal-box{
+      background:var(--surface);border:1px solid var(--border2);
+      border-radius:var(--radius-lg);width:100%;max-width:680px;max-height:88vh;
+      overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.6);
+    }
+    .ap-modal-box::-webkit-scrollbar{width:4px}
+    .ap-modal-box::-webkit-scrollbar-thumb{background:var(--faint)}
+    .ap-modal-hdr{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:.95rem 1.25rem;border-bottom:1px solid var(--border);
+      position:sticky;top:0;background:var(--surface);z-index:1;
+    }
+    .ap-modal-title{font-family:var(--font-mono);font-size:.78rem;font-weight:700;color:var(--amber)}
+    .ap-modal-close{background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer;transition:color var(--tr);padding:.1rem .25rem}
+    .ap-modal-close:hover{color:var(--red)}
+    .ap-modal-body{padding:1.25rem}
+    .confirm-body{padding:1.25rem;font-size:.88rem;color:var(--fg);line-height:1.65}
+    .confirm-actions{display:flex;gap:.75rem;padding:0 1.25rem 1.25rem}
+    .btn-danger{background:var(--red);color:#fff;font-family:var(--font-mono);font-size:.75rem;font-weight:700;padding:.5rem 1.2rem;border-radius:var(--radius);border:none;cursor:pointer;transition:opacity var(--tr)}
+    .btn-danger:hover{opacity:.85}
+    .btn-cancel2{background:transparent;color:var(--muted);font-family:var(--font-mono);font-size:.75rem;padding:.5rem 1.1rem;border-radius:var(--radius);border:1px solid var(--faint);cursor:pointer;transition:all var(--tr)}
+    .btn-cancel2:hover{color:var(--fg);border-color:var(--fg)}
+
+    /* ── HEALTH METRIC CARDS ── */
+    .h-card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1.25rem}
+    .h-card{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+      padding:1rem 1rem .8rem;cursor:pointer;transition:all var(--tr);position:relative;
+      overflow:hidden;display:flex;flex-direction:column;gap:.55rem;
+    }
+    .h-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--hcard-accent,var(--amber));opacity:0;transition:opacity var(--tr)}
+    .h-card:hover{border-color:var(--border2);background:var(--surface2);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.35)}
+    .h-card:hover::before{opacity:1}
+    .h-card.no-action{cursor:default}
+    .h-card.no-action:hover{transform:none;box-shadow:none;background:var(--surface);border-color:var(--border)}
+    .h-card.no-action::before{display:none}
+    .h-card.ac-amber{--hcard-accent:var(--amber)} .h-card.ac-green{--hcard-accent:var(--green)}
+    .h-card.ac-blue{--hcard-accent:var(--blue)} .h-card.ac-red{--hcard-accent:var(--red)}
+    .h-card.ac-purple{--hcard-accent:var(--purple)}
+    .hc-header{display:flex;align-items:center;gap:.5rem}
+    .hc-icon{font-size:.88rem;color:var(--hcard-accent,var(--amber));flex-shrink:0}
+    .hc-title{font-family:var(--font-mono);font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;flex:1}
+    .hc-metric{flex:1;display:flex;flex-direction:column;gap:.1rem}
+    .hc-big{font-family:var(--font-num);font-size:2.1rem;font-weight:700;font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;line-height:1;color:var(--fg);letter-spacing:-.02em}
+    .hc-big .hc-unit{font-size:.95rem;font-weight:500;color:var(--muted);letter-spacing:0}
+    .hc-big.good{color:var(--green)} .hc-big.warn{color:var(--amber)} .hc-big.bad{color:var(--red)}
+    .hc-sub{font-size:.72rem;color:var(--muted);margin-top:.05rem}
+    .hc-bar{height:3px;background:var(--surface3);border-radius:999px;overflow:hidden;margin-top:.3rem}
+    .hc-bar-fill{height:100%;border-radius:999px;background:var(--hcard-accent,var(--amber));transition:width .8s ease}
+    .hc-footer{display:flex;align-items:center;justify-content:flex-end;padding-top:.4rem;border-top:1px solid var(--border);margin-top:auto}
+    .hc-cta{font-family:var(--font-mono);font-size:.58rem;color:var(--muted);display:flex;align-items:center;gap:.25rem;letter-spacing:.04em;transition:color var(--tr)}
+    .h-card:hover .hc-cta{color:var(--hcard-accent,var(--amber))}
+    .hc-arr{transition:transform var(--tr)}
+    .h-card:hover .hc-arr{transform:translateX(3px)}
+
+    /* ── HEALTH MODALS ── */
+    .hm-backdrop{
+      position:fixed;inset:0;z-index:450;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);
+      display:flex;align-items:center;justify-content:center;padding:1.5rem;
+      opacity:0;pointer-events:none;transition:opacity .18s ease;
+    }
+    .hm-backdrop.open{opacity:1;pointer-events:all}
+    .hm-box{
+      background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-lg);
+      width:100%;max-width:960px;max-height:86vh;display:flex;flex-direction:column;
+      transform:scale(.96) translateY(10px);transition:transform .18s ease;overflow:hidden;
+      box-shadow:0 24px 80px rgba(0,0,0,.6);
+    }
+    .hm-backdrop.open .hm-box{transform:scale(1) translateY(0)}
+    .hm-head{display:flex;align-items:center;gap:.65rem;padding:.9rem 1.25rem;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;background:var(--surface);z-index:1}
+    .hm-icon{font-size:1rem;color:var(--amber)}
+    .hm-title{font-family:var(--font-mono);font-size:.75rem;font-weight:700;color:var(--fg);flex:1}
+    .hm-close{background:var(--surface2);border:1px solid var(--border2);color:var(--muted);width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:.78rem;display:flex;align-items:center;justify-content:center;transition:all var(--tr)}
+    .hm-close:hover{color:var(--red);border-color:rgba(244,63,94,.4);background:rgba(244,63,94,.1)}
+    .hm-body{overflow-y:auto;flex:1;padding:1.2rem 1.25rem 1.4rem;scrollbar-width:thin;scrollbar-color:var(--faint) transparent}
+    .hm-body::-webkit-scrollbar{width:4px}
+    .hm-body::-webkit-scrollbar-thumb{background:var(--faint)}
+    .hm-section-title{font-family:var(--font-mono);font-size:.58rem;color:var(--amber);letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-bottom:.7rem;display:flex;align-items:center;gap:.5rem}
+    .hm-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+    .hm-chart-wrap{position:relative;height:240px;width:100%;margin-bottom:1rem}
+    .hm-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.5rem;margin-bottom:1rem}
+    .hm-mbox{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .5rem;text-align:center}
+    .hm-mval{font-family:var(--font-num);font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;color:var(--fg);letter-spacing:-.015em}
+    .hm-mval.good{color:var(--green)} .hm-mval.warn{color:var(--amber)} .hm-mval.bad{color:var(--red)}
+    .hm-mkey{font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:.2rem}
+    .hm-table{width:100%;border-collapse:collapse;font-size:.78rem}
+    .hm-table th{font-family:var(--font-mono);font-size:.55rem;color:var(--amber);letter-spacing:.07em;text-transform:uppercase;padding:.32rem .5rem;text-align:left;border-bottom:1px solid var(--border2);white-space:nowrap}
+    .hm-table td{padding:.3rem .5rem;border-bottom:1px solid var(--border);color:var(--fg);vertical-align:middle}
+    .hm-table tr:last-child td{border-bottom:none}
+    .hm-table tr:hover td{background:var(--surface2)}
+
+    /* ── RESPONSIVE ── */
+    @media(max-width:768px){
+      .ap-sidebar{width:52px}
+      .sb-item span:not(.sb-icon){display:none}
+      .sb-group-label,.sb-divider{display:none}
+      .health-charts-row{grid-template-columns:1fr}
+      .h-card-grid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:600px){
+      .ap-nav-center{display:none}
+      .nav-user{display:none}
+      .h-card-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── TOP NAV ── -->
+<nav class="ap-nav">
+  <div class="ap-brand">
+    <div class="ap-brand-mark">NF</div>
+    <div>
+      <span class="ap-brand-text">IITBNF</span>
+      <span class="ap-brand-sub">Admin</span>
+    </div>
+  </div>
+  <div class="ap-nav-center">
+    <span id="live-clock"></span>
+  </div>
+  <div class="ap-nav-right">
+    <span class="nav-user">{{ session.full_name }}</span>
+    <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn">Light Mode</button>
+    <a href="/logout" class="logout-link">Logout</a>
+  </div>
+</nav>
+
+<!-- ── FLASH ── -->
+<div class="flash-stack" id="flash-stack">
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<div class="flash-msg flash-{{ category }}" id="flash-{{ loop.index }}">
+  <span>{{ message }}</span>
+  <button class="flash-dismiss" onclick="this.parentElement.remove()">✕</button>
+</div>
+{% endfor %}
+{% endwith %}
+</div>
+
+<!-- ── BODY ── -->
+<div class="ap-body">
+
+  <!-- SIDEBAR -->
+  <aside class="ap-sidebar" id="ap-sidebar">
+    <div class="sb-group-label">Main</div>
+    <button class="sb-item active" onclick="showPane('hub')" id="sb-hub">
+      <span class="sb-icon">⊞</span><span>Search Hub</span>
+    </button>
+    <div class="sb-divider"></div>
+    <div class="sb-group-label">Manage</div>
+    <button class="sb-item" onclick="showPane('staff')" id="sb-staff">
+      <span class="sb-icon">◈</span><span>Staff Members</span>
+    </button>
+    <button class="sb-item" onclick="showPane('lab')" id="sb-lab">
+      <span class="sb-icon">⬡</span><span>Lab Users</span>
+    </button>
+    <button class="sb-item" onclick="showPane('announcements')" id="sb-announcements">
+      <span class="sb-icon">◉</span><span>Announcements</span>
+    </button>
+    <div class="sb-divider"></div>
+    <div class="sb-group-label">System</div>
+    <button class="sb-item" onclick="showPane('health')" id="sb-health">
+      <span class="sb-icon">△</span><span>Health & Metrics</span>
+    </button>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="ap-content" id="ap-content">
+
+    <!-- ══ HUB PANEL ══ -->
+    <div class="ap-pane active" id="pane-hub">
+      <div class="pane-header">
+        <div class="pane-title">People Hub</div>
+        <div class="pane-sub">Search across all staff and lab users</div>
+      </div>
+
+      <div class="hub-tabs">
+        <button class="hub-stab active" id="stab-staff" onclick="searchTab('staff',this)">Staff</button>
+        <button class="hub-stab" id="stab-lab" onclick="searchTab('lab',this)">Lab Users</button>
+      </div>
+
+      <div class="hub-search-wrap" id="srch-wrap">
+        <div class="hub-search-box" id="srch-box">
+          <span class="hub-search-icon">⌕</span>
+          <input type="text" class="hub-search-input" id="srch-input"
+                 placeholder="Search by name, ID, designation, team…" autocomplete="off">
+          <button class="hub-search-clear" id="srch-clear" style="display:none" onclick="clearSearch()">×</button>
+        </div>
+        <div class="hub-dropdown" id="srch-dd"></div>
+      </div>
+    </div>
+
+    <!-- ══ STAFF PANEL ══ -->
+    <div class="ap-pane" id="pane-staff">
+      <div class="pane-header-row">
+        <div>
+          <div class="pane-title">Staff Members</div>
+          <div class="pane-sub">Add, edit, or deactivate IITBNF staff</div>
+        </div>
+      </div>
+
+      <div class="crud-card">
+        <div class="crud-card-hdr">
+          <div class="crud-hdr-left">
+            <span class="crud-hdr-icon">◈</span>
+            <span class="crud-hdr-title">Staff Directory</span>
+            <span class="crud-hdr-count">{{ members|length }}</span>
+          </div>
+          <div class="crud-hdr-right">
+            <input type="text" class="crud-search" id="staff-search" placeholder="Filter staff…" oninput="filterTable('staff-table', this.value)">
+            <button class="crud-add-btn" onclick="toggleAddForm('staff-add-form')">+ Add Staff</button>
+          </div>
+        </div>
+
+        <div class="add-form-wrap" id="staff-add-form">
+          <form method="POST" action="/admin-panel/staff/add">
+            <div class="form-grid">
+              {% for field, label in [('designation','Designation'),('team','Team'),('email','Email'),('type_of_appointment','Appointment'),('qualification','Qualification'),('joining_date','Joining Date'),('iitb_joining_date','IITB Joined'),('p_project_code','Project Code')] %}
+              <div>
+                <label class="fg-label">{{ label }}</label>
+                <input class="fg-input" name="{{ field }}" {% if 'date' in field %}type="date"{% else %}type="text"{% endif %} placeholder="{{ label }}">
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-save">Add Member</button>
+              <button type="button" class="btn-cancel-form" onclick="toggleAddForm('staff-add-form')">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="crud-table-wrap">
+          <table class="c-table" id="staff-table">
+            <thead><tr><th>ID</th><th>Name</th><th>Designation</th><th>Team</th><th>Role</th><th>Actions</th></tr></thead>
+            <tbody>
+            {% for m in members %}
+            <tr data-search="{{ (m.display_name+' '+(m.designation or '')+' '+(m.team or ''))|lower }}">
+              <td><span class="mono-id">{{ '%04d'%m.member_id }}</span></td>
+              <td><strong>{{ m.display_name }}</strong></td>
+              <td>{{ m.designation or '—' }}</td>
+              <td>{{ m.team or '—' }}</td>
+              <td><span class="role-tag">{{ m.role_name }}</span></td>
+              <td>
+                <div class="action-btns">
+                  <a href="/profile/{{ m.member_id }}" class="a-btn a-view" target="_blank">View</a>
+                  <button class="a-btn a-edit" onclick="openEditStaff({{ m.member_id }})">Edit</button>
+                  <button class="a-btn a-deact" onclick="confirmAction('/admin-panel/staff/deactivate/{{ m.member_id }}','Deactivate {{ m.display_name }}?')">Deactivate</button>
+                  <button class="a-btn a-del" onclick="confirmAction('/admin-panel/staff/delete/{{ m.member_id }}','Permanently delete {{ m.display_name }}?')">Delete</button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ LAB PANE ══ -->
+    <div class="ap-pane" id="pane-lab">
+      <div class="pane-header-row">
+        <div>
+          <div class="pane-title">Lab Users</div>
+          <div class="pane-sub">Manage slotbooking accounts</div>
+        </div>
+      </div>
+
+      <div class="crud-card">
+        <div class="crud-card-hdr">
+          <div class="crud-hdr-left">
+            <span class="crud-hdr-icon" style="color:var(--blue);">⬡</span>
+            <span class="crud-hdr-title">Lab User Directory</span>
+            <span class="crud-hdr-count">{{ lab_users|length }}</span>
+          </div>
+          <div class="crud-hdr-right">
+            <input type="text" class="crud-search" id="lab-search" placeholder="Filter users…" oninput="filterTable('lab-table', this.value)">
+            <button class="crud-add-btn" onclick="toggleAddForm('lab-add-form')">+ Add User</button>
+          </div>
+        </div>
+
+        <div class="add-form-wrap" id="lab-add-form">
+          <form method="POST" action="/admin-panel/lab/add">
+            <div class="form-grid">
+              {% for field, label in [('fname','First Name'),('lname','Last Name'),('email','Email'),('position','Position'),('department','Department'),('rollno','Roll No'),('mobile','Mobile'),('research_area','Research Area'),('expiry_date','Expiry (MM/DD/YYYY)'),('supervisor','Supervisor ID')] %}
+              <div>
+                <label class="fg-label">{{ label }}</label>
+                <input class="fg-input" name="{{ field }}" type="text" placeholder="{{ label }}">
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-save">Add User</button>
+              <button type="button" class="btn-cancel-form" onclick="toggleAddForm('lab-add-form')">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="crud-table-wrap">
+          <table class="c-table" id="lab-table">
+            <thead><tr><th>ID</th><th>Name</th><th>Position</th><th>Department</th><th>Email</th><th>Actions</th></tr></thead>
+            <tbody>
+            {% for u in lab_users %}
+            <tr data-search="{{ (u.fname+' '+u.lname+' '+(u.position or '')+' '+(u.department or '')+' '+(u.email or ''))|lower }}">
+              <td><span class="mono-id lab">{{ '%04d'%u.memberid }}</span></td>
+              <td><strong>{{ u.fname }} {{ u.lname }}</strong></td>
+              <td>{{ u.position or '—' }}</td>
+              <td>{{ u.department or '—' }}</td>
+              <td style="font-size:.75rem;color:var(--muted);">{{ u.email or '—' }}</td>
+              <td>
+                <div class="action-btns">
+                  <a href="/lab/{{ u.memberid }}" class="a-btn a-view" target="_blank">View</a>
+                  <button class="a-btn a-edit" onclick="openEditLab({{ u.memberid }})">Edit</button>
+                  <button class="a-btn a-deact" onclick="confirmAction('/admin-panel/lab/deactivate/{{ u.memberid }}','Deactivate {{ u.fname }} {{ u.lname }}?')">Deactivate</button>
+                  <button class="a-btn a-del" onclick="confirmAction('/admin-panel/lab/delete/{{ u.memberid }}','Delete {{ u.fname }} {{ u.lname }} permanently?')">Delete</button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ANNOUNCEMENTS PANE ══ -->
+    <div class="ap-pane" id="pane-announcements">
+      <div class="pane-header-row">
+        <div>
+          <div class="pane-title">Announcements</div>
+          <div class="pane-sub">Manage system-wide announcements</div>
+        </div>
+        <button class="crud-add-btn" style="align-self:center;" onclick="toggleAnnAdd()">+ New Announcement</button>
+      </div>
+
+      <div class="ann-add-card" id="ann-add-form">
+        <form method="POST" action="/admin-panel/announcement/add">
+          <div style="display:flex;flex-direction:column;gap:.75rem;">
+            <div>
+              <label class="fg-label">Announcement Text</label>
+              <textarea name="announcement" rows="3" class="fg-input" placeholder="Enter announcement text…" style="resize:vertical;"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;">
+              <div><label class="fg-label">Start Date &amp; Time</label><input type="datetime-local" name="start_datetime" class="fg-input"></div>
+              <div><label class="fg-label">End Date &amp; Time</label><input type="datetime-local" name="end_datetime" class="fg-input"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-save">Publish</button>
+              <button type="button" class="btn-cancel-form" onclick="toggleAnnAdd()">Cancel</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="ann-list">
+      {% if announcements %}
+        {% for a in announcements %}
+        <div class="ann-card">
+          <div id="ann-view-{{ a.announcementid }}">
+            <div class="ann-text">{{ a.announcement }}</div>
+            <div class="ann-meta">
+              <span class="ann-dates">
+                {{ a.start_datetime | int | datetimeformat }} → {{ a.end_datetime | int | datetimeformat }}
+              </span>
+              <div class="ann-actions">
+                <button class="a-btn a-edit" onclick="showAnnEdit({{ a.announcementid }})">Edit</button>
+                <button class="a-btn a-del" onclick="confirmAction('/admin-panel/announcement/delete/{{ a.announcementid }}','Delete this announcement?')">Delete</button>
+              </div>
+            </div>
+          </div>
+          <div id="ann-edit-{{ a.announcementid }}" style="display:none;">
+            <form method="POST" action="/admin-panel/announcement/edit/{{ a.announcementid }}">
+              <div style="display:flex;flex-direction:column;gap:.65rem;">
+                <textarea name="announcement" rows="3" class="fg-input" style="resize:vertical;">{{ a.announcement }}</textarea>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+                  <div><label class="fg-label">Start</label><input type="datetime-local" name="start_datetime" class="fg-input" value="{{ a.start_datetime | int | datetimeformat_input }}"></div>
+                  <div><label class="fg-label">End</label><input type="datetime-local" name="end_datetime" class="fg-input" value="{{ a.end_datetime | int | datetimeformat_input }}"></div>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn-save">Update</button>
+                  <button type="button" class="btn-cancel-form" onclick="hideAnnEdit({{ a.announcementid }})">Cancel</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="text-align:center;padding:3rem;color:var(--muted);font-size:.85rem;background:var(--surface);border:1px dashed var(--faint);border-radius:var(--radius-lg);">No announcements yet.</div>
+      {% endif %}
+      </div>
+    </div>
+
+    <!-- ══ HEALTH PANE ══ -->
+    <div class="ap-pane" id="pane-health">
+      <div class="pane-header">
+        <div class="pane-title">Health & Metrics</div>
+        <div class="pane-sub">Live overview of facility activity and membership</div>
+      </div>
+
+      {% if health %}
+
+      <!-- KPI cards: Staff + Lab only -->
+      <div class="h-card-grid" style="grid-template-columns:1fr 1fr;margin-bottom:1.25rem;">
+
+        <!-- Staff Members -->
+        <div class="h-card ac-amber" onclick="openHealthModal('hm-staff')" role="button">
+          <div class="hc-header">
+            <span class="hc-icon">◈</span>
+            <span class="hc-title">Staff Members</span>
+          </div>
+          <div class="hc-metric">
+            <div class="hc-big" style="color:var(--amber);">{{ health.total_staff }}</div>
+            <div class="hc-sub">Active IITBNF staff</div>
+          </div>
+          <div class="hc-footer">
+            <span class="hc-cta">View role breakdown <span class="hc-arr">→</span></span>
+          </div>
+        </div>
+
+        <!-- Lab Users -->
+        <div class="h-card ac-blue" onclick="openHealthModal('hm-lab')" role="button">
+          <div class="hc-header">
+            <span class="hc-icon">⬡</span>
+            <span class="hc-title">Lab Users</span>
+          </div>
+          <div class="hc-metric">
+            <div class="hc-big" style="color:var(--blue);">{{ health.total_lab }}</div>
+            <div class="hc-sub">Registered lab users</div>
+          </div>
+          <div class="hc-footer">
+            <span class="hc-cta">View position breakdown <span class="hc-arr">→</span></span>
+          </div>
+        </div>
+
+      </div><!-- end h-card-grid -->
+
+      <!-- Inline monthly attendance chart -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;">
+          <span style="font-family:var(--font-mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:700;">
+            Monthly Staff Attendance — Current Year
+          </span>
+          <span style="font-family:var(--font-mono);font-size:.68rem;color:var(--amber);font-weight:700;" id="health-total-days-label"></span>
+        </div>
+        <div style="position:relative;height:240px;">
+          <canvas id="hm-monthly-chart"></canvas>
+        </div>
+      </div>
+
+      {% else %}
+      <div style="padding:2rem;text-align:center;color:var(--muted);">Health data unavailable — check DB connection.</div>
+      {% endif %}
+    </div>
+
+  </div><!-- end ap-content -->
+</div><!-- end ap-body -->
+
+<!-- ══ EDIT STAFF MODAL ══ -->
+<div id="edit-staff-modal" class="ap-modal-overlay" style="display:none">
+  <div class="ap-modal-box">
+    <div class="ap-modal-hdr">
+      <span class="ap-modal-title">◈ Edit Staff Member</span>
+      <button class="ap-modal-close" onclick="closeModal('edit-staff-modal')">✕</button>
+    </div>
+    <div class="ap-modal-body">
+      <form method="POST" id="edit-staff-form" action="">
+        <div class="form-grid">
+          {% for field, label in [('designation','Designation'),('team','Team'),('email','Email'),('type_of_appointment','Appointment'),('qualification','Qualification'),('joining_date','Joining Date'),('iitb_joining_date','IITB Joined'),('p_project_code','Project Code')] %}
+          <div>
+            <label class="fg-label">{{ label }}</label>
+            <input class="fg-input" name="{{ field }}" id="es-{{ field }}" {% if 'date' in field %}type="date"{% else %}type="text"{% endif %}>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="form-actions" style="margin-top:.75rem;">
+          <button type="submit" class="btn-save">Save Changes</button>
+          <button type="button" class="btn-cancel-form" onclick="closeModal('edit-staff-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EDIT LAB MODAL ══ -->
+<div id="edit-lab-modal" class="ap-modal-overlay" style="display:none">
+  <div class="ap-modal-box">
+    <div class="ap-modal-hdr">
+      <span class="ap-modal-title">⬡ Edit Lab User</span>
+      <button class="ap-modal-close" onclick="closeModal('edit-lab-modal')">✕</button>
+    </div>
+    <div class="ap-modal-body">
+      <form method="POST" id="edit-lab-form" action="">
+        <div class="form-grid">
+          {% for field, label in [('fname','First Name'),('lname','Last Name'),('email','Email'),('position','Position'),('department','Department'),('rollno','Roll No'),('mobile','Mobile'),('research_area','Research Area'),('expiry_date','Expiry Date'),('supervisor','Supervisor ID')] %}
+          <div>
+            <label class="fg-label">{{ label }}</label>
+            <input class="fg-input" name="{{ field }}" id="el-{{ field }}" type="text">
+          </div>
+          {% endfor %}
+        </div>
+        <div class="form-actions" style="margin-top:.75rem;">
+          <button type="submit" class="btn-save">Save Changes</button>
+          <button type="button" class="btn-cancel-form" onclick="closeModal('edit-lab-modal')">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM MODAL ══ -->
+<div id="confirm-modal" class="ap-modal-overlay" style="display:none">
+  <div class="ap-modal-box" style="max-width:420px;">
+    <div class="ap-modal-hdr">
+      <span class="ap-modal-title">Confirm Action</span>
+      <button class="ap-modal-close" onclick="closeModal('confirm-modal')">✕</button>
+    </div>
+    <div class="confirm-body" id="confirm-msg">Are you sure?</div>
+    <div class="confirm-actions">
+      <form method="POST" id="confirm-form" action="">
+        <button type="submit" class="btn-danger">Confirm</button>
+      </form>
+      <button class="btn-cancel2" onclick="closeModal('confirm-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DATA ══ -->
+<script>
+const STAFF = {{ staff_json|safe }};
+const LAB   = {{ lab_json|safe }};
+const MONTHLY_LABELS = {{ monthly_labels_json|safe }};
+const MONTHLY_DATA   = {{ monthly_data_json|safe }};
+let ROLE_GROUPS = {{ role_groups_json|safe }};
+</script>
+
+<script>
+// ── CLOCK ──
+(function(){
+  const el = document.getElementById('live-clock');
+  if (!el) return;
+  function tick(){
+    el.textContent = new Date().toLocaleString('en-IN',{
+      weekday:'short',day:'2-digit',month:'short',
+      hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false
+    });
+  }
+  tick(); setInterval(tick, 1000);
+})();
+
+// ── THEME ──
+function toggleTheme(){
+  const h = document.documentElement;
+  const n = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  h.setAttribute('data-theme', n);
+  localStorage.setItem('iitbnf_theme', n);
+  document.getElementById('theme-btn').textContent = n === 'dark' ? 'Light Mode' : 'Dark Mode';
+}
+(function(){
+  const b = document.getElementById('theme-btn');
+  if (b) b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? 'Light Mode' : 'Dark Mode';
+})();
+
+// ── PANE NAV ──
+let _inlineAttChartInited = false;
+function showPane(name){
+  document.querySelectorAll('.ap-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(s => s.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  const sb = document.getElementById('sb-'+name);
+  if (sb) sb.classList.add('active');
+  document.getElementById('ap-content').scrollTop = 0;
+  if (name === 'health' && !_inlineAttChartInited) {
+    _inlineAttChartInited = true;
+    setTimeout(initHmAttChart, 60);
+  }
+}
+(function(){
+  const hash = window.location.hash.replace('#','');
+  const valid = ['hub','staff','lab','announcements','health'];
+  if (valid.includes(hash)) showPane(hash);
+})();
+
+// ── SEARCH ──
+let sTab = 'staff', ddIdx = -1;
+const MAX = 10;
+const inp = document.getElementById('srch-input');
+const dd  = document.getElementById('srch-dd');
+const box = document.getElementById('srch-box');
+const clr = document.getElementById('srch-clear');
+
+function searchTab(tab, btn){
+  sTab = tab;
+  document.querySelectorAll('.hub-stab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  inp.placeholder = tab === 'staff' ? 'Name, ID, designation, team…' : 'Name, ID, department, position…';
+  inp.focus(); paint(inp.value.trim());
+}
+
+function hl(t, q){
+  if (!q) return t;
+  return t.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'), '<mark>$1</mark>');
+}
+
+function paint(q){
+  const data = sTab === 'staff' ? STAFF : LAB;
+  const isLab = sTab === 'lab';
+  const ql = q.toLowerCase();
+  let hits = q.length > 0 ? data.filter(d => d.s.includes(ql)) : [];
+  hits = hits.slice(0, MAX); ddIdx = -1;
+  if (!hits.length){
+    dd.innerHTML = q ? `<div class="dd-empty">No ${isLab ? 'lab users' : 'staff'} match "<strong>${q}</strong>"</div>` : '';
+    q ? openDD() : closeDD(); return;
+  }
+  let h = `<div class="dd-section"><span>${isLab ? '🔬 Lab Users' : '👤 Staff'}</span><span class="dd-count">${hits.length}${hits.length === MAX ? '+' : ''}</span></div>`;
+  hits.forEach((d,i) => {
+    h += `<a href="${d.url}" class="dd-row" data-i="${i}">
+      <div class="dd-av ${isLab ? 'dd-av-l' : 'dd-av-s'}">${d.init}</div>
+      <span class="dd-id${isLab ? ' l' : ''}">${d.id}</span>
+      <div class="dd-info"><div class="dd-name">${hl(d.name,q)}</div><div class="dd-sub">${d.sub}</div></div>
+      <span class="dd-arr">→</span></a>`;
+  });
+  dd.innerHTML = h; openDD();
+}
+
+function openDD()  { dd.classList.add('open');  box.classList.add('focused'); }
+function closeDD() { dd.classList.remove('open'); box.classList.remove('focused'); ddIdx = -1; }
+
+inp.addEventListener('input', () => {
+  const q = inp.value.trim();
+  clr.style.display = q ? 'block' : 'none';
+  paint(q);
+});
+inp.addEventListener('focus', () => { if (inp.value.trim()) paint(inp.value.trim()); });
+inp.addEventListener('keydown', e => {
+  const rows = dd.querySelectorAll('.dd-row');
+  if (!rows.length) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); ddIdx = Math.min(ddIdx+1, rows.length-1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); ddIdx = Math.max(ddIdx-1, 0); }
+  else if (e.key === 'Enter' && ddIdx >= 0) { rows[ddIdx].click(); return; }
+  else if (e.key === 'Escape') { closeDD(); inp.blur(); return; }
+  rows.forEach((r,i) => r.classList.toggle('hl', i === ddIdx));
+  rows[ddIdx]?.scrollIntoView({ block: 'nearest' });
+});
+document.addEventListener('click', e => {
+  if (!document.getElementById('srch-wrap').contains(e.target)) closeDD();
+});
+function clearSearch(){ inp.value = ''; clr.style.display = 'none'; closeDD(); inp.focus(); }
+
+// ── TABLE FILTER ──
+function filterTable(tableId, q){
+  const ql = q.toLowerCase();
+  document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
+    tr.style.display = tr.dataset.search?.includes(ql) ? '' : 'none';
+  });
+}
+
+// ── ADD FORM TOGGLE ──
+function toggleAddForm(id){
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+function toggleAnnAdd(){
+  const el = document.getElementById('ann-add-form');
+  el.classList.toggle('open');
+}
+
+// ── MODALS ──
+function closeModal(id){ document.getElementById(id).style.display = 'none'; }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.ap-modal-overlay').forEach(m => m.style.display = 'none');
+});
+document.querySelectorAll('.ap-modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; });
+});
+
+function confirmAction(url, msg){
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-form').action = url;
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+// ── EDIT STAFF ──
+async function openEditStaff(id){
+  const res = await fetch(`/api/admin-panel/staff/${id}`);
+  const data = await res.json();
+  ['designation','team','email','type_of_appointment','qualification','joining_date','iitb_joining_date','p_project_code'].forEach(f => {
+    const el = document.getElementById('es-'+f);
+    if (el) el.value = data[f] || '';
+  });
+  document.getElementById('edit-staff-form').action = `/admin-panel/staff/edit/${id}`;
+  document.getElementById('edit-staff-modal').style.display = 'flex';
+}
+
+// ── EDIT LAB ──
+async function openEditLab(id){
+  const res = await fetch(`/api/admin-panel/lab/${id}`);
+  const data = await res.json();
+  ['fname','lname','email','position','department','rollno','mobile','research_area','expiry_date','supervisor'].forEach(f => {
+    const el = document.getElementById('el-'+f);
+    if (el) el.value = data[f] || '';
+  });
+  document.getElementById('edit-lab-form').action = `/admin-panel/lab/edit/${id}`;
+  document.getElementById('edit-lab-modal').style.display = 'flex';
+}
+
+// ── ANNOUNCEMENT EDIT ──
+function showAnnEdit(id){ document.getElementById('ann-view-'+id).style.display='none'; document.getElementById('ann-edit-'+id).style.display='block'; }
+function hideAnnEdit(id){ document.getElementById('ann-view-'+id).style.display='block'; document.getElementById('ann-edit-'+id).style.display='none'; }
+
+// ── HEALTH MODALS ──
+let _hmChartInited = {};
+function openHealthModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (!_hmChartInited[id]) {
+    _hmChartInited[id] = true;
+    if (id === 'hm-lab') initHmLabChart();
+  }
+}
+function closeHealthModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.hm-backdrop.open').forEach(m => {
+    m.classList.remove('open'); document.body.style.overflow = '';
+  });
+});
+document.querySelectorAll('.hm-backdrop').forEach(m => {
+  m.addEventListener('click', e => {
+    if (e.target === m) { m.classList.remove('open'); document.body.style.overflow = ''; }
+  });
+});
+
+function initHmAttChart() {
+  // Update inline "days recorded" label
+  const labelEl = document.getElementById('health-total-days-label');
+  if (labelEl && MONTHLY_DATA && MONTHLY_DATA.length) {
+    const total = MONTHLY_DATA.reduce((a, b) => a + b, 0);
+  }
+  const ctx = document.getElementById('hm-monthly-chart');
+  if (!ctx || !MONTHLY_LABELS.length || !window.Chart) return;
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const grid = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  const tick = isDark ? '#7c859e' : '#556074';
+  const grad = ctx.getContext('2d').createLinearGradient(0, 0, 0, 240);
+  grad.addColorStop(0, 'rgba(245,166,35,0.85)');
+  grad.addColorStop(1, 'rgba(245,166,35,0.12)');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: MONTHLY_LABELS,
+      datasets: [{
+        label: 'Total Staff', data: MONTHLY_DATA,
+        backgroundColor: grad, borderColor: 'rgba(245,166,35,0.7)',
+        borderWidth: 1, borderRadius: { topLeft: 4, topRight: 4 },
+        barPercentage: 0.55, categoryPercentage: 0.85
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: {
+        x: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid } },
+        y: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function initHmLabChart() {
+  const ctx = document.getElementById('hm-lab-chart');
+  if (!ctx || !window.Chart) return;
+  let labels, values;
+  try {
+    labels = JSON.parse(ctx.dataset.labels || '[]');
+    values = JSON.parse(ctx.dataset.values || '[]');
+  } catch(e) { return; }
+  if (!labels.length) return;
+  const colors = ['#38bdf8','#f5a623','#22c55e','#a78bfa','#f43f5e','#fb923c','#06b6d4','#84cc16','#e879f9','#fbbf24'];
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const tickCol = isDark ? '#7c859e' : '#556074';
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: colors.slice(0, labels.length),
+        borderColor: isDark ? 'rgba(12,15,24,0.5)' : 'rgba(244,245,248,0.5)',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: tickCol, font: { size: 10, family: "'Space Mono'" }, padding: 10, boxWidth: 10 }
+        },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}` } }
+      }
+    }
+  });
+}
+
+
+// ── AUTO-DISMISS FLASHES ──
+setTimeout(() => {
+  document.querySelectorAll('.flash-msg').forEach(f => f.remove());
+}, 4000);
+</script>
+<!-- ══ HEALTH MODALS ════════════════════════════════════════════════ -->
+
+<!-- STAFF MODAL -->
+<div class="hm-backdrop" id="hm-staff">
+  <div class="hm-box">
+    <div class="hm-head">
+      <span class="hm-icon">◈</span>
+      <span class="hm-title">Staff Role Distribution</span>
+      <button class="hm-close" onclick="closeHealthModal('hm-staff')">✕</button>
+    </div>
+    <div class="hm-body">
+      {% if health %}
+      <div class="hm-metrics">
+        <div class="hm-mbox"><div class="hm-mval" style="color:var(--amber);">{{ health.total_staff }}</div><div class="hm-mkey">Active Staff Members</div></div>
+        <div class="hm-mbox"><div class="hm-mval">{{ role_groups|length }}</div><div class="hm-mkey">Designations</div></div>
+      </div>
+      {% endif %}
+      {% if role_groups %}
+      <div class="hm-section-title">By Designation</div>
+      {% set filtered_groups = role_groups | selectattr('role') | rejectattr('role', 'equalto', 'None') | rejectattr('role', 'equalto', '') | list %}
+      {% set mc = (filtered_groups | map(attribute='count') | list | max) if filtered_groups else 1 %}
+      {% set bcs = ['rb0','rb1','rb2','rb3','rb4'] %}
+      <div class="role-bars" style="margin-bottom:1.25rem;">
+        {% for g in filtered_groups %}
+        {% set pct = ((g.count / mc) * 100)|round(1) %}
+        <div class="rb-row">
+          <span class="rb-name" title="{{ g.role }}">{{ g.role }}</span>
+          <div class="rb-track"><div class="rb-fill {{ bcs[loop.index0 % 5] }}" style="width:{{ pct }}%"></div></div>
+          <span class="rb-count">{{ g.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- LAB USERS MODAL -->
+<div class="hm-backdrop" id="hm-lab">
+  <div class="hm-box">
+    <div class="hm-head">
+      <span class="hm-icon" style="color:var(--blue);">⬡</span>
+      <span class="hm-title">Lab User Position Distribution</span>
+      <button class="hm-close" onclick="closeHealthModal('hm-lab')">✕</button>
+    </div>
+    <div class="hm-body">
+      {% if health %}
+      {% set pos_groups = lab_users | groupby('position') | list %}
+      <div class="hm-metrics">
+        <div class="hm-mbox"><div class="hm-mval" style="color:var(--blue);">{{ health.total_lab }}</div><div class="hm-mkey">Total Lab Users</div></div>
+        <div class="hm-mbox"><div class="hm-mval">{{ pos_groups|length }}</div><div class="hm-mkey">Positions</div></div>
+      </div>
+      {% if pos_groups %}
+      {% set pg_max = pos_groups | map(attribute='list') | map('length') | max %}
+      {% set bcs = ['rb1','rb2','rb3','rb4','rb0'] %}
+      <div class="hm-section-title">By Position</div>
+      <div class="role-bars" style="margin-bottom:1.25rem;">
+        {% for grouper, users in pos_groups %}
+        {% set pct = ((users|length / pg_max) * 100)|round(1) %}
+        <div class="rb-row">
+          <span class="rb-name" title="{{ grouper or 'Unknown' }}">{{ grouper or 'Unknown' }}</span>
+          <div class="rb-track"><div class="rb-fill {{ bcs[loop.index0 % 5] }}" style="width:{{ pct }}%"></div></div>
+          <span class="rb-count">{{ users|length }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="hm-chart-wrap" style="height:200px;">
+        <canvas id="hm-lab-chart"
+          data-labels="{{ pos_groups | map(attribute='grouper') | map('default', 'Unknown') | list | tojson }}"
+          data-values="{{ pos_groups | map(attribute='list') | map('length') | list | tojson }}">
+        </canvas>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+</body>
+</html>

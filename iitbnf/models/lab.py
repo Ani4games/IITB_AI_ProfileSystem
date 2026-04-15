@@ -1,11 +1,23 @@
 """
 models/lab.py — All data queries for lab users (slotbooking) profiles.
 """
+from datetime import datetime
+
 from db import slots_query
-from cache import cached
 from utils import run_parallel
+from cache import cached
+def safe_json(obj):
+    from datetime import timedelta, datetime, date
 
-
+    if isinstance(obj, dict):
+        return {k: safe_json(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [safe_json(v) for v in obj]
+    elif isinstance(obj, timedelta):
+        return obj.days
+    elif isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    return obj
 def get_lab_user(memberid):
     rows = slots_query("""
         SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.is_admin,
@@ -14,18 +26,42 @@ def get_lab_user(memberid):
                TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,''))) AS supervisor_name
         FROM login l
         LEFT JOIN login s ON s.memberid = l.supervisor
-        WHERE l.memberid = %s LIMIT 1
+        LEFT JOIN hr_portal.profile p ON p.member_id = l.memberid
+        WHERE l.memberid = %s
+          AND (p.member_id IS NULL OR p.leaving_date IS NULL
+               OR p.leaving_date = '0000-00-00'
+               OR p.leaving_date >= '2026-01-01')
+          AND (l.expiry_date IS NULL OR l.expiry_date = '' OR l.expiry_date = '0000-00-00'
+               OR (STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') IS NOT NULL
+                   AND STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') >= '2026-01-01'))
+        LIMIT 1
     """, (memberid,))
     return rows[0] if rows else None
 
 
 def get_all_lab_users():
     return slots_query("""
-        SELECT memberid, email, fname, lname, position, department, expiry_date, is_admin
-        FROM login
-        WHERE (expiry_date IS NULL OR expiry_date = '' OR expiry_date = '0000-00-00'
-               OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE())
-        ORDER BY position, fname, lname
+        SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.department,
+               l.expiry_date, l.is_admin
+        FROM login l
+        LEFT JOIN hr_portal.profile p ON p.member_id = l.memberid
+        WHERE l.position NOT IN (
+            'Faculty', 'IITBNF Staff', 'Institute Facility',
+            'NCPRE Academic', 'Project Staff'
+        )
+          AND (p.member_id IS NULL OR p.leaving_date IS NULL
+               OR p.leaving_date = '0000-00-00'
+               OR p.leaving_date >= '2026-03-24')
+          AND (
+            l.expiry_date IS NULL
+            OR l.expiry_date = ''
+            OR l.expiry_date = '0000-00-00'
+            OR (
+                STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') IS NOT NULL
+                AND STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') >= '2026-03-24'
+            )
+          )
+        ORDER BY l.position, l.fname, l.lname
     """)
 
 
@@ -84,7 +120,8 @@ def get_lab_tool_permissions(memberid):
     """, (memberid,))
 
 
-@cached(ttl_seconds=1800)
+#(ttl_seconds=1800)
+@cached(ttl_seconds=300)
 def get_lab_stats(memberid):
     def cnt(q, p):
         r = slots_query(q, p)
@@ -96,21 +133,6 @@ def get_lab_stats(memberid):
         "papers":       lambda: cnt("SELECT COUNT(*) AS cnt FROM paper_publish WHERE memberid=%s AND approve=1", (memberid,)),
         "projects":     lambda: cnt("SELECT COUNT(*) AS cnt FROM faculty_projects WHERE memberid=%s", (memberid,)),
     })
-
-
-def get_training_report(memberid, year=None):
-    year_filter = "AND YEAR(tr.trained_on) = %s" if year else ""
-    params = (memberid, year) if year else (memberid,)
-    return slots_query(f"""
-        SELECT tr.run_type, tr.run_no, tr.req_on, tr.trained_on,
-               tr.read_material, tr.comment, r.name AS tool_name,
-               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS trainer_name
-        FROM training_report tr
-        JOIN resources r ON r.machid = tr.tool
-        LEFT JOIN login l ON l.memberid = tr.trainedby
-        WHERE tr.memberid = %s {year_filter}
-        ORDER BY tr.trained_on DESC LIMIT 200
-    """, params) or []
 
 
 def get_announcements():
@@ -131,7 +153,7 @@ def get_announcements_all():
 def get_lab_cancellations(memberid):
     return slots_query("""
         SELECT c.resid,
-               r.tool_name,
+               r.name AS tool_name,
                FROM_UNIXTIME(c.startdate) AS start_dt,
                FROM_UNIXTIME(c.enddate)   AS end_dt,
                c.reason,
@@ -164,7 +186,7 @@ def get_lab_registration(memberid):
     """Registration details with cosupervisor name resolution."""
     rows = slots_query("""
         SELECT r.course, r.project_first, r.project_second,
-               r.status, r.reg_date,
+               r.status, r.date as reg_date,
                NULLIF(NULLIF(TRIM(r.cosupervisor), 'NA'), '') AS cosupervisor_raw,
                TRIM(CONCAT(COALESCE(co.fname,''), ' ', COALESCE(co.lname,''))) AS cosupervisor_name
         FROM registration r
@@ -187,3 +209,189 @@ def get_session_reports(memberid):
         ORDER BY rp.datetime DESC
         LIMIT 100
     """, (memberid,)) or []
+
+# ── Faculty position constant ─────────────────────────────────────────────────
+FACULTY_POSITIONS = (
+    'Faculty', 'IITBNF Staff', 'Institute Facility',
+    'NCPRE Academic', 'Project Staff'
+)
+
+
+def is_faculty(memberid) -> bool:
+    """Returns True if this member holds a faculty-type position."""
+    row = slots_query(
+        "SELECT position FROM login WHERE memberid = %s LIMIT 1",
+        (memberid,)
+    )
+    if not row:
+        return False
+    return (row[0].get("position") or "") in FACULTY_POSITIONS
+
+
+# ── Resources / Equipment detail ──────────────────────────────────────────────
+
+def get_tool_detail(machid: int) -> dict | None:
+    """Full resource record including operators and faculty incharge."""
+    rows = slots_query("""
+        SELECT r.machid, r.name, r.category, r.location, r.type_of_tool,
+               r.operator_name, r.operator_name1, r.operator_name2,
+               r.faculty_incharge, r.isworking, r.shortname,
+               r.make, r.model, r.serial_number,
+               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS faculty_name
+        FROM resources r
+        LEFT JOIN login l ON l.memberid = r.faculty_incharge
+        WHERE r.machid = %s LIMIT 1
+    """, (machid,))
+    return rows[0] if rows else None
+
+
+def get_member_tool_permissions(memberid: int) -> list:
+    """
+    Tool permissions for a member — enriched with resource details
+    including operator names and faculty incharge.
+    """
+    return slots_query("""
+        SELECT r.machid, r.name AS tool_name, 
+       r.operator_name1,
+       r.operator_name2,
+       TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS faculty_name,
+       DATE_FORMAT(STR_TO_DATE(p.date, '%%m/%%d/%%Y'), '%%d-%%m-%%Y') AS permission_date
+FROM permissions p
+JOIN resources r    ON r.machid = p.machid
+LEFT JOIN login l   ON l.memberid = r.faculty_incharge
+WHERE p.memberid = %s
+ORDER BY r.name
+    """, (memberid,)) or []
+
+
+# ── System owner ──────────────────────────────────────────────────────────────
+
+from datetime import datetime
+
+def get_system_owner_tools(memberid: int) -> list:
+    """
+    Tools for which this member is listed as system owner.
+    system_owner.machid is a comma-separated string of machids.
+    """
+    rows = slots_query(
+        "SELECT machid, date FROM system_owner WHERE memberid = %s",
+        (memberid,)
+    ) or []
+
+    results = []
+    for row in rows:
+        raw = str(row.get("machid") or "")
+        ids = [i.strip() for i in raw.split(",") if i.strip().isdigit()]
+
+        for mid in ids:
+            tool = slots_query("""
+                SELECT machid, name, category, location, type_of_tool,
+                       operator_name, isworking
+                FROM resources WHERE machid = %s LIMIT 1
+            """, (int(mid),))
+
+            if tool:
+                t = dict(tool[0])
+
+                raw_date = row.get("date")
+
+                t["ownership_date"] = None
+                if raw_date:
+                    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y"):
+                        try:
+                            t["ownership_date"] = datetime.strptime(raw_date.strip(), fmt).strftime("%d-%m-%Y")
+                            break
+                        except:
+                            continue
+
+                results.append(t)
+
+    return results
+
+# ── System owner track ────────────────────────────────────────────────────────
+def get_system_owner_track(memberid: int) -> list:
+    """
+    Correct lifecycle pairing for system owner tracking.
+    Handles multiple create/delete cycles per tool.
+    """
+
+    rows = slots_query("""
+        SELECT
+            t.deviceid,
+            r.name AS tool_name,
+            r.category,
+            t.action,
+            t.date
+        FROM system_owner_track t
+        LEFT JOIN resources r ON r.machid = t.deviceid
+        WHERE t.memberid = %s
+        ORDER BY t.deviceid, t.date ASC
+    """, (memberid,)) or []
+
+    from collections import defaultdict
+    from datetime import datetime
+    def days_between(start, end):
+        if not start or not end:
+            return None
+        s = datetime.strptime(start, '%d-%m-%Y')
+        e = datetime.strptime(end, '%d-%m-%Y')
+        return (e - s).days
+    
+    tool_map = defaultdict(list)
+    
+    def fmt(ts):
+        return datetime.fromtimestamp(ts).strftime('%d-%m-%Y') if ts else None
+    
+    # Step 1: group by tool
+    for r in rows:
+        if not r.get("date"):
+            continue  # skip bad rows
+
+        tool_map[r["deviceid"]].append(r)
+
+    result = []
+
+    # Step 2: process each tool timeline
+    for deviceid, events in tool_map.items():
+        current = None
+
+        for e in events:
+            action = (e.get("action") or "").lower().strip()
+            ts = e.get("date")
+
+            if action == "create":
+                # Start new ownership cycle
+                current = {
+                    "tool_name": e.get("tool_name"),
+                    "category": e.get("category"),
+                    "owned_since": fmt(ts),
+                    "removed_on": None,
+                    "is_active": True
+                }
+
+            elif action == "delete":
+                if current:
+                    # Close current cycle
+                    current["removed_on"] = fmt(ts)
+                    current["is_active"] = False
+                    duration = days_between(current["owned_since"], current["removed_on"])
+                    current["duration_days"] = duration if duration is not None else "—"
+                    result.append(current)
+                    current = None
+                else:
+                    # Edge case: delete without create
+                    result.append({
+                        "tool_name": e.get("tool_name"),
+                        "category": e.get("category"),
+                        "owned_since": None,
+                        "removed_on": fmt(ts),
+                        "is_active": False
+                    })
+
+        # If still active after last event
+        if current:
+            duration = days_between(current["owned_since"], current["removed_on"])
+            current["duration_days"] = duration if duration is not None else "—"
+            result.append(current)
+
+    return result

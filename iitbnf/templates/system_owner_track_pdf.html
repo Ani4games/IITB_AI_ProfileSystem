@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>System Ownership History</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; padding: 30px; }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #d97706;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  .header-left h1 { font-size: 20px; color: #d97706; font-family: 'Courier New', monospace; }
+  .header-left .sub { font-size: 11px; color: #666; margin-top: 4px; }
+  .header-right { text-align: right; font-size: 10px; color: #999; }
+
+  .section-hdr {
+    background: #d97706;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 6px 12px;
+    border-radius: 4px 4px 0 0;
+    margin-bottom: 0;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  table th {
+    background: #f5f5f5;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 7px 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    color: #555;
+  }
+  table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 11px;
+    vertical-align: middle;
+  }
+  table tr:last-child td { border-bottom: none; }
+  table tr:nth-child(even) td { background: #fafafa; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-red   { background: #fee2e2; color: #991b1b; }
+
+  .dur-cell { font-weight: 600; }
+  .dur-new  { color: #92400e; }
+  .dur-lt1  { color: #1d4ed8; }
+  .dur-full { color: #065f46; }
+
+  .empty {
+    padding: 20px; text-align: center; color: #999;
+    font-style: italic; background: #fafafa;
+    border: 1px dashed #ddd;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>IITBNF</h1>
+    <div class="sub">System Ownership History — IIT Bombay Nanofabrication Facility</div>
+  </div>
+  <div class="header-right">
+    Generated: {{ now }}<br>
+    Member ID: {{ '%04d' % member_id }}
+  </div>
+</div>
+
+<div class="section-hdr">Ownership Timeline ({{ owner_track | length }})</div>
+
+{% if owner_track %}
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Duration of Ownership</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for t in owner_track %}
+  <tr>
+    <td><strong>{{ t.tool_name or '—' }}</strong></td>
+    <td>
+      {% set d = t.duration_display or '—' %}
+      {% if 'Just Received' in d %}
+        <span class="dur-cell dur-new">{{ d }}</span>
+      {% elif '< 1 Year' in d %}
+        <span class="dur-cell dur-lt1">&lt; 1 Year{% if 'continuing' in d %}, continuing{% endif %}</span>
+      {% elif d == '—' %}
+        <span style="color:#999;">—</span>
+      {% else %}
+        <span class="dur-cell dur-full">{{ d }}</span>
+      {% endif %}
+    </td>
+    <td>
+      {% if t.is_active or t.status == 'ACTIVE' %}
+        <span class="badge badge-green">Active</span>
+      {% else %}
+        <span class="badge badge-red">Removed</span>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">No ownership history on record.</div>
+{% endif %}
+
+</body>
+</html>

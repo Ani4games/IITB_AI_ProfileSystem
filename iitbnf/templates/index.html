@@ -4,52 +4,454 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IITBNF — Personnel Profiling System</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+  <script>
+    (function() {
+      const saved = localStorage.getItem('theme');
+      const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --amber: #d97706;
+      --amber-light: #fbbf24;
+      --fg: #f3f4f6;
+      --muted: rgba(243,244,246,0.6);
+      --overlay: rgba(15, 40, 35, 0.72);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    body.landing-page {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Full-bleed layered background ── */
+    .bg-scene {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+
+    /* Base: deep teal-dark gradient */
+    .bg-scene::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 70% 40%, rgba(6, 10, 78, 0.9) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 80% at 20% 80%, rgba(9, 153, 163, 0.95) 0%, transparent 60%),
+        linear-gradient(145deg, #1a7389 0%, #08647b 40%, #0d3e77 70%, #1834a4 100%);
+    }
+
+    /* Noise/grain texture overlay */
+    .bg-scene::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
+      opacity: 0.35;
+      mix-blend-mode: overlay;
+    }
+
+    /* Geometric grid lines */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+    }
+
+    /* Light leak at top-right */
+    .bg-leak {
+      position: fixed;
+      top: -10%;
+      right: -5%;
+      width: 55%;
+      height: 70%;
+      z-index: 0;
+      background: radial-gradient(ellipse at center, rgba(110,231,183,0.12) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    /* ── NAV ── */
+    .lp-nav {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.75rem 3rem;
+    }
+
+    .lp-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+    }
+
+    /* Ring mark — matches image logo */
+    .logo-ring {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 3px solid var(--amber);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .logo-ring::after {
+      content: '';
+      position: absolute;
+      inset: 5px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(217,119,6,0.35);
+    }
+
+    .logo-text {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: rgba(243,244,246,0.9);
+      letter-spacing: 0.08em;
+      line-height: 1.3;
+    }
+    .logo-text span {
+      display: block;
+      color: var(--amber);
+      font-size: 0.65rem;
+      letter-spacing: 0.14em;
+    }
+
+    .lp-nav-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .theme-pill {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(243,244,246,0.7);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+    }
+    .theme-pill:hover {
+      background: rgba(255,255,255,0.1);
+      color: var(--fg);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .lp-content {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 2rem 3rem 4rem;
+      max-width: 720px;
+    }
+
+    /* Badge pill */
+    .lp-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(217, 119, 6, 0.301);
+      border: 1px solid rgba(217, 20, 6, 0.784);
+      color: var(--amber-light);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      padding: 0.4rem 1rem;
+      border-radius: 999px;
+      margin-bottom: 2rem;
+      width: fit-content;
+    }
+    .lp-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--amber);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(0.5); }
+    }
+
+    /* Hero title */
+    .lp-hero {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(3.2rem, 7vw, 5.5rem);
+      font-weight: 400;
+      line-height: 1.05;
+      color: var(--fg);
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.01em;
+    }
+    .lp-hero em {
+      font-style: italic;
+      color: rgba(95, 233, 233, 0.9);
+    }
+
+    /* Description */
+    .lp-desc {
+      font-size: 1.05rem;
+      line-height: 1.75;
+      color: var(--muted);
+      margin-bottom: 2.75rem;
+      max-width: 500px;
+      font-weight: 300;
+    }
+
+    /* Login button */
+    .lp-login {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--amber);
+      color: #000;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      padding: 0.9rem 2rem;
+      border-radius: 6px;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+      width: fit-content;
+    }
+    .lp-login:hover {
+      background: var(--amber-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(217,119,6,0.4);
+    }
+    .lp-login .arrow {
+      font-size: 1rem;
+      transition: transform 0.2s;
+    }
+    .lp-login:hover .arrow { transform: translateX(4px); }
+
+    /* ── FEATURE CARDS (bottom) ── */
+    .lp-features {
+      position: absolute;
+      bottom: 50%;
+      right: 3rem;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      width: 480px;
+    }
+
+    .lp-feat {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 0.85rem 1.1rem;
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .lp-feat:hover {
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(217,119,6,0.3);
+    }
+
+    .feat-icon {
+      color: var(--amber);
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .feat-body h4 {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--fg);
+      margin-bottom: 0.2rem;
+    }
+    .feat-body p {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── DECORATIVE LINE ── */
+    .lp-rule {
+      position: absolute;
+      left: 3rem;
+      bottom: 0;
+      width: 1px;
+      height: 40%;
+      background: linear-gradient(to bottom, transparent, rgba(217,119,6,0.4), transparent);
+      z-index: 10;
+    }
+
+    /* ── LIGHT THEME OVERRIDES ── */
+    [data-theme="light"] {
+      --overlay: rgba(240,253,244,0.85);
+      --fg: #111827;
+      --muted: rgba(17,24,39,0.6);
+    }
+    [data-theme="light"] .bg-scene::before {
+      background:
+        radial-gradient(ellipse 80% 60% at 70% 40%, rgba(148, 240, 238, 0.7) 0%, transparent 70%),
+        radial-gradient(ellipse 60% 80% at 20% 80%, rgba(209, 250, 246, 0.8) 0%, transparent 60%),
+        linear-gradient(145deg, #d1fae5 0%, #a7f3d0 40%, #ecfdf5 70%, #f0fdf4 100%);
+    }
+    [data-theme="light"] .bg-grid {
+      background-image:
+        linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+    }
+    [data-theme="light"] .lp-feat {
+      background: rgba(255,255,255,0.6);
+      border-color: rgba(0,0,0,0.08);
+    }
+    [data-theme="light"] .lp-feat:hover {
+      background: rgba(255,255,255,0.85);
+    }
+    [data-theme="light"] .theme-pill {
+      background: rgba(0,0,0,0.06);
+      border-color: rgba(0,0,0,0.1);
+      color: rgba(17,24,39,0.7);
+    }
+    [data-theme="light"] .logo-text { color: rgba(17,24,39,0.9); }
+    [data-theme="light"] .lp-hero em { color: #047857; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .lp-nav   { padding: 1.25rem 1.5rem; }
+      .lp-content { padding: 1.5rem 1.5rem 12rem; }
+      .lp-features { right: 1.5rem; bottom: 1.5rem; width: calc(100% - 3rem); flex-direction: row; flex-wrap: wrap; }
+      .lp-feat  { flex: 1; min-width: 140px; }
+      .lp-rule  { display: none; }
+      .lp-hero  { font-size: clamp(2.5rem, 10vw, 3.5rem); }
+    }
+  </style>
 </head>
 <body class="landing-page">
-  <div class="grid-bg"></div>
-  <div class="grain"></div>
 
-  <nav class="topnav">
-    <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Personnel Intelligence</span></span>
-    <a href="/login" class="login-btn">Login →</a>
-  </nav>
+  <!-- Background layers -->
+  <div class="bg-scene"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-leak"></div>
+  <div class="lp-rule"></div>
 
-  <main class="landing-main">
-    <header class="landing-hero">
-      <p class="hero-eyebrow">IIT Bombay Nanofabrication Facility</p>
-      <h1 class="hero-title">Personnel <span class="hero-accent">Profiling</span><br>System</h1>
-      <p class="hero-desc">AI-assisted staff and lab user analytics — attendance intelligence, equipment usage, research activity and more.</p>
-      <div class="hero-actions">
-        <a href="/login" class="btn-primary">Get Started →</a>
-      </div>
-    </header>
-
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon">◉</div>
-        <div class="feature-title">Attendance Intelligence</div>
-        <div class="feature-desc">Compliance tracking, leave analytics, and daily logs for IITBNF staff.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⬡</div>
-        <div class="feature-title">Equipment Analytics</div>
-        <div class="feature-desc">Tool usage, slot reservations, and approval tracking for lab users.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">◇</div>
-        <div class="feature-title">Research Profiles</div>
-        <div class="feature-desc">Project involvement, publications, and balance tracking.</div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">◈</div>
-        <div class="feature-title">AI Summaries</div>
-        <div class="feature-desc">Auto-generated narrative profiles powered by open-source LLMs.</div>
+  <!-- Navigation -->
+  <nav class="lp-nav">
+    <div class="lp-logo">
+      <div class="logo-ring"></div>
+      <div class="logo-text">
+        IITBNF
+        <span>PERSONNEL PROFILING</span>
       </div>
     </div>
+
+    <div class="lp-nav-right">
+      <button class="theme-pill" id="theme-toggle">
+        <span id="theme-icon">☀️</span> <span id="theme-text">Light Mode</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main hero content -->
+  <main class="lp-content">
+
+    <div class="lp-badge">IIT Bombay Nanofabrication Facility</div>
+
+    <h1 class="lp-hero">
+      Personnel<br>
+      <em>Profiling</em><br>
+      System
+    </h1>
+
+    <p class="lp-desc">
+      Advanced activity analysis and automated narrative profiling for IIT Bombay Nanofabrication Facility — tracking lab usage, equipment records, and research output.
+    </p>
+
+    <a href="{{ url_for('auth.login') }}" class="lp-login">
+      Sign In to Portal
+      <span class="arrow">→</span>
+    </a>
+
   </main>
+
+  <!-- Feature cards (bottom-right) -->
+  <div class="lp-features">
+    <div class="lp-feat">
+      <span class="feat-icon">◈</span>
+      <div class="feat-body">
+        <h4>Activity Logs</h4>
+        <p>Real-time tracking of lab usage and staff appointments.</p>
+      </div>
+    </div>
+    <div class="lp-feat">
+      <span class="feat-icon">◉</span>
+      <div class="feat-body">
+        <h4>Smart Search</h4>
+        <p>Query personnel by role, position, or historical engagement.</p>
+      </div>
+    </div>
+    <div class="lp-feat">
+      <span class="feat-icon">✦</span>
+      <div class="feat-body">
+        <h4>AI Summaries</h4>
+        <p>Auto-generated profiles powered by open-source LLMs.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const toggleBtn  = document.getElementById('theme-toggle');
+    const themeIcon  = document.getElementById('theme-icon');
+    const themeText  = document.getElementById('theme-text');
+
+    const updateUI = (theme) => {
+      themeIcon.innerText = theme === 'dark' ? '☀️' : '🌙';
+      themeText.innerText = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+    };
+
+    updateUI(document.documentElement.getAttribute('data-theme'));
+
+    toggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      updateUI(next);
+    });
+  </script>
 </body>
 </html>

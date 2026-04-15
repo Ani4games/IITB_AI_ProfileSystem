@@ -4,1220 +4,1326 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
-  <title>{{ person.display_name }} | IITBNF</title>
+  <meta name="robots" content="noindex, nofollow">
+  <title>{{ person.display_name }} — IITBNF</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
-  <style>
-    .ai-commentary {
-      display: flex;
-      gap: 0.75rem;
-      align-items: flex-start;
-      background: rgba(217,119,6,0.07);
-      border-left: 3px solid var(--amber, #d97706);
-      border-radius: 0 8px 8px 0;
-      padding: 0.75rem 1rem;
-      margin-top: 1.25rem;
-    }
-    .ai-commentary-icon {
-      color: var(--amber, #d97706);
-      font-size: 1rem;
-      margin-top: 0.1rem;
-      flex-shrink: 0;
-    }
-    .ai-commentary-text {
-      margin: 0;
-      font-size: 0.88rem;
-      color: var(--text-muted, #9ca3af);
-      line-height: 1.6;
-      font-style: italic;
-    }
-  </style>
-  <style>
-    .pcard-actions { display:flex; gap:0.5rem; align-items:center; }
-    .deep-btn { background:transparent; border:1px solid var(--amber,#d97706); color:var(--amber,#d97706); border-radius:6px; padding:0.3rem 0.75rem; font-size:0.8rem; cursor:pointer; transition:background 0.2s; }
-    .deep-btn:hover { background:rgba(217,119,6,0.1); }
-    .deep-btn:disabled { opacity:0.5; cursor:not-allowed; }
-    .ai-header-block { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.5rem; background:rgba(255,255,255,0.03); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; }
-    .ai-header-row { display:flex; flex-direction:column; gap:0.15rem; }
-    .ai-header-label { font-size:0.7rem; color:var(--muted,#6b7280); text-transform:uppercase; letter-spacing:0.05em; }
-    .ai-header-val { font-size:0.92rem; font-weight:600; color:var(--text,#f3f4f6); }
-    .deep-divider { display:flex; align-items:center; gap:0.75rem; color:var(--amber,#d97706); font-size:0.8rem; font-weight:600; margin-bottom:0.75rem; }
-    .deep-divider::before, .deep-divider::after { content:''; flex:1; height:1px; background:rgba(217,119,6,0.25); }
-    .deep-content { font-size:0.9rem; line-height:1.7; color:var(--text-muted,#9ca3af); white-space:pre-wrap; }
-    .deep-loading { display:flex; align-items:center; gap:0.75rem; color:var(--muted,#6b7280); font-style:italic; font-size:0.88rem; padding:1rem 0; }
-  </style>
-  <style>
-    .topnav-actions { display:flex; gap:0.5rem; align-items:center; }
-    .topnav-btn {
-      display: inline-flex; align-items: center; gap: 0.3rem;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-      color: var(--text-muted, #9ca3af);
-      border-radius: 6px;
-      padding: 0.35rem 0.8rem;
-      font-size: 0.82rem;
-      font-weight: 500;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background 0.2s, border-color 0.2s, color 0.2s;
-    }
-    .topnav-btn:hover {
-      background: rgba(255,255,255,0.1);
-      color: var(--text, #f3f4f6);
-      border-color: rgba(255,255,255,0.2);
-    }
-    .topnav-btn-amber {
-      background: rgba(217,119,6,0.12);
-      border-color: rgba(217,119,6,0.4);
-      color: var(--amber, #d97706);
-    }
-    .topnav-btn-amber:hover {
-      background: rgba(217,119,6,0.22);
-      border-color: var(--amber, #d97706);
-      color: var(--amber, #d97706);
-    }
-    .topnav-btn-red {
-  background: rgba(220,38,38,0.10);
-  border-color: rgba(220,38,38,0.35);
-  color: #f87171;
-}
-.topnav-btn-red:hover {
-  background: rgba(220,38,38,0.20);
-  border-color: #f87171;
-  color: #fca5a5;
-}
-  </style>
-  <style>
-    .year-selector { display:flex; align-items:center; gap:0.5rem; }
-    .year-label { font-size:0.75rem; color:var(--muted,#6b7280); text-transform:uppercase; letter-spacing:0.05em; }
-    .year-select {
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.15);
-      color: var(--text,#f3f4f6);
-      border-radius: 6px;
-      padding: 0.3rem 0.6rem;
-      font-size: 0.85rem;
-      cursor: pointer;
-      outline: none;
-    }
-    .year-select:focus { border-color: var(--amber,#d97706); }
-    .note-cell.muted { color: var(--muted,#6b7280); }
-  </style>
-</head>
-<body class="profile-page">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+
   <script>
-    NProgress.configure({ showSpinner: false, trickleSpeed: 80 });
-    NProgress.start();
-    window.addEventListener("load", () => NProgress.done());
+    (function(){
+      const t = localStorage.getItem('iitbnf_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
   </script>
 
-  <div class="grain"></div>
+  <style>
+    /* ═══════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════ */
+    :root {
+      --bg:        #07090e;
+      --surface:   #0c0f18;
+      --surface2:  #121623;
+      --surface3:  #181d2c;
+      --border:    rgba(255,255,255,0.07);
+      --border2:   rgba(255,255,255,0.12);
+      --fg:        #eef0f6;
+      --muted:     #7c859e;
+      --faint:     #3a4155;
 
-  <nav class="topnav">
-    <a href="/dashboard" class="back-btn">← All Members</a>
-    <div class="year-selector">
-      <label class="year-label">Year</label>
-      <select class="year-select" onchange="switchYear(this.value)">
-        {% for y in avail_years %}
-        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Profile</span></span>
-    <div class="topnav-actions">
-      <button onclick="window.print()" class="topnav-btn">🖨 Print</button>
-      <button onclick="downloadPDF({{ member_id }})" class="topnav-btn topnav-btn-amber" id="pdf-btn-{{ member_id }}">⬇ PDF</button>
-      <a href="/logout" class="topnav-btn topnav-btn-red">⏻ Logout</a>
-    </div>
+      --amber:     #f5a623;
+      --amber-dim: rgba(245,166,35,0.12);
+      --green:     #22c55e;
+      --green-dim: rgba(34,197,94,0.12);
+      --red:       #f43f5e;
+      --red-dim:   rgba(244,63,94,0.12);
+      --blue:      #38bdf8;
+      --blue-dim:  rgba(56,189,248,0.12);
+      --purple:    #a78bfa;
 
-<!-- Add this modal for showing progress -->
-<div id="pdf-modal" class="modal-overlay" style="display:none">
-    <div class="modal-box" style="max-width: 400px;">
-        <div class="modal-header">
-            <span class="modal-title">Generating PDF</span>
-            <button class="modal-close" onclick="closePDFModal()">✕</button>
-        </div>
-        <div class="modal-body" style="padding: 1.5rem; text-align: center;">
-            <div class="spinner" style="margin: 1rem auto;">
-                <div class="loading-spinner"></div>
-            </div>
-            <p id="pdf-status-message">Starting PDF generation...</p>
-            <div class="progress-bar" style="margin: 1rem 0; height: 8px; background: var(--bg3); border-radius: 4px;">
-                <div id="pdf-progress" class="progress-fill" style="width: 0%; height: 100%; background: var(--amber); border-radius: 4px;"></div>
-            </div>
-            <p id="pdf-estimate" style="font-size: 0.8rem; color: var(--muted);">Estimated time: 2-3 seconds</p>
-        </div>
-    </div>
-</div>
+      /* fonts */
+      --font-display: 'Syne', sans-serif;
+      --font-body:    'DM Sans', sans-serif;
+      --font-mono:    'Space Mono', monospace;
+      --font-num:     'DM Sans', sans-serif;
 
+      --radius:    10px;
+      --radius-lg: 16px;
+      --radius-xl: 22px;
+      --nav-h:     52px;
+      --panel-w:   288px;
+
+      --shadow-card:  0 1px 3px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05);
+      --shadow-modal: 0 24px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.08);
+      --tr: 0.18s cubic-bezier(.4,0,.2,1);
+    }
+
+    [data-theme="light"] {
+      --bg:        #f2f4f8;
+      --surface:   #ffffff;
+      --surface2:  #f0f2f7;
+      --surface3:  #e6e9f2;
+      --border:    rgba(0,0,0,.07);
+      --border2:   rgba(0,0,0,.13);
+      --fg:        #111520;
+      --muted:     #526070;
+      --faint:     #a8b2c4;
+      --amber-dim: rgba(245,166,35,.1);
+      --green-dim: rgba(34,197,94,.1);
+      --red-dim:   rgba(244,63,94,.1);
+      --blue-dim:  rgba(56,189,248,.1);
+      --shadow-card:  0 1px 4px rgba(0,0,0,.08), 0 0 0 1px rgba(0,0,0,.05);
+      --shadow-modal: 0 24px 80px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.08);
+    }
+
+    /* RESET */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg); color: var(--fg);
+      line-height: 1.6; min-height: 100vh;
+      overflow-x: hidden; -webkit-font-smoothing: antialiased;
+    }
+
+    /* ATMOSPHERE */
+    .bg-grid {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(245,166,35,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245,166,35,.025) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent);
+    }
+    [data-theme="light"] .bg-grid {
+      background-image:
+        linear-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,.04) 1px, transparent 1px);
+    }
+    .bg-glow {
+      position: fixed; top: -20%; left: -10%; width: 60%; height: 60%;
+      z-index: 0; pointer-events: none;
+      background: radial-gradient(ellipse, rgba(245,166,35,.04) 0%, transparent 65%);
+    }
+    [data-theme="light"] .bg-glow {
+      background: radial-gradient(ellipse, rgba(245,166,35,.06) 0%, transparent 65%);
+    }
+
+    /* TOP BAR */
+    .topbar {
+      position: sticky; top: 0; z-index: 200; height: var(--nav-h);
+      background: rgba(7,9,14,.88); border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px) saturate(1.4);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.5rem; gap: 1rem;
+    }
+    [data-theme="light"] .topbar { background: rgba(244,245,248,.92); }
+    .topbar-left { display: flex; align-items: center; gap: .75rem; }
+    .back-link {
+      font-family: var(--font-mono); font-size: .68rem; color: var(--muted);
+      text-decoration: none; letter-spacing: .04em; transition: color var(--tr);
+    }
+    .back-link:hover { color: var(--amber); }
+    .topbar-divider { width: 1px; height: 18px; background: var(--border2); }
+    .topbar-title { font-family: var(--font-mono); font-size: .7rem; color: var(--muted); letter-spacing: .08em; }
+    .topbar-right { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+    .year-sel {
+      font-family: var(--font-mono); font-size: .7rem;
+      background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--fg); border-radius: var(--radius);
+      padding: .3rem .55rem; cursor: pointer; outline: none;
+      transition: border-color var(--tr);
+    }
+    .year-sel:hover, .year-sel:focus { border-color: var(--amber); }
+    .util-btn {
+      font-family: var(--font-mono); font-size: .65rem; font-weight: 700;
+      letter-spacing: .05em; text-transform: uppercase;
+      padding: .32rem .75rem; border-radius: var(--radius);
+      border: 1px solid var(--border2); background: var(--surface2);
+      color: var(--muted); cursor: pointer; text-decoration: none;
+      display: inline-flex; align-items: center; gap: .4rem;
+      transition: all var(--tr); white-space: nowrap;
+    }
+    .util-btn:hover { color: var(--fg); background: var(--surface3); }
+    .util-btn.amber { color: var(--amber); border-color: rgba(245,166,35,.35); background: var(--amber-dim); }
+    .util-btn.amber:hover { background: rgba(245,166,35,.2); }
+    .util-btn.danger { color: var(--red); border-color: rgba(244,63,94,.3); }
+    .util-btn.danger:hover { background: var(--red-dim); }
+
+    /* ROOT LAYOUT */
+    .profile-root {
+      display: grid; grid-template-columns: var(--panel-w) 1fr;
+      min-height: calc(100vh - var(--nav-h)); position: relative; z-index: 10;
+    }
+
+    /* IDENTITY PANEL */
+    .identity-panel {
+      position: sticky; top: var(--nav-h);
+      height: calc(100vh - var(--nav-h));
+      overflow-y: auto; overflow-x: hidden;
+      background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 1.5rem 1.2rem 2rem; gap: 1.2rem;
+      scrollbar-width: thin; scrollbar-color: var(--faint) transparent;
+    }
+    .identity-panel::-webkit-scrollbar { width: 3px; }
+    .identity-panel::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+
+    .id-hero { display: flex; flex-direction: column; align-items: center; gap: .75rem; text-align: center; }
+    .id-avatar-ring {
+      width: 68px; height: 68px; border-radius: 50%;
+      border: 2px solid rgba(245,166,35,.4); background: var(--amber-dim);
+      display: flex; align-items: center; justify-content: center; position: relative;
+    }
+    .id-avatar-ring::after {
+      content: ''; position: absolute; inset: -5px; border-radius: 50%;
+      border: 1px solid rgba(245,166,35,.15);
+    }
+    .id-initials { font-family: var(--font-mono); font-size: .78rem; font-weight: 700; color: var(--amber); letter-spacing: .05em; }
+    .id-name { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--fg); line-height: 1.25; }
+    .id-role-badge {
+      display: inline-flex; align-items: center;
+      font-family: var(--font-mono); font-size: .58rem; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase;
+      padding: .2rem .6rem; border-radius: 999px;
+      border: 1px solid rgba(245,166,35,.35); color: var(--amber); background: var(--amber-dim);
+    }
+    .id-desig { font-size: .76rem; color: var(--muted); margin-top: .1rem; }
+    .id-team  { font-size: .7rem; color: var(--faint); font-family: var(--font-mono); margin-top: .05rem; }
+
+    /* Metric strip */
+    .id-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; }
+    .id-metric {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: .6rem .5rem; text-align: center;
+      transition: border-color var(--tr);
+    }
+    .id-metric:hover { border-color: var(--border2); }
+    .id-metric-val {
+      font-family: var(--font-num); font-size: 1.3rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+      line-height: 1; color: var(--amber); letter-spacing: -.01em;
+    }
+    .id-metric-val.green { color: var(--green); }
+    .id-metric-val.red   { color: var(--red); }
+    .id-metric-key { font-size: .58rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-top: .22rem; }
+
+    /* Alert strip */
+    .id-alert-strip {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .55rem .7rem; border-radius: var(--radius);
+      font-size: .75rem; border: 1px solid transparent;
+      cursor: pointer; transition: all var(--tr);
+    }
+    .id-alert-strip.critical { background: var(--red-dim); border-color: rgba(244,63,94,.25); color: #fca5a5; }
+    .id-alert-strip.warning  { background: var(--amber-dim); border-color: rgba(245,166,35,.25); color: #fcd34d; }
+    .id-alert-strip.ok       { background: var(--green-dim); border-color: rgba(34,197,94,.25); color: #86efac; }
+    .id-alert-strip:hover { opacity: .85; }
+    .id-alert-text { flex: 1; line-height: 1.4; font-size: .7rem; }
+
+    /* Quick facts */
+    .id-facts { display: flex; flex-direction: column; }
+    .id-fact-label {
+      font-family: var(--font-mono); font-size: .55rem; color: var(--faint);
+      letter-spacing: .12em; text-transform: uppercase;
+      padding: .55rem 0 .25rem; border-top: 1px solid var(--border);
+    }
+    .id-fact-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: .5rem; padding: .22rem 0; border-bottom: 1px solid rgba(255,255,255,.03);
+    }
+    .id-fact-k { font-size: .68rem; color: var(--muted); flex-shrink: 0; }
+    .id-fact-v { font-size: .7rem; color: var(--fg); text-align: right; word-break: break-word; }
+
+    /* MAIN */
+    .data-main { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; }
+    .data-main-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; color: var(--fg); }
+    .data-main-title span { color: var(--amber); }
+
+    /* Section labels */
+    .section-label { display: flex; align-items: center; gap: .6rem; margin-bottom: .7rem; }
+    .section-label-text {
+      font-family: var(--font-mono); font-size: .6rem; color: var(--faint);
+      letter-spacing: .14em; text-transform: uppercase; font-weight: 700; white-space: nowrap;
+    }
+    .section-label-rule { flex: 1; height: 1px; background: var(--border); }
+
+    /* Card grid */
+    .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+
+    /* CARD */
+    .prf-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1rem 1rem .8rem;
+      box-shadow: var(--shadow-card); cursor: pointer;
+      transition: all var(--tr); position: relative; overflow: hidden;
+      display: flex; flex-direction: column; gap: .6rem;
+    }
+    .prf-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--card-accent, var(--amber)); opacity: 0; transition: opacity var(--tr);
+    }
+    .prf-card:hover {
+      border-color: var(--border2); background: var(--surface2);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,.15), var(--shadow-card);
+    }
+    [data-theme="light"] .prf-card:hover {
+      box-shadow: 0 6px 24px rgba(0,0,0,.1), 0 0 0 1px rgba(0,0,0,.06);
+    }
+    .prf-card:hover::before { opacity: 1; }
+
+    .prf-card.accent-amber  { --card-accent: var(--amber); }
+    .prf-card.accent-green  { --card-accent: var(--green); }
+    .prf-card.accent-blue   { --card-accent: var(--blue); }
+    .prf-card.accent-red    { --card-accent: var(--red); }
+    .prf-card.accent-purple { --card-accent: var(--purple); }
+
+    .card-header { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .card-icon { font-size: .9rem; width: 1.2rem; text-align: center; flex-shrink: 0; color: var(--card-accent, var(--amber)); }
+    .card-title { font-family: var(--font-mono); font-size: .62rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; flex: 1; }
+    .card-year-sel {
+      font-family: var(--font-mono); font-size: .56rem;
+      background: var(--surface3); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 5px; padding: .12rem .32rem;
+      cursor: pointer; outline: none; transition: all var(--tr);
+    }
+    .card-year-sel:focus { border-color: var(--card-accent, var(--amber)); }
+
+    .card-metric { flex: 1; display: flex; flex-direction: column; gap: .12rem; }
+    /* CLEAN NUMBER STYLING — DM Sans tabular figures, no chunky display font */
+    .card-big {
+      font-family: var(--font-num); font-size: 2rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+      line-height: 1; color: var(--fg); letter-spacing: -.02em;
+    }
+    .card-big .unit { font-size: .9rem; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+    .card-big.good { color: var(--green); }
+    .card-big.warn { color: var(--amber); }
+    .card-big.bad  { color: var(--red); }
+    .card-sub { font-size: .73rem; color: var(--muted); display: flex; align-items: center; gap: .35rem; }
+    .card-bar { height: 3px; background: var(--surface3); border-radius: 999px; overflow: hidden; margin-top: .12rem; }
+    .card-bar-fill { height: 100%; border-radius: 999px; background: var(--card-accent, var(--amber)); transition: width .8s cubic-bezier(.4,0,.2,1); }
+    .card-pills { display: flex; flex-wrap: wrap; gap: .28rem; margin-top: .08rem; }
+    .cpill {
+      font-size: .6rem; font-weight: 700; font-family: var(--font-mono);
+      padding: .12rem .42rem; border-radius: 4px;
+    }
+    .cpill.green  { background: var(--green-dim); color: var(--green); }
+    .cpill.amber  { background: var(--amber-dim); color: var(--amber); }
+    .cpill.red    { background: var(--red-dim);   color: var(--red); }
+    .cpill.blue   { background: var(--blue-dim);  color: var(--blue); }
+
+    .card-footer { display: flex; align-items: center; justify-content: flex-end; padding-top: .45rem; border-top: 1px solid var(--border); margin-top: auto; }
+    .card-cta { font-family: var(--font-mono); font-size: .6rem; color: var(--muted); display: flex; align-items: center; gap: .28rem; letter-spacing: .04em; transition: color var(--tr); }
+    .prf-card:hover .card-cta { color: var(--card-accent, var(--amber)); }
+    .card-cta-arrow { transition: transform var(--tr); }
+    .prf-card:hover .card-cta-arrow { transform: translateX(3px); }
+    .card-empty { font-size: .76rem; color: var(--faint); text-align: center; padding: .5rem 0; font-style: italic; }
+
+    /* ── UNIFIED DASHBOARD PANEL ── */
+    .dash-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .dash-row-label {
+      display: flex; align-items: center; gap: .6rem;
+    }
+    .dash-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 0 -.1rem;
+    }
+    /* 3-column row: Slot Reservations, Current Ownership, Ownership History */
+    .dash-row-thirds {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: .7rem;
+    }
+    /* 6-column row (compact cards) */
+    .dash-row-sixths {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: .55rem;
+    }
+    /* Compact card tweaks for 1/6-width cards */
+    .dash-row-sixths .prf-card {
+      padding: .75rem .7rem .65rem;
+    }
+    .dash-row-sixths .card-big {
+      font-size: 1.5rem;
+    }
+    .dash-row-sixths .card-title {
+      font-size: .58rem;
+    }
+    .dash-row-sixths .card-cta {
+      font-size: .55rem;
+    }
+    /* Responsive */
+    @media (max-width: 1280px) {
+      .dash-row-sixths { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 900px) {
+      .dash-row-thirds  { grid-template-columns: 1fr; }
+      .dash-row-sixths  { grid-template-columns: repeat(2, 1fr); }
+      .dash-row-sixths .prf-card { padding: .85rem .8rem .75rem; }
+      .dash-row-sixths .card-big { font-size: 1.7rem; }
+    }
+    @media (max-width: 600px) {
+      .dash-panel { padding: .85rem; gap: .85rem; }
+      .dash-row-sixths { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* MODAL */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,.6); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem; opacity: 0; pointer-events: none; transition: opacity var(--tr);
+    }
+    [data-theme="light"] .modal-backdrop { background: rgba(30,40,60,.45); }
+    .modal-backdrop.open { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: var(--radius-xl); box-shadow: var(--shadow-modal);
+      width: 100%; max-width: 820px; max-height: 88vh;
+      display: flex; flex-direction: column;
+      transform: scale(.96) translateY(10px); transition: transform var(--tr); overflow: hidden;
+    }
+    .modal-backdrop.open .modal-box { transform: scale(1) translateY(0); }
+    .modal-head {
+      display: flex; align-items: center; gap: .7rem;
+      padding: 1rem 1.4rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .modal-icon { font-size: 1rem; color: var(--amber); }
+    .modal-title { font-family: var(--font-display); font-size: .92rem; font-weight: 700; color: var(--fg); flex: 1; }
+    .modal-close-btn {
+      background: var(--surface2); border: 1px solid var(--border2); color: var(--muted);
+      width: 26px; height: 26px; border-radius: 50%;
+      cursor: pointer; font-size: .8rem; display: flex; align-items: center; justify-content: center;
+      transition: all var(--tr); flex-shrink: 0;
+    }
+    .modal-close-btn:hover { color: var(--red); border-color: rgba(244,63,94,.4); background: var(--red-dim); }
+    .modal-body {
+      overflow-y: auto; flex: 1; padding: 1.2rem 1.4rem 1.4rem;
+      scrollbar-width: thin; scrollbar-color: var(--faint) transparent;
+    }
+    .modal-body::-webkit-scrollbar { width: 4px; }
+    .modal-body::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+
+    .modal-section { margin-bottom: 1.4rem; }
+    .modal-section:last-child { margin-bottom: 0; }
+    .modal-section-title {
+      font-family: var(--font-mono); font-size: .6rem; color: var(--amber);
+      letter-spacing: .12em; text-transform: uppercase; font-weight: 700;
+      margin-bottom: .7rem; display: flex; align-items: center; gap: .5rem;
+    }
+    .modal-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .modal-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+    .mm-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: .7rem .55rem; text-align: center; }
+    /* CLEAN MODAL METRIC NUMBERS */
+    .mm-val {
+      font-family: var(--font-num); font-size: 1.45rem; font-weight: 700;
+      font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+      line-height: 1; color: var(--fg); letter-spacing: -.015em;
+    }
+    .mm-val.good { color: var(--green); }
+    .mm-val.warn { color: var(--amber); }
+    .mm-val.bad  { color: var(--red); }
+    .mm-key { font-size: .6rem; color: var(--muted); margin-top: .22rem; text-transform: uppercase; letter-spacing: .05em; }
+
+    .chart-wrap { position: relative; height: 220px; width: 100%; margin-bottom: .7rem; }
+    .chart-wrap.tall { height: 270px; }
+
+    .modal-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .modal-table th {
+      font-family: var(--font-mono); font-size: .58rem; color: var(--amber);
+      letter-spacing: .07em; text-transform: uppercase;
+      padding: .38rem .55rem; text-align: left; border-bottom: 1px solid var(--border2); white-space: nowrap;
+    }
+    .modal-table td { padding: .38rem .55rem; border-bottom: 1px solid var(--border); color: var(--fg); vertical-align: middle; }
+    .modal-table tr:last-child td { border-bottom: none; }
+    .modal-table tr:hover td { background: var(--surface2); }
+    .cell-muted { color: var(--muted); font-size: .73rem; }
+    .cell-mono  { font-family: var(--font-mono); font-size: .72rem; color: var(--amber); }
+
+    .stag { display: inline-block; font-family: var(--font-mono); font-size: .56rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: .1rem .42rem; border-radius: 4px; }
+    .stag-green  { background: var(--green-dim); color: var(--green); }
+    .stag-amber  { background: var(--amber-dim); color: var(--amber); }
+    .stag-red    { background: var(--red-dim);   color: var(--red); }
+    .stag-blue   { background: var(--blue-dim);  color: var(--blue); }
+    .stag-muted  { background: var(--surface3); color: var(--muted); border: 1px solid var(--border2); }
+
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-scroll table { min-width: 480px; }
+
+    /* PDF modal */
+    .pdf-modal-box { max-width: 400px; }
+    .pdf-modal-body { padding: 1.4rem; }
+    .pdf-modal-label { font-family: var(--font-mono); font-size: .6rem; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; display: block; margin-bottom: .4rem; }
+    .pdf-modal-select {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+      color: var(--fg); font-family: var(--font-mono); font-size: .8rem;
+      padding: .5rem .7rem; border-radius: var(--radius); outline: none; transition: border-color var(--tr);
+    }
+    .pdf-modal-select:focus { border-color: var(--amber); }
+    .pdf-progress-bar { height: 4px; background: var(--surface3); border-radius: 999px; overflow: hidden; margin: 1rem 0; }
+    .pdf-progress-fill { height: 100%; width: 0%; background: var(--amber); border-radius: 999px; transition: width .3s ease; }
+    .pdf-btn { width: 100%; padding: .62rem; background: var(--amber); color: #000; font-family: var(--font-mono); font-size: .73rem; font-weight: 700; border: none; border-radius: var(--radius); cursor: pointer; transition: opacity var(--tr); margin-top: .7rem; }
+    .pdf-btn:hover { opacity: .85; }
+
+    /* AI panel */
+    .ai-bubble {
+      position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 300;
+      background: var(--amber); color: #000;
+      font-family: var(--font-mono); font-size: .7rem; font-weight: 700;
+      padding: .58rem 1rem; border-radius: 999px;
+      cursor: pointer; box-shadow: 0 4px 24px rgba(245,166,35,.4);
+      transition: all var(--tr); display: flex; align-items: center; gap: .4rem; user-select: none;
+    }
+    .ai-bubble:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(245,166,35,.5); }
+    .ai-panel {
+      position: fixed; bottom: 5rem; right: 1.75rem; z-index: 299;
+      width: 455px; height: 68%;
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: var(--radius-xl); box-shadow: var(--shadow-modal);
+      display: none; flex-direction: column; overflow: hidden;
+    }
+    .ai-panel.open { display: flex; }
+    .ai-panel-head { display: flex; align-items: center; justify-content: space-between; padding: .7rem .95rem; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+    .ai-panel-title { font-family: var(--font-mono); font-size: .7rem; font-weight: 700; color: var(--amber); }
+    .ai-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .88rem; transition: color var(--tr); }
+    .ai-close:hover { color: var(--red); }
+    .ai-opts { display: flex; gap: .38rem; padding: .6rem .8rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .ai-opt-btn { flex: 1; padding: .38rem; background: var(--surface2); border: 1px solid var(--border2); color: var(--fg); font-family: var(--font-mono); font-size: .6rem; font-weight: 700; border-radius: var(--radius); cursor: pointer; transition: all var(--tr); }
+    .ai-opt-btn:hover  { border-color: var(--amber); color: var(--amber); }
+    .ai-opt-btn.active { background: var(--amber); color: #000; border-color: var(--amber); }
+    .ai-output { flex: 1; overflow-y: auto; padding: .95rem; font-size: .82rem; color: var(--fg); line-height: 1.75; white-space: pre-wrap; }
+    .ai-cursor { padding: 0 .95rem .4rem; color: var(--amber); font-size: 1rem; animation: blink .7s step-end infinite; display: none; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .ai-input-row { display: flex; gap: .38rem; padding: .5rem .7rem; border-top: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+    .ai-input { flex: 1; padding: .36rem .6rem; background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius); color: var(--fg); font-family: var(--font-mono); font-size: .66rem; outline: none; transition: border-color var(--tr); }
+    .ai-input:focus { border-color: var(--amber); }
+    .ai-send { padding: .36rem .7rem; background: var(--amber); color: #000; border: none; border-radius: var(--radius); font-weight: 700; font-size: .82rem; cursor: pointer; transition: opacity var(--tr); }
+    .ai-send:hover { opacity: .85; }
+
+    /* PRINT */
+    @media print {
+      .topbar, .ai-bubble, .ai-panel, .modal-backdrop, .card-footer, .util-btn, .bg-grid, .bg-glow { display: none !important; }
+      .profile-root { grid-template-columns: 1fr !important; }
+      .identity-panel { position: static !important; height: auto !important; border-right: none !important; flex-direction: row !important; flex-wrap: wrap !important; }
+      body { background: #fff !important; color: #000 !important; }
+      .prf-card { break-inside: avoid; border: 1px solid #ccc !important; background: #fff !important; }
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 1100px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 860px) {
+      .profile-root { grid-template-columns: 1fr; }
+      .identity-panel { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; padding: 1rem; gap: .7rem; }
+      .id-hero { flex-direction: row; text-align: left; flex: 1; min-width: 200px; }
+      .id-metrics { grid-template-columns: repeat(4, 1fr); flex-shrink: 0; width: 100%; }
+      .id-facts { width: 100%; }
+    }
+    @media (max-width: 600px) {
+      .card-grid { grid-template-columns: 1fr; }
+      .topbar-title { display: none; }
+      .id-metrics { grid-template-columns: repeat(2, 1fr); }
+      .ai-panel { width: calc(100vw - 2rem); right: 1rem; }
+      .modal-backdrop { padding: .75rem; }
+    }
+  </style>
+</head>
+<body data-member-id="{{ member_id }}">
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  <!-- TOP BAR -->
+  <nav class="topbar">
+    <div class="topbar-left">
+      <a href="{{ url_for('admin_panel.index') }}#hub" class="back-link">← Hub</a>
+      <div class="topbar-divider"></div>
+      <span class="topbar-title">IITBNF / Profile / <span style="color:var(--amber)">{{ '%04d' % member_id }}</span></span>
+    </div>
+    <div class="topbar-right">
+      <button class="util-btn" onclick="toggleTheme()" id="theme-btn">☀ Light</button>
+      <button class="util-btn" onclick="window.print()">⎙ Print</button>
+      <button class="util-btn amber" onclick="openPDFModal()">⬇ PDF</button>
+      <a href="/logout" class="util-btn danger">⏻ Out</a>
+    </div>
   </nav>
 
-  <!-- Mobile header (visible only on small screens) -->
-  <div class="mobile-header">
-    <div class="mobile-avatar">{{ '%04d' % member_id }}</div>
-    <div class="mobile-info">
-      <div class="mobile-name">{{ person.display_name }}</div>
-      <div class="mobile-role">
-        <span class="role-tag role-{{ person.role_name | lower | replace(' ','_') }}">{{ person.role_name }}</span>
-      </div>
-      <div class="mobile-desig">{{ person.designation or 'No designation' }}</div>
-    </div>
-  </div>
+  <!-- ROOT -->
+  <div class="profile-root">
 
-  <div class="profile-layout">
-
-    <!-- ── SIDEBAR ── -->
-    <aside class="sidebar">
-      <div class="id-card">
-        <div class="id-avatar">{{ '%04d' % member_id }}</div>
-        <div class="id-name">{{ person.display_name }}</div>
-        <div class="id-role">
-          <span class="role-tag role-{{ person.role_name | lower | replace(' ','_') }}">{{ person.role_name }}</span>
+    <!-- IDENTITY PANEL -->
+    <aside class="identity-panel">
+      <div class="id-hero">
+        <div class="id-avatar-ring">
+          <span class="id-initials">{{ '%04d' % member_id }}</span>
         </div>
-        <div class="id-desig">{{ person.designation or 'No Designation' }}</div>
-        <div class="id-team">{{ person.team or '—' }}</div>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="sidebar-label">IDENTITY</div>
-        {% macro kv(k, v) %}
-        {% if v and v != '0000-00-00' %}
-        <div class="kv-row">
-          <span class="kv-key">{{ k }}</span>
-          <span class="kv-val">{{ v }}</span>
+        <div>
+          <div class="id-name">{{ person.display_name }}</div>
+          <div class="id-role-badge">{{ person.role_name }}</div>
+          <div class="id-desig">{{ person.designation or '—' }}</div>
+          <div class="id-team">{{ person.team or '' }}</div>
         </div>
-        {% endif %}
-        {% endmacro %}
-        {{ kv('Email',       person.email) }}
-        {{ kv('Appointment', person.type_of_appointment) }}
-        {{ kv('Qualification', person.qualification) }}
-        {{ kv('Project Code', person.p_project_code) }}
-        {{ kv('IITB Joined', person.iitb_joining_date) }}
-        {{ kv('Joined',      person.joining_date) }}
-        {{ kv('Leaving',     person.leaving_date) }}
       </div>
 
-      {% if permissions %}
-      <div class="sidebar-section">
-        <div class="sidebar-label">PERMISSIONS</div>
-        {% for p in permissions %}
-        <div class="tag-pill">{{ p.field }}</div>
-        {% endfor %}
+      <div class="id-metrics">
+        <div class="id-metric">
+          <div class="id-metric-val {% if att.attendance_pct >= 90 %}green{% elif att.attendance_pct < 75 %}red{% endif %}">{{ att.attendance_pct }}%</div>
+          <div class="id-metric-key">Attendance</div>
+        </div>
+        <div class="id-metric">
+          <div class="id-metric-val">{{ equip.total_slots if equip and equip.available else 0 }}</div>
+          <div class="id-metric-key">Eq. Requests</div>
+        </div>
+        <div class="id-metric">
+          <div class="id-metric-val">{{ reservations | length }}</div>
+          <div class="id-metric-key">Reservations</div>
+        </div>
+        <div class="id-metric">
+          <div class="id-metric-val">{{ system_owned | length }}</div>
+          <div class="id-metric-key">Owned Tools</div>
+        </div>
       </div>
-      {% endif %}
 
-      <div class="sidebar-section">
-        <div class="sidebar-label">JUMP TO</div>
-        <nav class="section-nav">
-          <a href="#ai-summary">AI Summary</a>
-          <a href="#anomalies">Anomalies</a>
-          <a href="#comparison">Team Comparison</a>
-          <a href="#attendance">Attendance</a>
-          <a href="#equipment">Equipment</a>
-          <a href="#projects">Projects</a>
-          <a href="#appraisals">Appraisals</a>
-          {% if monthly %}<a href="#monthly">Reports</a>{% endif %}
-          {% if reservations %}<a href="#reservations">Reservations</a>{% endif %}
-          {% if training %}<a href="#training">Training</a>{% endif %}
-          {% if full_access and tracking %}<a href="#tracking">Profile History</a>{% endif %}
-          {% if committees %}<a href="#committees">Committees</a>{% endif %}
-          {% if full_access and perf_rating %}<a href="#appraisals">Appraisals</a>{% endif %}
-          <a href="#ai-report">AI Report</a>
-        </nav>
+      <div class="id-facts">
+        <div class="id-fact-label">Identity</div>
+        {% if person.email %}<div class="id-fact-row"><span class="id-fact-k">Email</span><span class="id-fact-v" style="font-size:.62rem;">{{ person.email }}</span></div>{% endif %}
+        {% if person.type_of_appointment %}<div class="id-fact-row"><span class="id-fact-k">Appt.</span><span class="id-fact-v">{{ person.type_of_appointment }}</span></div>{% endif %}
+        {% if person.qualification %}<div class="id-fact-row"><span class="id-fact-k">Qual.</span><span class="id-fact-v">{{ person.qualification }}</span></div>{% endif %}
+        {% if person.joining_date and person.joining_date != '0000-00-00' %}<div class="id-fact-row"><span class="id-fact-k">Joined</span><span class="id-fact-v">{{ person.joining_date }}</span></div>{% endif %}
+        {% if person.p_project_code %}<div class="id-fact-row"><span class="id-fact-k">Project</span><span class="id-fact-v">{{ person.p_project_code }}</span></div>{% endif %}
       </div>
     </aside>
 
-    <!-- ── MAIN ── -->
-    <main class="profile-main" id="profile-main">
+    <!-- MAIN DATA -->
+    <main class="data-main">
+      <div><div class="data-main-title">Profile Dashboard </div></div>
 
+      <!-- ══ UNIFIED DASHBOARD ══════════════════════════════════════════ -->
+      <div class="dash-panel">
 
-      <!-- ANOMALY ALERTS -->
-      {% if anomalies %}
-      <section class="pcard anomaly-card" id="anomalies">
-        <div class="pcard-header">
-          <span class="pcard-icon">⚠</span>
-          <span class="pcard-title">AI Anomaly Detection</span>
-          <span class="pending-tag">{{ anomalies | length }} signal{% if anomalies|length != 1 %}s{% endif %}</span>
+        <!-- ROW A: Feature cards — Slot Reservations, Current Ownership, Ownership History (each 1/3) -->
+        <div class="dash-row-label">
+          <span class="section-label-text">Lab & Ownership</span>
+          <span class="section-label-rule"></span>
         </div>
-        <div class="anomaly-list">
-          {% for a in anomalies %}
-          <div class="anomaly-row anomaly-{{ a.level }}">
-            <span class="anomaly-icon">{% if a.level == "critical" %}🔴{% elif a.level == "warning" %}🟡{% else %}🔵{% endif %}</span>
-            <span class="anomaly-msg">{{ a.message }}</span>
-          </div>
-          {% endfor %}
-        </div>
-      </section>
-      {% endif %}
-      <!-- AI SUMMARY -->
-      <section class="pcard ai-card" id="ai-summary">
-        <div class="pcard-header">
-          <span class="pcard-icon">◈</span>
-          <span class="pcard-title">AI Profile Summary</span>
-          <div class="pcard-actions">
-            <button class="regen-btn" onclick="regenSummary()">↺ Regenerate</button>
-            <button class="deep-btn" id="deep-btn" onclick="runDeepAnalysis()">⬡ Deep Analysis</button>
-          </div>
-        </div>
+        <div class="dash-row-thirds">
 
-        <div class="ai-header-block">
-          <div class="ai-header-row">
-            <span class="ai-header-label">Name</span>
-            <span class="ai-header-val">{{ person.display_name }}</span>
-          </div>
-          <div class="ai-header-row">
-            <span class="ai-header-label">Role</span>
-            <span class="ai-header-val">{{ person.role_name }}</span>
-          </div>
-          <div class="ai-header-row">
-            <span class="ai-header-label">Designation</span>
-            <span class="ai-header-val">{{ person.designation or '—' }}</span>
-          </div>
-          <div class="ai-header-row">
-            <span class="ai-header-label">Team</span>
-            <span class="ai-header-val">{{ person.team or '—' }}</span>
-          </div>
-        </div>
-
-        <div class="ai-summary-text" id="ai-text">{{ ai_summary }}</div>
-
-        <div id="deep-panel" style="display:none; margin-top:1.25rem;">
-          <div class="deep-divider"><span>◈ Deep Analysis</span></div>
-          <div id="deep-content" class="deep-content">
-            <div class="deep-loading">
-              <div class="loading-spinner"></div>
-              <span>Running deep analysis… this may take 20–30 seconds</span>
+          <!-- Slot Reservations -->
+          <div class="prf-card accent-green" onclick="openModal('res-modal')" role="button">
+            <div class="card-header">
+              <span class="card-icon" style="color:var(--green);">▣</span>
+              <span class="card-title">Slot Reservations</span>
+              <select class="card-year-sel" onclick="event.stopPropagation()" onchange="loadCardData('reservations', this.value)">
+                {% for y in avail_years %}<option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+              </select>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ATTENDANCE -->
-      <section class="pcard" id="attendance">
-        <div class="pcard-header">
-          <span class="pcard-icon">◉</span>
-          <span class="pcard-title">Attendance Intelligence</span>
-        </div>
-
-        <div class="metric-row">
-          <div class="metric-box">
-            <div class="metric-val {% if att.attendance_pct >= 90 %}good{% elif att.attendance_pct >= 75 %}warn{% else %}bad{% endif %}">
-              {{ att.attendance_pct }}%
+            <div class="card-metric">
+              <div class="card-big good" id="c-res-total">{{ reservations | length }}<span class="unit"> slots</span></div>
+              <div class="card-sub" id="c-res-tools">—</div>
             </div>
-            <div class="metric-key">Compliance</div>
+            <div class="card-footer"><span class="card-cta">View schedule <span class="card-cta-arrow">→</span></span></div>
           </div>
-          <div class="metric-box">
-            <div class="metric-val">{{ att.days_present }}</div>
-            <div class="metric-key">Days Present</div>
-          </div>
-          <div class="metric-box">
-            <div class="metric-val">{{ att.mandatory_days }}</div>
-            <div class="metric-key">Mandatory Days</div>
-          </div>
-          <div class="metric-box">
-            <div class="metric-val {% if att.leave_utilisation_pct < 80 %}good{% else %}warn{% endif %}">
-              {{ att.leave_utilisation_pct }}%
+
+          <!-- Current Ownership -->
+          <div class="prf-card accent-amber" onclick="openModal('ownership-current-modal')" role="button">
+            <div class="card-header">
+              <span class="card-icon">◐</span>
+              <span class="card-title">Current Assignments</span>
             </div>
-            <div class="metric-key">Leave Utilised</div>
-          </div>
-        </div>
-
-        <div class="progress-wrap">
-          <div class="progress-label">
-            <span>Attendance this year</span>
-            <span>{{ att.days_present }} / {{ att.mandatory_days }} days</span>
-          </div>
-          <div class="progress-bar">
-            <div class="progress-fill {% if att.attendance_pct >= 90 %}fill-green{% elif att.attendance_pct >= 75 %}fill-amber{% else %}fill-red{% endif %}"
-                 style="width: {{ [att.attendance_pct, 100]|min }}%"></div>
-          </div>
-        </div>
-
-
-        {% if trend %}
-        <div class="sub-section">
-          <div class="sub-title">Monthly Attendance Trend ({{ trend[0].month }} — {{ trend[-1].month }})</div>
-          <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
-          <script>
-          (function(){
-            const labels = {{ trend | map(attribute="month") | list | tojson }};
-            const present = {{ trend | map(attribute="present") | list | tojson }};
-            const mandatory = {{ trend | map(attribute="mandatory") | list | tojson }};
-            new Chart(document.getElementById("trend-chart"), {
-              type: "bar",
-              data: { labels, datasets: [
-                { label: "Days Present", data: present, backgroundColor: "rgba(251,191,36,0.7)", borderColor: "#fbbf24", borderWidth:1, borderRadius:4 },
-                { label: "Mandatory", data: mandatory, backgroundColor: "rgba(55,65,81,0.5)", borderColor: "#374151", borderWidth:1, borderRadius:4 }
-              ]},
-              options: { responsive:true, plugins:{ legend:{ labels:{ color:"#9ca3af" } } },
-                scales: { x:{ ticks:{color:"#9ca3af"}, grid:{color:"#1f2937"} }, y:{ ticks:{color:"#9ca3af"}, grid:{color:"#1f2937"} } } }
-            });
-          })();
-          </script>
-        </div>
-        {% endif %}
-        {% if att.leave_summary %}
-        <div class="sub-section">
-          <div class="sub-title">Leave Summary</div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>Type</th><th>Taken</th><th>Max</th><th>Utilisation</th></tr></thead>
-              <tbody>
-              {% for l in att.leave_summary %}
-              <tr>
-                <td>{{ l.type_of_leave }}</td>
-                <td>{{ l.days_taken }} days</td>
-                <td>{{ l.max_allowed or '—' }}</td>
-                <td>
-                  {% if l.util_pct is not none %}
-                  <div class="mini-bar">
-                    <div class="mini-fill {% if l.util_pct < 80 %}fill-green{% else %}fill-amber{% endif %}"
-                         style="width:{{ [l.util_pct,100]|min }}%"></div>
-                  </div>
-                  {{ l.util_pct }}%
-                  {% else %}—{% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        {% endif %}
-
-        {% if ai_sections and ai_sections.attendance_commentary %}
-        <div class="ai-commentary">
-          <span class="ai-commentary-icon">◈</span>
-          <p class="ai-commentary-text" id="ai-att-commentary">{{ ai_sections.attendance_commentary }}</p>
-        </div>
-        {% endif %}
-
-        {% if att.recent_log %}
-        <details class="details-block">
-          <summary>Recent Attendance Log (last 30 entries)</summary>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead><tr><th>Date</th><th>Entry</th><th>Exit</th></tr></thead>
-              <tbody>
-              {% for r in att.recent_log %}
-              <tr>
-                <td>{{ r.date }}</td>
-                <td>{{ r.entry_time }}</td>
-                <td>{{ r.exit_time or '—' }}</td>
-              </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </details>
-        {% endif %}
-      </section>
-
-
-      <!-- COMPARATIVE STATS -->
-      {% if comparison and comparison.comparisons %}
-      <section class="pcard compare-card" id="comparison">
-        <div class="pcard-header">
-          <span class="pcard-icon">⇄</span>
-          <span class="pcard-title">Team Comparison</span>
-          <span class="pending-tag">vs {{ comparison.team }} team · {{ comparison.team_size }} members</span>
-        </div>
-        {% for c in comparison.comparisons %}
-        <div class="compare-row">
-          <div class="compare-label">
-            <span class="compare-name">{{ c.label }}</span>
-            <span class="compare-insight {% if c.direction == "up" %}insight-up{% elif c.direction == "down" %}insight-down{% else %}insight-eq{% endif %}">
-              {% if c.direction == "up" %}↑{% elif c.direction == "down" %}↓{% else %}→{% endif %}
-              {{ c.insight }}
-            </span>
-          </div>
-          <div class="compare-bars">
-            <div class="compare-bar-wrap">
-              <span class="compare-bar-label">You</span>
-              <div class="compare-bar-track">
-                <div class="compare-bar-fill fill-amber" style="width:{{ c.mine_pct }}%"></div>
+            <div class="card-metric">
+              <div class="card-big">{{ system_owned | length }}<span class="unit"> tools</span></div>
+              <div class="card-sub">currently assigned as system owner</div>
+              {% if system_owned %}
+              <div class="card-pills" style="margin-top:.3rem;">
+                {% set working = system_owned | selectattr('isworking') | list | length %}
+                <span class="cpill green">{{ working }} working</span>
+                {% if system_owned | length - working > 0 %}<span class="cpill red">{{ system_owned | length - working }} down</span>{% endif %}
               </div>
-              <span class="compare-bar-val">{{ c.mine }}</span>
+              {% endif %}
             </div>
-            <div class="compare-bar-wrap">
-              <span class="compare-bar-label">Team avg</span>
-              <div class="compare-bar-track">
-                <div class="compare-bar-fill fill-muted" style="width:{{ c.team_pct }}%"></div>
+            <div class="card-footer"><span class="card-cta">View assignments <span class="card-cta-arrow">→</span></span></div>
+          </div>
+
+          <!-- Ownership History -->
+          <div class="prf-card accent-blue" onclick="openModal('ownership-history-modal')" role="button">
+            <div class="card-header">
+              <span class="card-icon" style="color:var(--blue);">↻</span>
+              <span class="card-title">Ownership History</span>
+            </div>
+            <div class="card-metric">
+              <div class="card-big" style="color:var(--blue);">{{ owner_track | length }}<span class="unit"> records</span></div>
+              <div class="card-sub">full lifecycle ownership log</div>
+              {% set active_own = owner_track | selectattr('is_active') | list | length %}
+              {% if active_own > 0 %}
+              <div class="card-pills" style="margin-top:.3rem;">
+                <span class="cpill green">{{ active_own }} active</span>
+                <span class="cpill amber">{{ owner_track | length - active_own }} past</span>
               </div>
-              <span class="compare-bar-val">{{ c.team_avg }}</span>
+              {% endif %}
             </div>
+            <div class="card-footer"><span class="card-cta">View history <span class="card-cta-arrow">→</span></span></div>
           </div>
-        </div>
-        {% if not loop.last %}<div class="compare-divider"></div>{% endif %}
-        {% endfor %}
-      </section>
-      {% endif %}
-      <!-- EQUIPMENT USAGE -->
-      <section class="pcard" id="equipment">
-        <div class="pcard-header">
-          <span class="pcard-icon">⬡</span>
-          <span class="pcard-title">Equipment Usage Analytics</span>
-          {% if not equip.available %}
-          <span class="pending-tag">No Lab Record</span>
-          {% endif %}
-        </div>
 
-        {% if equip.available %}
-        <div class="metric-row">
-          <div class="metric-box">
-            <div class="metric-val">{{ equip.total_slots }}</div>
-            <div class="metric-key">Total Requests</div>
-          </div>
-          <div class="metric-box">
-            <div class="metric-val">{{ equip.tools_count }}</div>
-            <div class="metric-key">Tools Used</div>
-          </div>
-          {% if equip.approval_stats %}
-          <div class="metric-box">
-            <div class="metric-val good">{{ equip.approval_stats.approved or 0 }}</div>
-            <div class="metric-key">Approved</div>
-          </div>
-          <div class="metric-box">
-            <div class="metric-val bad">{{ equip.approval_stats.rejected or 0 }}</div>
-            <div class="metric-key">Rejected</div>
-          </div>
-          <div class="metric-box">
-            <div class="metric-val warn">{{ equip.approval_stats.pending or 0 }}</div>
-            <div class="metric-key">Pending</div>
-          </div>
-          {% endif %}
-        </div>
+        </div><!-- /dash-row-thirds -->
 
-        {% if equip.tools_used %}
-        <div class="sub-section">
-          <div class="sub-title">Tool Usage Breakdown</div>
-          <div class="chart-wrap">
-            <canvas id="tools-bar"></canvas>
-          </div>
-          <script>
-          (function(){
-            const labels = {{ equip.tools_used | map(attribute='tool_name') | list | tojson }};
-            const data   = {{ equip.tools_used | map(attribute='times_booked') | list | tojson }};
-            new Chart(document.getElementById('tools-bar'), {
-              type: 'bar',
-              data: { labels, datasets: [{
-                label: 'Requests', data,
-                backgroundColor: 'rgba(251,191,36,0.7)',
-                borderColor: '#fbbf24', borderWidth: 1, borderRadius: 4
-              }]},
-              options: {
-                indexAxis: 'y', responsive: true,
-                plugins: { legend: { display: false } },
-                scales: {
-                  x: { ticks: { color: '#9ca3af' }, grid: { color: '#374151' } },
-                  y: { ticks: { color: '#d1d5db' }, grid: { color: '#374151' } }
-                }
-              }
-            });
-          })();
-          </script>
-        </div>
-        {% endif %}
+        <!-- DIVIDER -->
+        <div class="dash-divider"></div>
 
-        {% if equip.lab_access_log %}
-        <div class="sub-section">
-          <details class="details-block">
-            <summary>Lab Access Log</summary>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead><tr><th>Date</th><th>Equipments</th><th>Period</th><th>Status</th></tr></thead>
-                <tbody>
-                {% for r in equip.lab_access_log %}
-                <tr>
-                  <td>{{ r.access_date }}</td>
-                  <td class="note-cell">{{ r.equipments }}</td>
-                  <td>{{ r.access_period }} days</td>
-                  <td>
-                    {% if r.approval == 1 %}<span class="tag tag-green">Approved</span>
-                    {% elif r.approval == 2 %}<span class="tag tag-red">Rejected</span>
-                    {% else %}<span class="tag tag-amber">Pending</span>{% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-                </tbody>
-              </table>
+        <!-- ROW B: Compact stats — 6 across (each 1/6) -->
+        <div class="dash-row-label">
+          <span class="section-label-text">Performance & Activity</span>
+          <span class="section-label-rule"></span>
+        </div>
+        <div class="dash-row-sixths">
+
+          <!-- Attendance -->
+          <div class="prf-card accent-amber" onclick="openModal('att-modal')" role="button">
+            <div class="card-header">
+              <span class="card-icon">◉</span>
+              <span class="card-title">Attendance</span>
+              <select class="card-year-sel" onclick="event.stopPropagation()" onchange="loadCardData('attendance', this.value)">
+                {% for y in avail_years %}<option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+              </select>
             </div>
-          </details>
-        </div>
-        {% endif %}
-
-        {% if ai_sections and ai_sections.equipment_commentary %}
-        <div class="ai-commentary">
-          <span class="ai-commentary-icon">◈</span>
-          <p class="ai-commentary-text" id="ai-equ-commentary">{{ ai_sections.equipment_commentary }}</p>
-        </div>
-        {% endif %}
-
-        {% else %}
-        <div class="placeholder-card">
-          <div class="ph-icon">⬡</div>
-          <div class="ph-title">No Lab Usage Record</div>
-          <div class="ph-desc">This member's email does not match any record in the slotbooking database.</div>
-        </div>
-        {% endif %}
-      </section>
-
-      <!-- PROJECTS -->
-      <section class="pcard" id="projects">
-        <div class="pcard-header">
-          <span class="pcard-icon">◇</span>
-          <span class="pcard-title">Research & Project Involvement</span>
-          {% if not projects.available %}<span class="pending-tag">No Lab Record</span>{% endif %}
-        </div>
-
-        {% if projects.available %}
-          {% if projects.projects %}
-          <div class="sub-section">
-            <div class="sub-title">Projects</div>
-            {% for p in projects.projects %}
-            <div class="project-card">
-              <div class="proj-title">{{ p.project_title }}</div>
-              <div class="proj-meta">
-                {% if p.project_code %}<span>{{ p.project_code }}</span>{% endif %}
-                {% if p.category_name %}<span>{{ p.category_name }}</span>{% endif %}
-                {% if p.area_name %}<span>{{ p.area_name }}</span>{% endif %}
+            <div class="card-metric">
+              <div class="card-big {% if att.attendance_pct >= 90 %}good{% elif att.attendance_pct < 75 %}bad{% else %}warn{% endif %}" id="c-att-pct">
+                {{ att.attendance_pct }}<span class="unit">%</span>
+              </div>
+              <div class="card-sub"><span id="c-att-days">{{ att.days_present }}/{{ att.mandatory_days }}d</span></div>
+              <div class="card-bar" style="margin-top:.35rem;">
+                <div class="card-bar-fill" id="c-att-bar"
+                  style="width:{{ [att.attendance_pct,100]|min }}%;{% if att.attendance_pct >= 90 %}background:var(--green){% elif att.attendance_pct < 75 %}background:var(--red){% endif %}"></div>
               </div>
             </div>
-            {% endfor %}
+            <div class="card-footer"><span class="card-cta">Details <span class="card-cta-arrow">→</span></span></div>
           </div>
-          {% else %}
-          <p class="empty-state">No projects found.</p>
-          {% endif %}
 
-          {% if projects.balance %}
-          <div class="sub-section">
-            <div class="sub-title">Equipment Budget</div>
-            <div class="metric-row">
-              <div class="metric-box">
-                <div class="metric-val">₹{{ projects.balance.total_amount }}</div>
-                <div class="metric-key">Allocated</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-val bad">₹{{ projects.balance.used_amount }}</div>
-                <div class="metric-key">Used</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-val good">₹{{ projects.balance.remaining_amount }}</div>
-                <div class="metric-key">Remaining</div>
-              </div>
+          <!-- Equipment Requests -->
+          <div class="prf-card accent-amber" onclick="openModal('equip-modal')" role="button">
+            <div class="card-header">
+              <span class="card-icon">⬡</span>
+              <span class="card-title">Equip. Req.</span>
+              <select class="card-year-sel" onclick="event.stopPropagation()" onchange="loadCardData('equipment', this.value)">
+                {% for y in avail_years %}<option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+              </select>
             </div>
-          </div>
-          {% endif %}
-
-          {% if projects.papers %}
-          <div class="sub-section">
-            <div class="sub-title">Publications</div>
-            {% for p in projects.papers %}
-            <div class="paper-row">
-              <span class="paper-year">{{ p.year }}</span>
-              <span class="paper-title">{{ p.title }}</span>
-              <span class="paper-journal">{{ p.journal }}</span>
+            <div class="card-metric">
+              {% if equip and equip.available %}
+              <div class="card-big" id="c-equip-total">{{ equip.total_slots }}<span class="unit"> req</span></div>
+              <div class="card-sub" id="c-equip-tools">{{ equip.tools_count }} tools</div>
+              <div class="card-pills" style="margin-top:.3rem;">
+                <span class="cpill green" id="c-equip-approved">✓ {{ equip.approval_stats.approved or 0 }}</span>
+                <span class="cpill amber" id="c-equip-pending">⏳ {{ equip.approval_stats.pending or 0 }}</span>
+              </div>
+              {% else %}
+              <div class="card-empty">No data</div>
+              {% endif %}
             </div>
-            {% endfor %}
+            <div class="card-footer"><span class="card-cta">Breakdown <span class="card-cta-arrow">→</span></span></div>
           </div>
-          {% endif %}
 
-        {% else %}
-        <div class="placeholder-card">
-          <div class="ph-icon">◇</div>
-          <div class="ph-title">No Project Record</div>
-          <div class="ph-desc">Project and publication data unavailable for this member.</div>
-        </div>
-        {% endif %}
-      </section>
-
-      <!-- MONTHLY REPORTS -->
-      {% if monthly %}
-      <section class="pcard" id="monthly">
-        <div class="pcard-header">
-          <span class="pcard-icon">▣</span>
-          <span class="pcard-title">Monthly Reports</span>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Year</th><th>Month</th><th>Status</th><th>Stars</th><th>Comment</th><th>Submitted</th></tr></thead>
-            <tbody>
-            {% for r in monthly %}
-            <tr>
-              <td>{{ r.report_year }}</td>
-              <td>{{ r.report_month }}</td>
-              <td>
-                {% if r.status == 1 %}<span class="tag tag-green">Endorsed</span>
-                {% elif r.status == 0 %}<span class="tag tag-amber">Pending</span>
-                {% else %}<span class="tag">{{ r.status }}</span>{% endif %}
-              </td>
-              <td>{% if r.star %}{{ '★' * r.star }}{% else %}—{% endif %}</td>
-              <td class="note-cell">{{ r.comment or '—' }}</td>
-              <td>{{ r.submitted_at }}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        {% if ai_sections and ai_sections.appraisal_commentary %}
-        <div class="ai-commentary" style="margin-top:1rem;">
-          <span class="ai-commentary-icon">◈</span>
-          <p class="ai-commentary-text" id="ai-apr-commentary">{{ ai_sections.appraisal_commentary }}</p>
-        </div>
-        {% endif %}
-        </div>
-      </section>
-      {% endif %}
-
-      <!-- RESERVATIONS -->
-      {% if reservations %}
-      <section class="pcard" id="reservations">
-        <div class="pcard-header">
-          <span class="pcard-icon">⬡</span>
-          <span class="pcard-title">Equipment Reservations</span>
-          <span class="pending-tag">{{ reservations | length }} records</span>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Equipment</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Summary</th>
-                <th>Project</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-            {% for r in reservations %}
-            <tr>
-              <td>{{ r.tool_name }}</td>
-              <td>{{ r.start_dt }}</td>
-              <td>{{ r.end_dt }}</td>
-              <td class="note-cell">{{ r.summary or '—' }}</td>
-              <td>{{ r.project or '—' }}</td>
-              <td>
-                {% if r.booking_status == 'Completed' %}
-                  <span class="tag tag-green">Completed</span>
-                {% elif r.booking_status == 'Upcoming' %}
-                  <span class="tag tag-amber">Upcoming</span>
-                {% else %}
-                  <span class="tag">{{ r.booking_status }}</span>
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      {% endif %}
-
-      <!-- COMMITTEES -->
-      {% if committees %}
-      <section class="pcard" id="committees">
-        <div class="pcard-header">
-          <span class="pcard-icon">◈</span>
-          <span class="pcard-title">Committee Involvement</span>
-        </div>
-        {% for c in committees %}
-        <div class="project-card">
-          <div class="proj-title">{{ c.committee_name }}</div>
-          {% if c.description %}<div class="proj-meta"><span>{{ c.description }}</span></div>{% endif %}
-          {% if c.position %}<div class="proj-meta"><span>Position: {{ c.position }}</span></div>{% endif %}
-        </div>
-        {% endfor %}
-      </section>
-      {% endif %}
-
-
-      <!-- TRAINING RECORDS -->
-      {% if training %}
-      <section class="pcard" id="training">
-        <div class="pcard-header">
-          <span class="pcard-icon">◎</span>
-          <span class="pcard-title">Equipment Training</span>
-          <span class="pending-tag">{{ training | length }} records</span>
-        </div>
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Equipment</th><th>Type</th><th>Trained On</th><th>Trainer</th><th>Material</th><th>Notes</th></tr></thead>
-            <tbody>
-            {% for t in training %}
-            <tr>
-              <td><strong>{{ t.tool_name }}</strong></td>
-              <td>{% if t.run_type == 'Authorization' %}<span class="tag tag-green">Authorized</span>
-                  {% else %}<span class="tag tag-amber">{{ t.run_type }}</span>{% endif %}</td>
-              <td>{{ t.trained_on | string | truncate(10, True, '') if t.trained_on else '—' }}</td>
-              <td>{{ t.trainer_name or '—' }}</td>
-              <td>{{ '✓' if t.read_material == 'yes' else '—' }}</td>
-              <td class="note-cell">{{ t.comment or '—' }}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      {% endif %}
-
-      <!-- PROFILE HISTORY (admin only) -->
-      {% if full_access and tracking %}
-      <section class="pcard" id="tracking">
-        <div class="pcard-header">
-          <span class="pcard-icon">◷</span>
-          <span class="pcard-title">Profile Change History</span>
-          <span class="pending-tag">{{ tracking | length }} changes</span>
-        </div>
-
-        <div class="table-wrap">
-          <table class="data-table">
-            <thead><tr><th>Field</th><th>From</th><th>To</th><th>Changed By</th><th>When</th></tr></thead>
-            <tbody>
-            {% for t in tracking %}
-            <tr>
-              <td><strong>{{ t.column_name }}</strong></td>
-              <td class="note-cell muted">{{ t.old_value or '—' }}</td>
-              <td class="note-cell">{{ t.new_value or '—' }}</td>
-              <td>{{ t.updated_by_name or '—' }}</td>
-              <td>{{ t.timestamp }}</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-      {% endif %}
-
-<!-- APPRAISALS (admin only) -->
-{% if full_access and (perf_rating or self_appraisal or appraisal_360 or objectives) %}
-<section class="pcard" id="appraisals">
-  <div class="pcard-header">
-    <span class="pcard-icon">◈</span>
-    <span class="pcard-title">Performance Appraisals</span>
-    <span class="pending-tag">{{ perf_rating | length }} cycle{% if perf_rating|length != 1 %}s{% endif %}</span>
-  </div>
-
-  {% set all_cycles = perf_rating | map(attribute='review_name') | list %}
-
-  {% for pr in perf_rating %}
-  {% set cycle = pr.review_name %}
-  <div class="sub-section">
-
-    <!-- Cycle header -->
-    <div class="sub-title" style="display:flex; justify-content:space-between; align-items:center;">
-      <span>{{ cycle | title }}</span>
-      {% if pr.performance_score %}
-        <span class="tag {% if pr.performance_score >= 4 %}tag-green{% elif pr.performance_score >= 3 %}tag-amber{% else %}tag-red{% endif %}">
-          Final Score: {{ pr.performance_score }}
-        </span>
-      {% endif %}
-    </div>
-
-    <!-- Score tiles -->
-    <div class="metric-row" style="margin-bottom:0.75rem;">
-      {% if pr.performance_score %}
-      <div class="metric-box">
-        <div class="metric-val {% if pr.performance_score >= 4 %}good{% elif pr.performance_score >= 3 %}warn{% else %}bad{% endif %}">
-          {{ pr.performance_score }}
-        </div>
-        <div class="metric-key">Final Score</div>
-      </div>
-      {% endif %}
-      {% if pr.self_app_score %}
-      <div class="metric-box">
-        <div class="metric-val">{{ pr.self_app_score }}</div>
-        <div class="metric-key">Self Score</div>
-      </div>
-      {% endif %}
-      {% if pr.guide_score %}
-      <div class="metric-box">
-        <div class="metric-val">{{ pr.guide_score }}</div>
-        <div class="metric-key">Guide Score</div>
-      </div>
-      {% endif %}
-      {% if pr.other_score %}
-      <div class="metric-box">
-        <div class="metric-val">{{ pr.other_score }}</div>
-        <div class="metric-key">Peer Score</div>
-      </div>
-      {% endif %}
-    </div>
-
-    {% if pr.comment %}
-    <div class="ai-commentary" style="margin-bottom:0.75rem;">
-      <span class="ai-commentary-icon">◈</span>
-      <p class="ai-commentary-text">{{ pr.comment }}</p>
-    </div>
-    {% endif %}
-
-    <!-- Self appraisal detail -->
-    {% if self_appraisal and cycle in self_appraisal %}
-    {% set sa = self_appraisal[cycle] %}
-    <details class="details-block">
-      <summary>Self Appraisal Detail</summary>
-      {% if sa.ratings %}
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Question</th><th>Score</th></tr></thead>
-          <tbody>
-          {% for r in sa.ratings %}
-          <tr>
-            <td>{{ r.field_name }}</td>
-            <td>
-              <span class="tag {% if r.value|float >= 4 %}tag-green{% elif r.value|float >= 3 %}tag-amber{% else %}tag-red{% endif %}">
-                {{ r.value }} / 5
-              </span>
-            </td>
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-      {% for c in sa.comments %}
-      <div class="kv-row" style="margin-top:0.5rem;">
-        <span class="kv-key">{{ c.field_name }}</span>
-        <span class="kv-val note-cell">{{ c.value }}</span>
-      </div>
-      {% endfor %}
-    </details>
-    {% endif %}
-
-    <!-- 360 appraisal detail -->
-    {% if appraisal_360 and cycle in appraisal_360 %}
-    {% set a360 = appraisal_360[cycle] %}
-    <details class="details-block">
-      <summary>360° Appraisal Detail</summary>
-      {% if a360.ratings %}
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Question</th><th>Avg Score</th><th>Reviewers</th></tr></thead>
-          <tbody>
-          {% for r in a360.ratings %}
-          <tr>
-            <td>{{ r.field_name }}</td>
-            <td>
-              <span class="tag {% if r.value >= 4 %}tag-green{% elif r.value >= 3 %}tag-amber{% else %}tag-red{% endif %}">
-                {{ r.value }} / 5
-              </span>
-            </td>
-            <td class="note-cell muted">{{ r.reviewer_count }} reviewer{% if r.reviewer_count != 1 %}s{% endif %}</td>
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-      {% for c in a360.comments %}
-      <div class="kv-row" style="margin-top:0.5rem;">
-        <span class="kv-key">{{ c.field_name }}</span>
-        <span class="kv-val note-cell">{{ c.value }}</span>
-      </div>
-      {% endfor %}
-    </details>
-    {% endif %}
-{% if committee_scores and cycle in committee_scores %}
-<details class="details-block">
-  <summary>Committee Scores</summary>
-  <div class="table-wrap">
-    <table class="data-table">
-      <thead><tr><th>Score</th><th>Comment</th><th>Entered By</th></tr></thead>
-      <tbody>
-      {% for c in committee_scores[cycle] %}
-      <tr>
-        <td>
-          <span class="tag {% if c.committee_score|float >= 4 %}tag-green{% elif c.committee_score|float >= 3 %}tag-amber{% else %}tag-red{% endif %}">
-            {{ c.committee_score }}
-          </span>
-        </td>
-        <td class="note-cell">{{ c.committee_comment or '—' }}</td>
-        <td>{{ c.entered_by_name or '—' }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</details>
-{% endif %}
-    <!-- Objectives detail -->
-    {% if objectives and cycle in objectives %}
-    {% set obj = objectives[cycle] %}
-    <details class="details-block">
-      <summary>Objectives & KRAs</summary>
-      {% if obj.ratings %}
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead><tr><th>Objective</th><th>Score</th></tr></thead>
-          <tbody>
-          {% for r in obj.ratings %}
-          <tr>
-            <td>{{ r.field_name }}</td>
-            <td>
-              <span class="tag {% if r.value|float >= 4 %}tag-green{% elif r.value|float >= 3 %}tag-amber{% else %}tag-red{% endif %}">
-                {{ r.value }} / 5
-              </span>
-            </td>
-          </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-      {% for c in obj.comments %}
-      <div class="kv-row" style="margin-top:0.5rem;">
-        <span class="kv-key">{{ c.field_name }}</span>
-        <span class="kv-val note-cell">{{ c.value }}</span>
-      </div>
-      {% endfor %}
-    </details>
-    {% endif %}
-
-  </div>
-  {% if not loop.last %}<hr style="border-color:rgba(255,255,255,0.06); margin:0.5rem 0;">{% endif %}
-  {% endfor %}
-
-</section>
-{% endif %}
-
-      <!-- AI WRITTEN REPORT -->
-      <section class="pcard" id="ai-report">
-        <div class="pcard-header">
-          <span class="pcard-icon">◈</span>
-          <span class="pcard-title">AI Profile Report</span>
-          <span style="margin-left:auto;font-size:0.72rem;background:rgba(251,191,36,0.15);color:var(--amber,#d97706);padding:2px 10px;border-radius:12px;border:1px solid rgba(251,191,36,0.3);">Ollama</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:0.5rem;">
-          <label for="report-audience" style="color:var(--muted,#6b7280);font-size:0.9rem;">Generate for:</label>
-          <select id="report-audience" style="background:rgba(255,255,255,0.06);color:var(--text,#f3f4f6);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 10px;font-size:0.9rem;outline:none;">
-            <option value="management">Management</option>
-            <option value="individual">Individual</option>
-          </select>
-          <button id="report-gen-btn" class="topnav-btn topnav-btn-amber" data-member-id="{{ member_id }}">
-            ◈ Generate Report
-          </button>
-        </div>
-        <div id="report-output" style="display:none;margin-top:1rem;">
-          <div id="report-loading" style="display:none;color:var(--muted,#6b7280);font-size:0.9rem;font-style:italic;align-items:center;gap:0.5rem;">
-            <span style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,0.1);border-top-color:var(--amber,#d97706);border-radius:50%;animation:report-spin 0.8s linear infinite;"></span>
-            Generating report, please wait…
+          <!-- Tool Permissions -->
+          <div class="prf-card accent-blue" onclick="openModal('perms-modal')" role="button">
+            <div class="card-header">
+              <span class="card-icon" style="color:var(--blue);">⊞</span>
+              <span class="card-title">Permissions</span>
+            </div>
+            <div class="card-metric">
+              <div class="card-big" style="color:var(--blue);">{{ tool_perms_rich | length }}<span class="unit"> tools</span></div>
+              <div class="card-sub">access granted</div>
+            </div>
+            <div class="card-footer"><span class="card-cta">View <span class="card-cta-arrow">→</span></span></div>
           </div>
-          <div id="report-error" style="display:none;color:#f87171;background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.3);border-radius:6px;padding:10px;font-size:0.9rem;"></div>
-          <div id="report-text" class="ai-commentary" style="display:none;">
-            <span class="ai-commentary-icon">◈</span>
-            <p class="ai-commentary-text" id="report-text-inner" style="white-space:pre-wrap;font-style:normal;font-size:0.93rem;line-height:1.75;"></p>
-          </div>
-          <div id="report-copy-wrap" style="display:none;margin-top:0.75rem;">
-            <button id="report-copy-btn" class="deep-btn">Copy to Clipboard</button>
-          </div>
-        </div>
-      </section>
-      <style>@keyframes report-spin { to { transform: rotate(360deg); } }</style>
-      <script>
-      (function(){
-        const btn       = document.getElementById("report-gen-btn");
-        const sel       = document.getElementById("report-audience");
-        const output    = document.getElementById("report-output");
-        const loading   = document.getElementById("report-loading");
-        const errBox    = document.getElementById("report-error");
-        const textWrap  = document.getElementById("report-text");
-        const textInner = document.getElementById("report-text-inner");
-        const copyWrap  = document.getElementById("report-copy-wrap");
-        const copyBtn   = document.getElementById("report-copy-btn");
-        btn.addEventListener("click", async () => {
-          output.style.display    = "block";
-          loading.style.display   = "flex";
-          errBox.style.display    = "none";
-          textWrap.style.display  = "none";
-          copyWrap.style.display  = "none";
-          btn.disabled = true;
-          try {
-            const res  = await fetch("/api/report", {
-              method: "POST", headers: {"Content-Type": "application/json"},
-              body: JSON.stringify({ member_id: parseInt(btn.dataset.memberId), audience: sel.value })
-            });
-            const data = await res.json();
-            if (data.success) {
-              textInner.textContent  = data.report;
-              textWrap.style.display = "flex";
-              copyWrap.style.display = "block";
-            } else {
-              errBox.textContent   = data.error || "An error occurred.";
-              errBox.style.display = "block";
-            }
-          } catch(e) {
-            errBox.textContent   = "Could not reach the server. Is Ollama running?";
-            errBox.style.display = "block";
-          } finally {
-            loading.style.display = "none";
-            btn.disabled = false;
-          }
-        });
-        copyBtn.addEventListener("click", () => {
-          navigator.clipboard.writeText(textInner.textContent).then(() => {
-            copyBtn.textContent = "Copied!";
-            setTimeout(() => copyBtn.textContent = "Copy to Clipboard", 2000);
-          });
-        });
-      })();
-      </script>
+
+        </div><!-- /dash-row-sixths -->
+
+      </div><!-- /dash-panel -->
+
     </main>
   </div>
 
+  <!-- ══ MODALS ══════════════════════════════════════════════════════ -->
+
+  <!-- ATTENDANCE MODAL -->
+  <div class="modal-backdrop" id="att-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">◉</span>
+        <span class="modal-title">Attendance & Leave — {{ selected_year }}</span>
+        <button class="modal-close-btn" onclick="closeModal('att-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val {% if att.attendance_pct >= 90 %}good{% elif att.attendance_pct < 75 %}bad{% else %}warn{% endif %}">{{ att.attendance_pct }}%</div><div class="mm-key">Compliance</div></div>
+          <div class="mm-box"><div class="mm-val">{{ att.days_present }}</div><div class="mm-key">Days Present</div></div>
+          <div class="mm-box"><div class="mm-val">{{ att.mandatory_days }}</div><div class="mm-key">Working Days</div></div>
+          <div class="mm-box"><div class="mm-val {% if att.leave_utilisation_pct < 80 %}good{% else %}warn{% endif %}">{{ att.leave_utilisation_pct }}%</div><div class="mm-key">Leave Used</div></div>
+        </div>
+        {% if trend %}
+        <div class="modal-section">
+          <div class="modal-section-title">Monthly Trend</div>
+          <div class="chart-wrap"><canvas id="att-trend-chart"></canvas></div>
+        </div>
+        {% endif %}
+        {% if att.leave_summary %}
+        <div class="modal-section">
+          <div class="modal-section-title">Leave Breakdown</div>
+          <div class="table-scroll">
+            <table class="modal-table">
+              <thead><tr><th>Type</th><th>Taken</th><th>Max Allowed</th><th>Utilisation</th></tr></thead>
+              <tbody>
+              {% for l in att.leave_summary %}
+              <tr>
+                <td>{{ l.type_of_leave }}</td><td>{{ l.days_taken }}</td><td>{{ l.max_allowed or '—' }}</td>
+                <td>{% if l.util_pct is not none %}<span class="stag {% if l.util_pct >= 90 %}stag-red{% elif l.util_pct >= 70 %}stag-amber{% else %}stag-green{% endif %}">{{ l.util_pct }}%</span>{% else %}—{% endif %}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+        {% if att.recent_log %}
+        <div class="modal-section">
+          <div class="modal-section-title">Recent Log</div>
+          <div class="table-scroll" style="max-height:240px;overflow-y:auto;">
+            <table class="modal-table">
+              <thead><tr><th>Date</th><th>Entry</th><th>Exit</th></tr></thead>
+              <tbody>
+              {% for r in att.recent_log[:30] %}
+              <tr><td class="cell-mono">{{ r.date }}</td><td>{{ r.entry_time or '—' }}</td><td>{{ r.exit_time or '—' }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- EQUIPMENT MODAL -->
+  <div class="modal-backdrop" id="equip-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">⬡</span>
+        <span class="modal-title">Equipment Usage — {{ selected_year }}</span>
+        <button class="modal-close-btn" onclick="closeModal('equip-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if equip and equip.available %}
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val">{{ equip.total_slots }}</div><div class="mm-key">Total Requests</div></div>
+          <div class="mm-box"><div class="mm-val">{{ equip.tools_count }}</div><div class="mm-key">Tools Used</div></div>
+          <div class="mm-box"><div class="mm-val good">{{ equip.approval_stats.approved or 0 }}</div><div class="mm-key">Approved</div></div>
+          <div class="mm-box"><div class="mm-val warn">{{ equip.approval_stats.pending or 0 }}</div><div class="mm-key">Pending</div></div>
+        </div>
+        {% if equip.tools_used %}
+        <div class="modal-section">
+          <div class="modal-section-title">Top Equipment</div>
+          <div class="chart-wrap tall"><canvas id="equip-bar-chart"></canvas></div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Request Detail</div>
+          <div class="table-scroll">
+            <table class="modal-table">
+              <thead><tr><th>Tool</th><th>Requests</th><th>Approved</th><th>Pending</th></tr></thead>
+              <tbody>
+              {% for t in equip.tools_used %}
+              <tr><td>{{ t.tool_name }}</td><td class="cell-mono">{{ t.times_booked }}</td><td><span class="stag stag-green">{{ t.approved or 0 }}</span></td><td><span class="stag stag-amber">{{ t.pending or 0 }}</span></td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+        {% if equip.lab_access_log %}
+        <div class="modal-section">
+          <div class="modal-section-title">Lab Access Log</div>
+          <div class="table-scroll">
+            <table class="modal-table">
+              <thead><tr><th>Date</th><th>Equipment</th><th>Period</th><th>Status</th></tr></thead>
+              <tbody>
+              {% for r in equip.lab_access_log %}
+              <tr>
+                <td class="cell-mono">{{ r.access_date }}</td><td class="cell-muted">{{ r.equipments }}</td><td>{{ r.access_period }} days</td>
+                <td>{% if r.approval == 1 %}<span class="stag stag-green">Approved</span>{% elif r.approval == 2 %}<span class="stag stag-red">Rejected</span>{% else %}<span class="stag stag-amber">Pending</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No equipment data for this member.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RESERVATIONS MODAL -->
+  <div class="modal-backdrop" id="res-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">▣</span>
+        <span class="modal-title">Slot Reservations — {{ selected_year }}</span>
+        <button class="modal-close-btn" onclick="closeModal('res-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val">{{ reservations | length }}</div><div class="mm-key">Total</div></div>
+          <div class="mm-box"><div class="mm-val good" id="rm-completed">—</div><div class="mm-key">Completed</div></div>
+          <div class="mm-box"><div class="mm-val warn" id="rm-upcoming">—</div><div class="mm-key">Upcoming</div></div>
+          <div class="mm-box"><div class="mm-val" id="rm-tools">—</div><div class="mm-key">Tools</div></div>
+        </div>
+        {% if reservations %}
+        <div class="modal-section">
+          <div class="modal-section-title">Most Used Equipment</div>
+          <div id="res-tools-bars" style="display:flex;flex-direction:column;gap:.4rem;"></div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Reservation Log ({{ reservations | length }})</div>
+          <div class="table-scroll" style="max-height:240px;overflow-y:auto;">
+            <table class="modal-table">
+              <thead><tr><th>Equipment</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
+              <tbody>
+              {% for r in reservations %}
+              <tr>
+                <td>{{ r.tool_name or '—' }}</td>
+                <td class="cell-muted">{{ r.start_dt or '—' }}</td>
+                <td class="cell-muted">{{ r.end_dt or '—' }}</td>
+                <td>{% if r.booking_status %}<span class="stag {% if 'Completed' in r.booking_status %}stag-muted{% elif 'Upcoming' in r.booking_status %}stag-amber{% else %}stag-green{% endif %}">{{ r.booking_status }}</span>{% else %}—{% endif %}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No reservations for this year.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOL PERMISSIONS MODAL -->
+  <div class="modal-backdrop" id="perms-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--blue);">⊞</span>
+        <span class="modal-title">Tool Permissions ({{ tool_perms_rich | length }})</span>
+        <button class="modal-close-btn" onclick="closeModal('perms-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if tool_perms_rich %}
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Tool</th><th>Faculty Incharge</th><th>Permission Date</th></tr></thead>
+            <tbody>
+            {% for t in tool_perms_rich %}
+            <tr><td><strong>{{ t.tool_name }}</strong></td><td class="cell-muted">{{ t.faculty_name or '—' }}</td><td class="cell-mono">{{ t.permission_date or '—' }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No tool permissions on record.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- OWNERSHIP CURRENT MODAL -->
+  <div class="modal-backdrop" id="ownership-current-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">◐</span>
+        <span class="modal-title">Current Tool Assignments</span>
+        <button class="util-btn amber" style="margin-left:auto;margin-right:.6rem;" onclick="downloadOwnerPDF()">⬇ PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('ownership-current-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if system_owned %}
+        <div class="modal-metrics">
+          {% set working = system_owned | selectattr('isworking') | list | length %}
+          <div class="mm-box"><div class="mm-val">{{ system_owned | length }}</div><div class="mm-key">Total Tools</div></div>
+          <div class="mm-box"><div class="mm-val good">{{ working }}</div><div class="mm-key">Working</div></div>
+          <div class="mm-box"><div class="mm-val {% if system_owned | length - working > 0 %}bad{% else %}good{% endif %}">{{ system_owned | length - working }}</div><div class="mm-key">Down</div></div>
+        </div>
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Tool</th><th>Category</th><th>Location</th><th>Since</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for t in system_owned %}
+            <tr>
+              <td><strong>{{ t.name or '—' }}</strong></td>
+              <td class="cell-muted">{{ t.category or '—' }}</td>
+              <td class="cell-muted">{{ t.location or '—' }}</td>
+              <td class="cell-mono">{{ t.ownership_date or '—' }}</td>
+              <td><span class="stag {% if t.isworking %}stag-green{% else %}stag-red{% endif %}">{{ 'Working' if t.isworking else 'Down' }}</span></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No tools currently assigned.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- OWNERSHIP HISTORY MODAL -->
+  <div class="modal-backdrop" id="ownership-history-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--blue);">↻</span>
+        <span class="modal-title">Ownership History</span>
+        <button class="util-btn" style="margin-left:auto;margin-right:.6rem;" onclick="downloadOwnerTrackPDF()">⬇ PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('ownership-history-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if owner_track %}
+        {% set active_own = owner_track | selectattr('is_active') | list | length %}
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val">{{ owner_track | length }}</div><div class="mm-key">Total Records</div></div>
+          <div class="mm-box"><div class="mm-val good">{{ active_own }}</div><div class="mm-key">Active</div></div>
+          <div class="mm-box"><div class="mm-val">{{ owner_track | length - active_own }}</div><div class="mm-key">Removed</div></div>
+        </div>
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Tool</th><th>Category</th><th>Owned From</th><th>Removed On</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for t in owner_track %}
+            <tr>
+              <td><strong>{{ t.tool_name or '—' }}</strong></td>
+              <td class="cell-muted">{{ t.category or '—' }}</td>
+              <td class="cell-mono">{{ t.owned_since or '—' }}</td>
+              <td class="cell-mono">{{ t.removed_on or '—' }}</td>
+              <td>{% if t.is_active %}<span class="stag stag-green">Active</span>{% else %}<span class="stag stag-muted">Removed</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No ownership history on record.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- TRACKING MODAL -->
+  {% if full_access %}
+  <div class="modal-backdrop" id="tracking-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--purple);">▤</span>
+        <span class="modal-title">Profile Change Audit Log</span>
+        <button class="modal-close-btn" onclick="closeModal('tracking-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if tracking %}
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Date</th><th>Field</th><th>Old Value</th><th>New Value</th><th>Updated By</th></tr></thead>
+            <tbody>
+            {% for t in tracking %}
+            <tr>
+              <td class="cell-mono" style="white-space:nowrap;">{{ t.timestamp or '—' }}</td>
+              <td><strong>{{ t.column_name or '—' }}</strong></td>
+              <td class="cell-muted">{{ t.old_value or '—' }}</td>
+              <td>{{ t.new_value or '—' }}</td>
+              <td class="cell-muted">{{ t.updated_by_name or '—' }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No profile changes recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ANOMALY MODAL -->
+  <div class="modal-backdrop" id="anomaly-modal" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:560px;">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--red);">⚑</span>
+        <span class="modal-title">Anomaly & Alert Flags</span>
+        <button class="modal-close-btn" onclick="closeModal('anomaly-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if anomalies %}
+        <div style="display:flex;flex-direction:column;gap:.5rem;">
+          {% for a in anomalies %}
+          <div style="display:flex;align-items:flex-start;gap:.6rem;padding:.62rem .82rem;border-radius:var(--radius);border:1px solid;
+            {% if a.level == 'critical' %}background:var(--red-dim);border-color:rgba(244,63,94,.25);color:#fca5a5;
+            {% elif a.level == 'warning' %}background:var(--amber-dim);border-color:rgba(245,166,35,.25);color:#fcd34d;
+            {% else %}background:var(--blue-dim);border-color:rgba(56,189,248,.2);color:#93c5fd;{% endif %}">
+            <span style="flex-shrink:0;">{% if a.level == 'critical' %}⚠{% elif a.level == 'warning' %}◐{% else %}ℹ{% endif %}</span>
+            <span style="font-size:.8rem;line-height:1.5;">{{ a.message }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p style="color:var(--green);text-align:center;padding:2rem;">✓ All systems normal — no anomalies detected.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF MODALS -->
+  <div class="modal-backdrop" id="pdf-year-modal" role="dialog" aria-modal="true">
+    <div class="modal-box pdf-modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">⬇</span>
+        <span class="modal-title">Download PDF Report</span>
+        <button class="modal-close-btn" onclick="closeModal('pdf-year-modal')">✕</button>
+      </div>
+      <div class="pdf-modal-body">
+        <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">Select the year for your report.</p>
+        <label class="pdf-modal-label">Report Year</label>
+        <select id="pdf-year-select" class="pdf-modal-select">
+          {% for y in avail_years %}<option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+        <button class="pdf-btn" onclick="confirmPDFDownload()">Generate & Download →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="pdf-progress-modal" role="dialog" aria-modal="true">
+    <div class="modal-box pdf-modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">⬇</span>
+        <span class="modal-title">Generating PDF…</span>
+      </div>
+      <div class="pdf-modal-body">
+        <p id="pdf-status-msg" style="font-size:.8rem;color:var(--muted);">Please wait while the report is prepared.</p>
+        <div class="pdf-progress-bar"><div class="pdf-progress-fill" id="pdf-prog"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI PANEL -->
+  <div class="ai-bubble" onclick="toggleAI()" role="button">✦ AI</div>
+  <div class="ai-panel" id="ai-panel" role="dialog">
+    <div class="ai-panel-head">
+      <span class="ai-panel-title">✦ AI Analyst</span>
+      <button class="ai-close" onclick="toggleAI()">✕</button>
+    </div>
+    <div class="ai-opts">
+      <button class="ai-opt-btn" onclick="quickAI('short summary', this)">Quick Summary</button>
+      <button class="ai-opt-btn" onclick="quickAI('executive briefing', this)">Executive</button>
+    </div>
+    <div class="ai-output" id="ai-output"></div>
+    <div class="ai-cursor" id="ai-cursor">▌</div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="ai-input" type="text" placeholder="Ask about this profile…" autocomplete="off">
+      <button class="ai-send" onclick="sendAI()">↑</button>
+    </div>
+  </div>
+
+  <!-- SCRIPTS -->
   <script>
-    async function regenSummary() {
-      const btn = document.querySelector('.regen-btn');
-      const txt = document.getElementById('ai-text');
-      btn.innerHTML = '<span class="spin">↺</span> Generating…';
-      btn.disabled = true;
-      txt.style.opacity = '0.4';
-      try {
-        const res  = await fetch('/api/ai-summary', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({member_id: {{ member_id }}})
-        });
-        const data = await res.json();
-        txt.textContent = data.summary || 'No summary generated.';
-        // Update section commentaries if returned
-        if (data.sections) {
-          const attEl  = document.getElementById('ai-att-commentary');
-          const equEl  = document.getElementById('ai-equ-commentary');
-          const aprEl  = document.getElementById('ai-apr-commentary');
-          if (attEl && data.sections.attendance_commentary)  attEl.textContent  = data.sections.attendance_commentary;
-          if (equEl && data.sections.equipment_commentary)   equEl.textContent  = data.sections.equipment_commentary;
-          if (aprEl && data.sections.appraisal_commentary)   aprEl.textContent  = data.sections.appraisal_commentary;
-        }
-      } catch (e) {
-        txt.textContent = 'Failed to regenerate. Try again.';
-      }
-      txt.style.opacity = '1';
-      btn.innerHTML = '↺ Regenerate';
-      btn.disabled = false;
+    const MEMBER_ID    = {{ member_id }};
+    const RESERVATIONS = {{ reservations | tojson | safe }};
+    const ATT_TREND    = {{ trend | tojson | safe if trend else '[]' }};
+    const EQUIP_TOOLS  = {{ (equip.tools_used | tojson | safe) if equip and equip.available and equip.tools_used else '[]' }};
+
+    function toggleTheme() {
+      const h = document.documentElement;
+      const n = h.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      h.setAttribute('data-theme', n); localStorage.setItem('iitbnf_theme', n);
+      document.getElementById('theme-btn').textContent = n === 'dark' ? '☀ Light' : '☾ Dark';
     }
+    document.getElementById('theme-btn').textContent =
+      document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light' : '☾ Dark';
 
-
-    async function runDeepAnalysis() {
-      const btn     = document.getElementById('deep-btn');
-      const panel   = document.getElementById('deep-panel');
-      const content = document.getElementById('deep-content');
-      if (panel.style.display === 'block') {
-        panel.style.display = 'none';
-        btn.textContent = '⬡ Deep Analysis';
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = '⬡ Analysing…';
-      panel.style.display = 'block';
-      content.innerHTML = '<div class="deep-loading"><div class="loading-spinner"></div><span>Running deep analysis… this may take 20–30 seconds</span></div>';
-      try {
-        const res  = await fetch('/api/ai-insights/analyse', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({member_id: {{ member_id }}})
-        });
-        const data = await res.json();
-        content.textContent = data.analysis || 'No analysis returned.';
-      } catch(e) {
-        content.textContent = 'Deep analysis failed — check your AI connection.';
-      }
-      btn.disabled = false;
-      btn.textContent = '⬡ Hide Analysis';
-    }
-
-    document.querySelectorAll('.section-nav a').forEach(a => {
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        document.querySelector(a.getAttribute('href'))
-          ?.scrollIntoView({behavior: 'smooth', block: 'start'});
-      });
-    });
-  </script>
-  <script>
-    // Inject print date into profile-main
-    document.getElementById("profile-main").setAttribute(
-      "data-date", new Date().toLocaleDateString("en-IN", {day:"2-digit",month:"short",year:"numeric"})
-    );
-
-    // Track this profile visit for recent history
-    try {
-      const RECENT_KEY = "iitbnf_recent_profiles";
-      const MAX_RECENT = 8;
-      const item = {
-        id:   "{{ "%04d" % member_id }}",
-        name: "{{ person.display_name }}",
-        url:  "/profile/{{ member_id }}",
-        type: "staff"
-      };
-      let list = JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
-      list = list.filter(r => !(r.id === item.id && r.type === item.type));
-      list.unshift(item);
-      if (list.length > MAX_RECENT) list = list.slice(0, MAX_RECENT);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(list));
-    } catch(e) {}
-    function downloadPDF(memberId) {
-        const modal = document.getElementById('pdf-modal');
-        const msg   = document.getElementById('pdf-status-message');
-        const prog  = document.getElementById('pdf-progress');
-
-        // Show modal with progress animation
-        modal.style.display = 'flex';
-        msg.textContent = 'Generating PDF, please wait…';
-        msg.style.color = '';
-        prog.style.width = '0%';
-
-        // Animate progress bar while WeasyPrint works (purely cosmetic)
-        let pct = 0;
-        const ticker = setInterval(() => {
-            pct = Math.min(pct + Math.random() * 12, 85);
-            prog.style.width = pct + '%';
-        }, 400);
-
-        // Use a hidden iframe so the page doesn't navigate away
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = `/profile/${memberId}/pdf`;
-        document.body.appendChild(iframe);
-
-        // WeasyPrint typically takes 2-5s; close modal once browser receives the file
-        iframe.onload = () => {
-            clearInterval(ticker);
-            prog.style.width = '100%';
-            msg.textContent = 'Download started!';
-            setTimeout(closePDFModal, 1200);
-            iframe.remove();
-        };
-
-        // Fallback: close after 15s in case onload never fires
-        setTimeout(() => {
-            clearInterval(ticker);
-            closePDFModal();
-            iframe.remove();
-        }, 15000);
-    }
-
-    function closePDFModal() {
-        document.getElementById('pdf-modal').style.display = 'none';
-        document.getElementById('pdf-progress').style.width = '0%';
-        document.getElementById('pdf-status-message').textContent = 'Generating PDF, please wait…';
-        document.getElementById('pdf-status-message').style.color = '';
-    }
-
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') closePDFModal();
-    });
-  </script>
-
-  <script>
     function switchYear(year) {
-      const url = new URL(window.location.href);
-      url.searchParams.set('year', year);
-      window.location.href = url.toString();
+      const url = new URL(window.location.href); url.searchParams.set('year', year); window.location.href = url.toString();
     }
-  </script>
 
+    const _chartInits = {};
+    function openModal(id) {
+      document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden';
+      if (!_chartInits[id]) {
+        _chartInits[id] = true;
+        if (id === 'att-modal')   initAttChart();
+        if (id === 'equip-modal') initEquipChart();
+        if (id === 'res-modal')   initResModal();
+      }
+    }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open')); });
+    document.querySelectorAll('.modal-backdrop').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m) { m.classList.remove('open'); document.body.style.overflow = ''; } });
+    });
+
+    // Charts
+    function chartColors() {
+      const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+      return { grid: dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', tick: dark ? '#7c859e' : '#556074' };
+    }
+
+    let _attChart;
+    function initAttChart() {
+      if (!ATT_TREND.length || !window.Chart) return;
+      const ctx = document.getElementById('att-trend-chart'); if (!ctx) return;
+      const { grid, tick } = chartColors();
+      const grad = ctx.getContext('2d').createLinearGradient(0, 0, 0, 220);
+      grad.addColorStop(0, 'rgba(245,166,35,0.3)'); grad.addColorStop(1, 'rgba(245,166,35,0.02)');
+      _attChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ATT_TREND.map(d => d.month),
+          datasets: [
+            { label: 'Present', data: ATT_TREND.map(d => d.present), backgroundColor: grad, borderColor: 'rgba(245,166,35,0.7)', borderWidth: 1, borderRadius: { topLeft: 4, topRight: 4 }, barPercentage: 0.6 },
+            { label: 'Mandatory', data: ATT_TREND.map(d => d.mandatory), type: 'line', borderColor: 'rgba(100,116,139,0.5)', backgroundColor: 'transparent', pointRadius: 0, borderDash: [4, 3], borderWidth: 1.5, tension: 0.3 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } }, scales: { x: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid } }, y: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid }, beginAtZero: true } } }
+      });
+    }
+
+    let _equipChart;
+    function initEquipChart() {
+      if (!EQUIP_TOOLS.length || !window.Chart) return;
+      const ctx = document.getElementById('equip-bar-chart'); if (!ctx) return;
+      const { grid, tick } = chartColors();
+      const top8 = EQUIP_TOOLS.slice(0, 8);
+      _equipChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: top8.map(t => t.tool_name.length > 22 ? t.tool_name.slice(0,22)+'…' : t.tool_name), datasets: [{ label: 'Requests', data: top8.map(t => t.times_booked), backgroundColor: 'rgba(245,166,35,0.75)', borderColor: 'rgba(245,166,35,0.9)', borderWidth: 1, borderRadius: 4, barPercentage: 0.65 }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tick, font: { size: 10 } }, grid: { color: grid } }, y: { ticks: { color: tick, font: { size: 10 } }, grid: { display: false } } } }
+      });
+    }
+
+    function initResModal() {
+      if (!RESERVATIONS.length) return;
+      const completed = RESERVATIONS.filter(r => (r.booking_status||'').includes('Completed')).length;
+      const upcoming  = RESERVATIONS.filter(r => (r.booking_status||'').includes('Upcoming')).length;
+      const tools     = new Set(RESERVATIONS.map(r => r.tool_name).filter(Boolean)).size;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('rm-completed', completed); set('rm-upcoming', upcoming); set('rm-tools', tools);
+      const toolCounts = {};
+      RESERVATIONS.forEach(r => { if (r.tool_name) toolCounts[r.tool_name] = (toolCounts[r.tool_name]||0)+1; });
+      const sorted = Object.entries(toolCounts).sort((a,b) => b[1]-a[1]).slice(0,6);
+      const el = document.getElementById('res-tools-bars');
+      if (el && sorted.length) {
+        el.innerHTML = sorted.map(([name, cnt]) => `
+          <div style="display:flex;align-items:center;gap:.5rem;">
+            <span style="font-size:.73rem;color:var(--muted);width:155px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${name}">${name}</span>
+            <div style="flex:1;height:3px;background:var(--surface3);border-radius:999px;overflow:hidden;"><div style="width:${(cnt/sorted[0][1]*100)}%;height:100%;background:var(--green);border-radius:999px;"></div></div>
+            <span style="font-family:var(--font-mono);font-size:.66rem;color:var(--muted);min-width:18px;text-align:right;">${cnt}</span>
+          </div>`).join('');
+      }
+      const sub = document.getElementById('c-res-tools');
+      if (sub) sub.textContent = `${tools} unique tool${tools !== 1 ? 's' : ''}`;
+    }
+    window.addEventListener('load', initResModal);
+
+    function loadCardData(section, year) {
+      fetch(`/api/section/staff/${MEMBER_ID}/${section}?year=${year}`).then(r => r.json()).then(data => {
+        if (!data.success) return;
+        if (section === 'attendance')   updateAttCard(data.data);
+        if (section === 'equipment')    updateEquipCard(data.data);
+        if (section === 'reservations') updateResCard(data.data);
+      }).catch(console.error);
+    }
+    function updateAttCard(d) {
+      if (!d) return;
+      const p = d.attendance_pct || 0;
+      const el = document.getElementById('c-att-pct');
+      if (el) { el.innerHTML = p + '<span class="unit">%</span>'; el.className = 'card-big ' + (p >= 90 ? 'good' : p < 75 ? 'bad' : 'warn'); }
+      const ds = document.getElementById('c-att-days'); if (ds) ds.textContent = `${d.days_present||0} of ${d.mandatory_days||0} days`;
+      const bar = document.getElementById('c-att-bar'); if (bar) bar.style.width = Math.min(p, 100) + '%';
+      const lp = document.getElementById('c-leave-pct'); if (lp) lp.innerHTML = (d.leave_utilisation_pct||0) + '<span class="unit">%</span>';
+    }
+    function updateEquipCard(d) {
+      if (!d || !d.available) return;
+      const set = (id, v) => { const e = document.getElementById(id); if (e) e.innerHTML = v; };
+      set('c-equip-total', (d.total_slots||0) + '<span class="unit"> req</span>');
+      set('c-equip-tools', ''); document.getElementById('c-equip-tools').textContent = (d.tools_count||0) + ' tools used';
+      set('c-equip-approved', '✓ ' + (d.approval_stats?.approved||0));
+      set('c-equip-pending', '⏳ ' + (d.approval_stats?.pending||0));
+    }
+    function updateResCard(rows) {
+      if (!rows) return;
+      const tools = new Set(rows.map(r => r.tool_name).filter(Boolean)).size;
+      const el = document.getElementById('c-res-total'); if (el) el.innerHTML = rows.length + '<span class="unit"> slots</span>';
+      const sub = document.getElementById('c-res-tools'); if (sub) sub.textContent = tools + ' unique tools';
+    }
+
+    function openPDFModal() { openModal('pdf-year-modal'); }
+    function confirmPDFDownload() {
+      const year = document.getElementById('pdf-year-select').value;
+      closeModal('pdf-year-modal');
+      _downloadPDF(`/profile/${MEMBER_ID}/pdf?year=${year}`, `IITBNF_Profile_${String(MEMBER_ID).padStart(4,'0')}_${year}.pdf`);
+    }
+    async function _downloadPDF(url, filename) {
+      openModal('pdf-progress-modal');
+      const prog = document.getElementById('pdf-prog'), msg = document.getElementById('pdf-status-msg');
+      let pct = 0;
+      const ticker = setInterval(() => { pct = Math.min(pct + Math.random()*14, 85); prog.style.width = pct + '%'; }, 450);
+      try {
+        const res = await fetch(url); if (!res.ok) throw new Error('Server error ' + res.status);
+        const blob = await res.blob();
+        const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
+        a.click(); URL.revokeObjectURL(a.href);
+        clearInterval(ticker); prog.style.width = '100%'; msg.textContent = 'Download started!';
+        setTimeout(() => closeModal('pdf-progress-modal'), 1400);
+      } catch(e) { clearInterval(ticker); msg.textContent = 'PDF generation failed.'; setTimeout(() => closeModal('pdf-progress-modal'), 2500); }
+    }
+    async function downloadOwnerPDF()      { _downloadPDF(`/api/profile/${MEMBER_ID}/system-owner-pdf`,       `System_Ownership_${MEMBER_ID}.pdf`); }
+    async function downloadOwnerTrackPDF() { _downloadPDF(`/api/profile/${MEMBER_ID}/system-owner-track-pdf`, `System_Ownership_Track_${MEMBER_ID}.pdf`); }
+
+    let _aiSrc = null;
+    function toggleAI() { document.getElementById('ai-panel').classList.toggle('open'); }
+    function quickAI(phrase, btn) {
+      document.getElementById('ai-input').value = phrase;
+      document.querySelectorAll('.ai-opt-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+      startAIStream(phrase);
+    }
+    function sendAI() { const msg = document.getElementById('ai-input').value.trim(); if (msg) startAIStream(msg); }
+    function startAIStream(message) {
+      const out = document.getElementById('ai-output'), cur = document.getElementById('ai-cursor');
+      out.textContent = ''; cur.style.display = 'block';
+      if (_aiSrc) { _aiSrc.close(); _aiSrc = null; }
+      _aiSrc = new EventSource(`/api/ai/stream?profile_type=staff&profile_id=${MEMBER_ID}&message=${encodeURIComponent(message)}`);
+      _aiSrc.onmessage = e => {
+        if (e.data === '[DONE]') { cur.style.display = 'none'; document.querySelectorAll('.ai-opt-btn').forEach(b => b.classList.remove('active')); _aiSrc.close(); _aiSrc = null; return; }
+        if (e.data.startsWith('[ERROR]')) { out.textContent = e.data; cur.style.display = 'none'; _aiSrc.close(); _aiSrc = null; return; }
+        try { out.textContent += JSON.parse(e.data); out.scrollTop = out.scrollHeight; } catch(err){}
+      };
+      _aiSrc.onerror = () => { cur.style.display = 'none'; if (!out.textContent) out.textContent = 'Connection error.'; _aiSrc.close(); _aiSrc = null; };
+    }
+    document.getElementById('ai-input').addEventListener('keydown', e => { if (e.key === 'Enter') sendAI(); });
+
+    try {
+      const KEY = 'iitbnf_recent_profiles', MAX = 8;
+      const item = { id: '{{ "%04d" % member_id }}', name: '{{ person.display_name }}', url: '/profile/{{ member_id }}', type: 'staff' };
+      let list = JSON.parse(localStorage.getItem(KEY) || '[]');
+      list = list.filter(r => !(r.id === item.id && r.type === item.type));
+      list.unshift(item); if (list.length > MAX) list = list.slice(0, MAX);
+      localStorage.setItem(KEY, JSON.stringify(list));
+    } catch(e) {}
+  </script>
 </body>
 </html>

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>System Ownership Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; padding: 30px; }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 2px solid #d97706;
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+  }
+  .header-left h1 { font-size: 20px; color: #d97706; font-family: 'Courier New', monospace; }
+  .header-left .sub { font-size: 11px; color: #666; margin-top: 4px; }
+  .header-right { text-align: right; font-size: 10px; color: #999; }
+
+  .identity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .id-cell .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #999; }
+  .id-cell .value { font-size: 12px; font-weight: 600; color: #1a1a1a; margin-top: 2px; }
+
+  .section { margin-bottom: 24px; }
+  .section-hdr {
+    background: #d97706;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 6px 12px;
+    border-radius: 4px 4px 0 0;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  table th {
+    background: #f5f5f5;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 7px 10px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+    color: #555;
+  }
+  table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 11px;
+  }
+  table tr:last-child td { border-bottom: none; }
+  table tr:nth-child(even) td { background: #fafafa; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-red   { background: #fee2e2; color: #991b1b; }
+  .badge-amber { background: #fef3c7; color: #92400e; }
+
+  .empty {
+    padding: 20px;
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    background: #fafafa;
+    border: 1px dashed #ddd;
+  }
+
+  .footer {
+    margin-top: 32px;
+    padding-top: 12px;
+    border-top: 1px solid #ddd;
+    font-size: 9px;
+    color: #bbb;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>IITBNF</h1>
+    <div class="sub">System Ownership Report — IIT Bombay Nanofabrication Facility</div>
+  </div>
+  <div class="header-right">
+    Generated: {{ now }}<br>
+    Member ID: {{ '%04d' % member_id }}
+  </div>
+</div>
+
+<!-- Identity -->
+<div class="identity-grid">
+  <div class="id-cell">
+    <div class="label">Name</div>
+    <div class="value">{{ name }}</div>
+  </div>
+  {% if person.designation or person.position %}
+  <div class="id-cell">
+    <div class="label">Designation</div>
+    <div class="value">{{ person.designation or person.position }}</div>
+  </div>
+  {% endif %}
+  {% if person.team %}
+  <div class="id-cell">
+    <div class="label">Team</div>
+    <div class="value">{{ person.team }}</div>
+  </div>
+  {% endif %}
+  {% if person.email %}
+  <div class="id-cell">
+    <div class="label">Email</div>
+    <div class="value">{{ person.email }}</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Currently Assigned Tools -->
+<div class="section">
+  <div class="section-hdr">Currently Assigned Tools ({{ owned | length }})</div>
+  {% if owned %}
+  <table>
+    <thead>
+      <tr>
+        <th>Tool Name</th>
+        <!-- <th>Category</th>
+        <th>Location</th>
+        <th>Type</th> -->
+        <th>Years of Ownership</th>
+        <!-- <th>Equipment Status</th> -->
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in owned %}
+      <tr>
+        <td><strong>{{ t.name or '—' }}</strong></td>
+        <!-- <td>{{ t.category or '—' }}</td>
+        <td>{{ t.location or '—' }}</td>
+        <td>{{ t.type_of_tool or '—' }}</td> -->
+        <td>
+          {% set d = t.duration_display or '—' %}
+          {% if d == 'Just Received' %}
+            <strong style="color:#92400e;">Just Received</strong>
+          {% elif d == '< 1 Year' %}
+            <strong style="color:#1d4ed8;">&lt; 1 Year</strong>
+          {% elif d == '—' %}
+            <span style="color:#999;">—</span>
+          {% else %}
+            <strong style="color:#065f46;">{{ d }}</strong>
+          {% endif %}
+        </td>
+        <!-- <td>
+          {% if t.isworking %}
+            <span class="badge badge-green">Working</span>
+          {% else %}
+            <span class="badge badge-red">Down</span>
+          {% endif %}
+        </td> -->
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No tools currently assigned as system owner.</div>
+  {% endif %}
+</div>
+
+
+</body>
+</html>

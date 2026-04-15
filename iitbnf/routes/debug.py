@@ -18,14 +18,6 @@ def debug_health():
     return jsonify(get_system_health())
 
 
-@bp.route("/debug/performance")
-@staff_required
-def debug_performance():
-    if not session.get("is_admin"):
-        return "Admin only", 403
-    return jsonify({"message": "Performance monitoring enabled"})
-
-
 @bp.route("/debug/speed-dashboard")
 @staff_required
 def speed_dashboard():

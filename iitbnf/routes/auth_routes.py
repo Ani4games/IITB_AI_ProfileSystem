@@ -5,6 +5,7 @@ from flask import Blueprint, render_template, request, session, redirect, url_fo
 from db import slots_query
 from auth import md5, is_logged_in
 from cache import cache
+
 bp = Blueprint("auth", __name__)
 
 
@@ -15,31 +16,54 @@ def index():
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    if is_logged_in():
-        return redirect(url_for("dashboard.dashboard"))
-
     error = None
     if request.method == "POST":
         email  = request.form.get("email", "").strip()
         passwd = request.form.get("password", "")
-        rows   = slots_query("""
-            SELECT memberid, email, fname, lname, position, is_admin, expiry_date
+
+        rows = slots_query("""
+            SELECT memberid, email, fname, lname, position, is_admin
             FROM login WHERE email=%s AND password=%s LIMIT 1
         """, (email, md5(passwd)))
+
         if rows:
             u = rows[0]
             session.permanent = True
-            session.update({
-                "memberid":  u["memberid"],
-                "email":     u["email"],
-                "fname":     u["fname"],
-                "lname":     u["lname"],
-                "position":  u["position"],
-                "is_admin":  u["is_admin"],
-                "full_name": f"{u['fname']} {u['lname']}".strip(),
-            })
-            return redirect(url_for("dashboard.dashboard"))
-        error = "Invalid email or password."
+
+            def get_val(data, key, index):
+                return data.get(key) if isinstance(data, dict) else data[index]
+
+            try:
+                session.update({
+                    "memberid":  get_val(u, "memberid", 0),
+                    "email":     get_val(u, "email", 1),
+                    "fname":     get_val(u, "fname", 2),
+                    "lname":     get_val(u, "lname", 3),
+                    "position":  get_val(u, "position", 4),
+                    "is_admin":  get_val(u, "is_admin", 5),
+                })
+                session["full_name"] = f"{session['fname']} {session['lname']}".strip()
+
+                # ── ROUTING LOGIC ─────────────────────────────────────────
+                is_admin = session.get("is_admin") == 1
+                position = session.get("position", "")
+
+                from config import STAFF_POSITIONS
+
+                if is_admin:
+                    # Admins go to the new admin panel
+                    return redirect(url_for("admin_panel.index"))
+                elif position in STAFF_POSITIONS:
+                    return redirect(url_for("profile.profile",
+                                            member_id=session["memberid"]))
+                else:
+                    return redirect(url_for("lab_profile.lab_profile",
+                                            memberid=session["memberid"]))
+
+            except Exception as e:
+                error = f"Session Error: {str(e)}"
+        else:
+            error = "Invalid email or password."
 
     return render_template("login.html", error=error)
 
@@ -47,5 +71,5 @@ def login():
 @bp.route("/logout")
 def logout():
     session.clear()
-    cache.clear()  # Clear any cached data for the user
+    cache.clear()
     return redirect(url_for("auth.login"))

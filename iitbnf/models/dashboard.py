@@ -4,14 +4,12 @@ models/dashboard.py — System health, expiry alerts, and dashboard-level querie
 import calendar as cal
 from datetime import date, timedelta, datetime
 from db import hr_query, slots_query
-from cache import cached
 from utils import calc_mandatory_days, get_display_name, run_parallel
 
-
-@cached(ttl_seconds=1800)
+#(ttl_seconds=1800)
 def get_system_health(year=None):
     today    = date.today()
-    year     = year or today.year
+    year     = 2026              # locked to 2026 — ignore any year parameter
     yr_start = date(year, 1, 1)
     yr_end   = date(year, 12, 31) if year < today.year else today
 
@@ -23,15 +21,21 @@ def get_system_health(year=None):
             return 0
 
     counts = run_parallel({
+        # Match get_all_members() exactly — no email filter
         "total_staff":     lambda: safe_count(hr_query,
-            "SELECT COUNT(*) AS cnt FROM profile WHERE (email IS NOT NULL AND email != '') "
-            "AND (leaving_date IS NULL OR leaving_date = '0000-00-00' OR leaving_date >= CURDATE())"),
+            "SELECT COUNT(*) AS cnt FROM profile WHERE "
+            "NOT ((email IS NULL OR email = '') AND (designation IS NULL OR designation = '') AND (team IS NULL OR team = '')) "
+            "AND (leaving_date IS NULL OR leaving_date = '0000-00-00' OR leaving_date >= CURDATE()) "
+            "AND (taken_clearance IS NULL OR taken_clearance = 0)"),
+        # Match get_all_lab_users() exactly — excludes faculty positions
         "total_lab":       lambda: safe_count(slots_query,
-            "SELECT COUNT(*) AS cnt FROM login WHERE (expiry_date IS NULL OR expiry_date = '' "
+            "SELECT COUNT(*) AS cnt FROM login WHERE "
+            "position NOT IN ('Faculty','IITBNF Staff','Institute Facility','NCPRE Academic','Project Staff') "
+            "AND (expiry_date IS NULL OR expiry_date = '' "
             "OR expiry_date = '0000-00-00' OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE())"),
+        # Publications — 2026 only (will show 0 until papers are logged this year)
         "total_papers":    lambda: safe_count(slots_query,
-            "SELECT COUNT(*) AS cnt FROM paper_publish WHERE approve=1 "
-            "AND YEAR(COALESCE(NULLIF(year,0), YEAR(CURDATE()))) = %s", year),
+            "SELECT COUNT(*) AS cnt FROM paper_publish WHERE approve=1 AND year = %s", year),
         "total_tools":     lambda: safe_count(slots_query, "SELECT COUNT(*) AS cnt FROM resources"),
         "active_projects": lambda: safe_count(slots_query,
             "SELECT COUNT(*) AS cnt FROM faculty_projects WHERE active=1 "
@@ -41,7 +45,7 @@ def get_system_health(year=None):
     try:
         mandatory = calc_mandatory_days(year)
         att_rows  = hr_query(
-            "SELECT COUNT(*) AS days FROM user_attendance WHERE date BETWEEN %s AND %s GROUP BY memberid",
+            "SELECT COUNT(*) AS days FROM user_attendance WHERE date BETWEEN %s AND %s GROUP BY memberid HAVING days > 0",
             (yr_start, yr_end))
         avg_pct = round(sum(float(r["days"]) for r in att_rows) / len(att_rows) / mandatory * 100, 1) if att_rows and mandatory else 0
     except Exception:
@@ -60,11 +64,11 @@ def get_system_health(year=None):
 
     months = []
     if year < today.year:
-        month_range = range(1, 13)
+        month_range = range(1, 12)
         def get_bounds(m):
             return date(year, m, 1), date(year, m, cal.monthrange(year, m)[1])
     else:
-        month_range = range(5, -1, -1)
+        month_range = range(4, -1, -1)
         def get_bounds(i):
             m = today.month - i
             y = today.year
@@ -95,7 +99,7 @@ def get_system_health(year=None):
     }
 
 
-@cached(ttl_seconds=1800)
+#(ttl_seconds=1800)
 def get_expiry_alerts(days_ahead=60):
     today  = date.today()
     cutoff = today + timedelta(days=days_ahead)
