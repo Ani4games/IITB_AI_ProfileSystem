@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from db import hr_query, slots_query
 from cache import cached
 
-
 # ── Parallel execution ────────────────────────────────────────────────────────
 def run_parallel(tasks, max_workers=3):
     """Run a dict of {name: callable} in parallel. Returns {name: result}."""
