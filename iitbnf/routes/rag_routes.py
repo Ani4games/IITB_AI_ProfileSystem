@@ -23,7 +23,7 @@ bp = Blueprint("rag", __name__)
 def rag_staff(member_id):
     if not is_full_access():
         flash("Access restricted.", "error")
-        return redirect(url_for("dashboard.dashboard"))
+        return redirect(url_for("admin_panel.index"))
 
     ctx = _build_staff_context(member_id)
     if not ctx:
@@ -45,7 +45,7 @@ def rag_staff(member_id):
 def rag_lab(memberid):
     if not is_full_access():
         flash("Access restricted.", "error")
-        return redirect(url_for("dashboard.dashboard"))
+        return redirect(url_for("admin_panel.index"))
 
     ctx = _build_lab_context(memberid)
     if not ctx:

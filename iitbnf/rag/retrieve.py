@@ -33,14 +33,14 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Import get_index from ingest — single source of truth for the index.
 # collection_size() is also imported from ingest so both pipeline and retrieve
 # share the same, correctly-implemented version.
-from ingest import get_index, collection_size  # noqa: F401  (re-exported)
+from rag.ingest import get_index, collection_size  # noqa: F401  (re-exported)
 
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 WORD_VEC_BACKEND = "spacy"   # "glove" or "spacy" — change to switch globally
-TFIDF_WEIGHT     = 0.5       # α — weight for TF-IDF score
-WV_WEIGHT        = 0.5       # (1-α) — weight for word vector score
+TFIDF_WEIGHT     = 0.8       # α — weight for TF-IDF score
+WV_WEIGHT        = 0.2       # (1-α) — weight for word vector score
 DEFAULT_K        = 5
 MIN_SCORE        = 0.05      # hybrid scores are naturally lower than pure TF-IDF
 
@@ -185,6 +185,10 @@ def retrieve(
     query:   str,
     k:       int = DEFAULT_K,
     backend: str = WORD_VEC_BACKEND,
+    allowed_types=None,
+    requested_name=None,
+    requested_id=None,
+    requested_year=None,
 ) -> list[dict]:
     """
     Hybrid TF-IDF + word vector retrieval.
@@ -250,13 +254,30 @@ def retrieve(
 
         # ── Hybrid score ──────────────────────────────────────────────────────
         hybrid = effective_tfidf_w * tfidf_scores + effective_wv_w * wv_scores
-
+        
         # ── Top-k ─────────────────────────────────────────────────────────────
         top_indices = hybrid.argsort()[::-1][:k]
 
         results = []
         for i in top_indices:
-            score = round(float(hybrid[i]), 4)
+            chunk = chunks[i]
+            hybrid_score = float(hybrid[i])
+            chunk_text = chunk["text"].lower()
+            chunk_type = chunk.get("type")
+
+            if allowed_types and chunk_type not in allowed_types:
+                hybrid_score -= 0.50
+
+            if requested_name and requested_name.lower() in chunk_text:
+                hybrid_score += 0.30
+
+            if requested_id and str(requested_id) in chunk_text:
+                hybrid_score += 0.40
+
+            if requested_year and str(requested_year) in chunk_text:
+                hybrid_score += 0.10
+
+            score = round(hybrid_score, 4)
             if score < MIN_SCORE:
                 continue
             results.append({
@@ -265,10 +286,31 @@ def retrieve(
                 "score":       score,
                 "tfidf_score": round(float(tfidf_scores[i]), 4),
                 "wv_score":    round(float(wv_scores[i]), 4),
+                "staff_id": chunks[i].get("staff_id"),
+                "staff_name": chunks[i].get("staff_name"),
+                "year": chunks[i].get("year"),
+                "type": chunks[i].get("type"),
             })
+        logger.info("Retrieve query: %s", query)
 
+        for r in results:
+            logger.info(
+                "score=%s tfidf=%s wv=%s source=%s text=%s",
+                r["score"],
+                r["tfidf_score"],
+                r["wv_score"],
+                r["source"],
+                r["text"][:200]
+            )
+            print(f"[RETRIEVE] Results count: {len(results)}")
+            for r in results:
+                print(
+                f"[RETRIEVE] score={r['score']} source={r['source']} text={r['text'][:120]}"
+                )
         return results
+        
 
     except Exception as e:
         logger.error("Hybrid retrieve error: %s", e, exc_info=True)
+        print(f"[RETRIEVE] Query: {query}")
         return []

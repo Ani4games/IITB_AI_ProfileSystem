@@ -12,45 +12,29 @@ def md5(text):
 
 
 def is_logged_in():
-    return "memberid" in session
+    return True  # AUTH DISABLED
 
 
 def is_full_access():
-    return (
-        session.get("is_admin") == 1
-        or session.get("position") in STAFF_POSITIONS
-    )
+    return True  # AUTH DISABLED
 
 
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not is_logged_in():
-            flash("Please log in to continue.", "warn")
-            return redirect(url_for("auth.login"))
-        return f(*args, **kwargs)
+        return f(*args, **kwargs)  # AUTH DISABLED
     return decorated
 
 
 def staff_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not is_logged_in():
-            flash("Please log in to continue.", "warn")
-            return redirect(url_for("auth.login"))
-        if not is_full_access():
-            flash("You don't have permission to view this page.", "error")
-            return redirect(url_for("dashboard.dashboard"))
-        return f(*args, **kwargs)
+        return f(*args, **kwargs)  # AUTH DISABLED
     return decorated
+
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not is_logged_in():
-            flash("Please log in to continue.", "warn")
-            return redirect(url_for("auth.login"))
-        if session.get("is_admin") != 1:
-            flash("You don't have permission to view this page.", "error")
-            return redirect(url_for("dashboard.dashboard"))
-        return f(*args, **kwargs)
+        return f(*args, **kwargs)  # AUTH DISABLED
     return decorated

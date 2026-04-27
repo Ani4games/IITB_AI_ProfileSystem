@@ -1,69 +1,96 @@
 """
 ╔══════════════════════════════════════════════════════════════════════╗
-║  AI-Based Personnel Profiling & Activity Analysis System            ║
-║  IIT Bombay Nanofabrication Facility (IITBNF)                       ║
+║  AI-Based Personnel Profiling & Activity Analysis System             ║
+║  IIT Bombay Nanofabrication Facility (IITBNF)                        ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
 app.py — Flask application factory. Registers blueprints and filters.
-All logic lives in models/ and routes/.
+Redundant blueprints (hub, dashboard, admin) have been removed.
 """
 import atexit
-from datetime import datetime
-from flask import Flask
+from datetime import datetime, timedelta
+from flask.json.provider import DefaultJSONProvider
+import threading
+from flask import Flask, session, redirect, url_for
 import config
 from db import hr_pool, slots_pool
+from cache import cache
+from rag.ingest import init_rag
 
-# ── Create app ────────────────────────────────────────────────────────────────
+cache.clear()
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 app = Flask(__name__)
-app.secret_key                        = config.SECRET_KEY
+app.secret_key                = config.SECRET_KEY
 app.config["SESSION_COOKIE_SECURE"]   = config.SESSION_COOKIE_SECURE
 app.config["SESSION_COOKIE_HTTPONLY"] = config.SESSION_COOKIE_HTTPONLY
 app.config["SESSION_COOKIE_SAMESITE"] = config.SESSION_COOKIE_SAMESITE
 app.config["PERMANENT_SESSION_LIFETIME"] = config.PERMANENT_SESSION_LIFETIME
 
+def warmup_pdf():
+    try:
+        from weasyprint import HTML
+        HTML(string="<h1>Warmup</h1>").write_pdf()
+        print("WeasyPrint warmed up")
+    except Exception as e:
+        print("Warmup failed:", e)
+
+threading.Thread(target=warmup_pdf, daemon=True).start()
+
 # ── Jinja filters ─────────────────────────────────────────────────────────────
 @app.template_filter("datetimeformat")
 def datetimeformat(ts):
-    """Unix timestamp → readable string."""
     try:
         return datetime.fromtimestamp(int(ts)).strftime("%d %b %Y, %I:%M %p")
     except Exception:
         return "—"
 
-
 @app.template_filter("datetimeformat_input")
 def datetimeformat_input(ts):
-    """Unix timestamp → datetime-local input format."""
     try:
         return datetime.fromtimestamp(int(ts)).strftime("%Y-%m-%dT%H:%M")
     except Exception:
         return ""
-
-
+# --- GLOBAL JSON FIX ---
+class CustomJSONProvider(DefaultJSONProvider):
+    def default(self, o):
+        if isinstance(o, timedelta):
+            return str(o)  # Fixes "timedelta is not JSON serializable"
+        return super().default(o)
 # ── Register blueprints ───────────────────────────────────────────────────────
-from routes.auth_routes  import bp as auth_bp
-from routes.dashboard    import bp as dashboard_bp
-from routes.profile      import bp as profile_bp
-from routes.lab_profile  import bp as lab_profile_bp
-from routes.admin        import bp as admin_bp
-from routes.ai_routes    import bp as ai_bp
-from routes.announcements import bp as announcements_bp
-from routes.debug        import bp as debug_bp
+from routes.auth_routes      import bp as auth_bp
+from routes.profile          import bp as profile_bp
+from routes.lab_profile      import bp as lab_profile_bp
+from routes.admin_panel      import bp as admin_panel_bp  # Replaces admin/hub/dashboard
+from routes.ai_routes        import bp as ai_bp
+from routes.announcements    import bp as announcements_bp
+from routes.debug            import bp as debug_bp
+from routes.rag_routes       import bp as rag_bp
+from routes.section_routes   import bp as section_bp
+from debug_ai         import bp as debug_ai_bp
 
 app.register_blueprint(auth_bp)
-app.register_blueprint(dashboard_bp)
 app.register_blueprint(profile_bp)
 app.register_blueprint(lab_profile_bp)
-app.register_blueprint(admin_bp)
+app.register_blueprint(admin_panel_bp)
 app.register_blueprint(ai_bp)
 app.register_blueprint(announcements_bp)
 app.register_blueprint(debug_bp)
+app.register_blueprint(rag_bp)
+app.register_blueprint(section_bp)
+app.register_blueprint(debug_ai_bp)
+
+# ── RAG ingestion (background) ───────────────────────────────────────────────
+threading.Thread(target=init_rag, daemon=True).start()
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 @app.teardown_appcontext
 def cleanup(exception=None):
     pass
-
 
 @atexit.register
 def shutdown():
@@ -71,7 +98,10 @@ def shutdown():
     hr_pool.close_all()
     slots_pool.close_all()
 
+@app.route("/clear-session")
+def clear_session():
+    session.clear()
+    return redirect(url_for("auth.login"))
 
-# ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     app.run(debug=True, port=5000, threaded=True, use_reloader=False)

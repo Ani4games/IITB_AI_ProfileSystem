@@ -18,7 +18,7 @@ Just import and use this in your routes or chat handler.
 
 import re
 import logging
-from pipeline import rag_stream, rag_generate, rag_chat
+from rag.pipeline import rag_stream, rag_generate, rag_chat
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,12 @@ MODE_LABELS = {
     "short":     "Quick Summary",
     "executive": "Executive Briefing",
 }
-
+def normalize_question(question: str) -> str:
+    question = question.replace("’", "'").replace("`", "'")
+    question = question.replace("'s's", "'s")
+    question = re.sub(r"#\s*(\d+)", r"#\1", question)
+    question = re.sub(r"\s+", " ", question).strip()
+    return question
 # ── Intent detection ──────────────────────────────────────────────────────────
 
 def detect_intent(user_message: str) -> dict:
@@ -128,7 +133,8 @@ def agent_stream(user_message: str, ctx: dict):
 
     if is_question:
         # For questions, use rag_chat (non-streaming) and yield the answer
-        result = rag_chat(user_message, ctx)
+        clean_message = normalize_question(user_message)
+        result = rag_chat(clean_message, ctx)
         yield result.get("answer", "[No answer generated]")
     else:
         # For report-style requests, stream as before
@@ -168,7 +174,8 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
     ) or user_message.strip().endswith("?")
 
     if is_question:
-        result = rag_chat(user_message, ctx)
+        clean_message = normalize_question(user_message)
+        result = rag_chat(clean_message, ctx)
         return {
             "answer":     result.get("answer", ""),
             "mode":       intent["mode"],
@@ -180,6 +187,8 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
         answer = rag_generate(ctx, audience=(
             "management" if intent["mode"] == "executive" else "individual"
         ))
+        print(f"[AGENT] Mode selected: {intent['mode']}")
+        print(f"[AGENT] Is question: {is_question}")
         return {
             "answer":     answer,
             "mode":       intent["mode"],

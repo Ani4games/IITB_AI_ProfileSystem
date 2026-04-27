@@ -71,5 +71,8 @@ def login():
 @bp.route("/logout")
 def logout():
     session.clear()
-    cache.clear()
+    # Do NOT call cache.clear() here — that wipes shared caches like
+    # get_all_members and get_all_lab_users for every user simultaneously,
+    # making the next admin panel visit re-run all expensive DB queries.
+    # Per-user cached data expires naturally via TTL.
     return redirect(url_for("auth.login"))

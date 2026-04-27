@@ -1,116 +1,771 @@
-<!DOCTYPE html>
-<head>
-<meta charset="UTF-8">
-<title>AI Summary Panel</title>
+<!-- ══════════════════════════════════════════════════════════════════
+     IITBNF — Voice AI Panel
+     Uses: Web Speech API (STT + TTS) — zero server cost
+     Included in: profile.html, lab_profile.html
+══════════════════════════════════════════════════════════════════ -->
 
-</head>
+<!-- ── Trigger Bubble ─────────────────────────────────────────────── -->
+<button id="ai-bubble" onclick="openAIModal()" aria-label="Open AI Voice Assistant" title="IITBNF AI Assistant">
+  <span class="ai-bubble-icon">✦</span>
+  <span class="ai-bubble-label">AI</span>
+</button>
 
+<!-- ── Main Modal ─────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="ai-modal" role="dialog" aria-modal="true" aria-label="IITBNF AI Voice Assistant">
+  <div class="ai-modal-box">
 
-<!-- ══ AI FLOATING BUBBLE ═════════════════════════════════════════ -->
-<div id="ai-bubble" onclick="openAIPanel()" aria-label="Open AI summary panel" role="button" aria-haspopup="dialog" title="AI Summary">
-  <span>✦ AI</span>
+    <!-- Header -->
+    <div class="ai-modal-head">
+      <div class="ai-head-left">
+        <div class="ai-logo-mark">✦</div>
+        <div>
+          <div class="ai-modal-title">IITBNF Assistant</div>
+          <div class="ai-modal-sub" id="ai-status-line">Ready</div>
+        </div>
+      </div>
+      <div class="ai-head-right">
+        <!-- Large Text Toggle -->
+        <button class="ai-util-btn" id="ai-large-text-btn" onclick="toggleLargeText()" title="Larger text for easier reading">
+          <span style="font-size:1rem;">Aa</span>
+        </button>
+        <!-- Voice Toggle -->
+        <button class="ai-util-btn" id="ai-voice-btn" onclick="toggleVoice()" title="Toggle voice output">
+          <span id="ai-voice-icon">🔊</span>
+        </button>
+        <!-- Close -->
+        <button class="ai-modal-close" onclick="closeAIModal()" aria-label="Close assistant">✕</button>
+      </div>
+    </div>
+
+    <!-- Orb + Quick Action Pills -->
+    <div class="ai-orb-zone">
+
+      <div class="ai-orb-wrap">
+        <div class="ai-orb" id="ai-orb">
+          <div class="ai-orb-core" id="ai-orb-core">✦</div>
+        </div>
+        <div class="ai-orb-label" id="ai-orb-label">Tap to speak</div>
+      </div>
+
+      <!-- Quick Action Pills -->
+      <div class="ai-quick-pills">
+        <button class="ai-pill" onclick="quickBrief('brief summary', this)">
+          <span class="pill-icon">◉</span> Brief
+        </button>
+        <button class="ai-pill" onclick="quickBrief('executive briefing for management', this)">
+          <span class="pill-icon">◈</span> Full Report
+        </button>
+        <button class="ai-pill" onclick="quickBrief('what is the attendance percentage', this)">
+          <span class="pill-icon">▦</span> Attendance
+        </button>
+        <button class="ai-pill" onclick="quickBrief('list all equipment and tools used', this)">
+          <span class="pill-icon">⬡</span> Equipment
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Output Area -->
+    <div class="ai-output-area" id="ai-output-area">
+      <div id="ai-output-text" class="ai-output-text">
+        <span class="ai-placeholder">Hello. I am ready to brief you on this profile.<br>
+        Ask me anything, or choose an option above.</span>
+      </div>
+      <div id="ai-typing-cursor" class="ai-typing-cursor" style="display:none;">▌</div>
+    </div>
+
+    <!-- Mic + Text Input Row -->
+    <div class="ai-input-zone">
+      <!-- Mic Button -->
+      <button class="ai-mic-btn" id="ai-mic-btn" onclick="toggleMic()" title="Hold to speak">
+        <span class="ai-mic-icon" id="ai-mic-icon">🎤</span>
+      </button>
+
+      <!-- Text Input -->
+      <div class="ai-text-input-wrap">
+        <input
+          type="text"
+          id="ai-text-input"
+          class="ai-text-input"
+          placeholder="Or type your question here…"
+          autocomplete="off"
+        />
+      </div>
+
+      <!-- Send -->
+      <button class="ai-send-btn" onclick="sendAIText()" title="Send question">
+        <span>↑</span>
+      </button>
+    </div>
+
+    <!-- Speech support warning (shown only if not supported) -->
+    <div id="ai-no-speech-warn" class="ai-no-speech-warn" style="display:none;">
+      ⚠ Voice not available in this browser. Text input works normally.
+      Use Chrome or Edge for full voice features.
+    </div>
+
+  </div>
 </div>
 
-<div id="ai-panel" role="dialog" aria-modal="false" aria-label="AI profile summary">
-  <div id="ai-panel-header">
-    <span id="ai-panel-title">✦ AI Summary</span>
-    <button onclick="closeAIPanel()" id="ai-close-btn">✕</button>
-  </div>
+<!-- ══════════════════════════════════════════════════════════════════
+     STYLES
+══════════════════════════════════════════════════════════════════ -->
+<style>
+/* ── Trigger Bubble ──────────────────────────────────────────────── */
+#ai-bubble {
+  position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 300;
+  background: var(--amber, #f5a623); color: #000;
+  font-family: var(--font-mono, 'Space Mono', monospace);
+  font-size: .72rem; font-weight: 700;
+  padding: .6rem 1.1rem; border-radius: 999px; border: none;
+  cursor: pointer; user-select: none;
+  box-shadow: 0 4px 20px rgba(245,166,35,.45);
+  transition: transform .2s ease, box-shadow .2s ease;
+  display: flex; align-items: center; gap: .45rem;
+}
+#ai-bubble:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(245,166,35,.6);
+}
+.ai-bubble-icon { font-size: .85rem; }
+.ai-bubble-label { letter-spacing: .06em; }
 
-  <div id="ai-panel-options">
-    <button class="ai-opt-btn" onclick="quickStream('short summary', this)">Short Summary</button>
-    <button class="ai-opt-btn" onclick="quickStream('executive briefing', this)">Executive Summary</button>
-  </div>
+/* ── Modal Box ───────────────────────────────────────────────────── */
+.ai-modal-box {
+  background: var(--surface, #0c0f18);
+  border: 1px solid rgba(245,166,35,.25);
+  border-radius: 22px;
+  width: 100%; max-width: 960px;
+  max-height: 92vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(245,166,35,.08),
+              0 32px 80px rgba(0,0,0,.75),
+              0 0 60px rgba(245,166,35,.06);
+  transform: scale(.95) translateY(16px);
+  transition: transform .2s ease;
+}
+.modal-backdrop.open .ai-modal-box {
+  transform: scale(1) translateY(0);
+}
 
-  <div id="ai-panel-output"></div>
-  <div id="ai-panel-cursor" style="display:none;">▌</div>
+/* ── Header ──────────────────────────────────────────────────────── */
+.ai-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .9rem 1.2rem;
+  border-bottom: 1px solid rgba(245,166,35,.12);
+  background: rgba(245,166,35,.04);
+  flex-shrink: 0;
+}
+.ai-head-left { display: flex; align-items: center; gap: .75rem; }
+.ai-logo-mark {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(245,166,35,.12);
+  border: 1.5px solid rgba(245,166,35,.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; color: var(--amber, #f5a623);
+  flex-shrink: 0;
+}
+.ai-modal-title {
+  font-family: var(--font-mono, 'Space Mono', monospace);
+  font-size: .8rem; font-weight: 700; color: var(--fg, #eef0f6);
+  letter-spacing: .06em;
+}
+.ai-modal-sub {
+  font-family: var(--font-mono, monospace);
+  font-size: .6rem; color: var(--amber, #f5a623);
+  letter-spacing: .1em; text-transform: uppercase;
+  margin-top: .1rem; opacity: .8;
+}
+.ai-head-right { display: flex; align-items: center; gap: .4rem; }
+.ai-util-btn {
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  color: var(--muted, #7c859e); border-radius: 8px;
+  padding: .3rem .5rem; cursor: pointer; font-size: .78rem;
+  transition: background .15s, border-color .15s, color .15s; line-height: 1;
+}
+.ai-util-btn:hover { background: rgba(245,166,35,.1); border-color: rgba(245,166,35,.3); color: var(--amber, #f5a623); }
+.ai-util-btn.active { background: rgba(245,166,35,.15); border-color: rgba(245,166,35,.5); color: var(--amber, #f5a623); }
+.ai-modal-close {
+  background: rgba(244,63,94,.08); border: 1px solid rgba(244,63,94,.25);
+  color: rgba(244,63,94,.7); border-radius: 8px;
+  padding: .3rem .55rem; cursor: pointer; font-size: .82rem;
+  transition: background .15s, color .15s; line-height: 1;
+}
+.ai-modal-close:hover { background: rgba(244,63,94,.2); color: #f43f5e; }
 
-  <div id="ai-panel-input-row">
-    <input id="ai-panel-input" type="text" placeholder="e.g. give me a formal report…" autocomplete="off" />
-    <button id="ai-panel-send" onclick="sendMessage()">↑</button>
-  </div>
-</div>
+/* ── Orb Zone ────────────────────────────────────────────────────── */
+.ai-orb-zone {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 1.2rem 1.2rem .8rem;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0; gap: 1rem;
+}
+.ai-orb-wrap { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
+
+/* Static orb — no rings, no pulse animation */
+.ai-orb {
+  width: 72px; height: 72px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: transform .15s ease;
+}
+.ai-orb:hover { transform: scale(1.06); }
+
+.ai-orb-core {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(245,166,35,.12);
+  border: 1.5px solid rgba(245,166,35,.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; color: var(--amber, #f5a623);
+  transition: background .2s, border-color .2s, color .2s;
+}
+
+/* Orb state colours — no keyframe animations */
+.ai-orb.listening .ai-orb-core {
+  background: rgba(56,189,248,.2);
+  border-color: rgba(56,189,248,.7); color: #38bdf8;
+}
+.ai-orb.speaking .ai-orb-core {
+  background: rgba(34,197,94,.15);
+  border-color: rgba(34,197,94,.6); color: #22c55e;
+}
+.ai-orb.thinking .ai-orb-core {
+  background: rgba(245,166,35,.22);
+  border-color: rgba(245,166,35,.8); color: var(--amber, #f5a623);
+}
+
+.ai-orb-label {
+  font-family: var(--font-mono, monospace); font-size: .6rem;
+  color: var(--muted, #7c859e); letter-spacing: .1em; text-transform: uppercase;
+}
+
+/* Quick Pills */
+.ai-quick-pills {
+  display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center;
+}
+.ai-pill {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-family: var(--font-mono, monospace); font-size: .62rem; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+  padding: .38rem .75rem; border-radius: 999px;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1);
+  color: var(--muted, #7c859e); cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.ai-pill:hover {
+  background: rgba(245,166,35,.1); border-color: rgba(245,166,35,.4);
+  color: var(--amber, #f5a623);
+}
+.ai-pill.active {
+  background: rgba(245,166,35,.18); border-color: rgba(245,166,35,.6);
+  color: var(--amber, #f5a623);
+}
+.pill-icon { opacity: .7; font-size: .7rem; }
+
+/* ── Output Area ─────────────────────────────────────────────────── */
+.ai-output-area {
+  flex: 1; overflow-y: auto; padding: 1rem 1.2rem;
+  min-height: 120px; max-height: 280px;
+  scrollbar-width: thin; scrollbar-color: rgba(245,166,35,.2) transparent;
+}
+.ai-output-area::-webkit-scrollbar { width: 3px; }
+.ai-output-area::-webkit-scrollbar-thumb { background: rgba(245,166,35,.25); border-radius: 2px; }
+
+.ai-output-text {
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: .9rem; line-height: 1.8; color: var(--fg, #eef0f6);
+  white-space: pre-wrap;
+  transition: font-size .2s ease;
+}
+.ai-placeholder {
+  color: var(--muted, #7c859e); font-style: italic; font-size: .85rem;
+}
+
+/* Blinking cursor — kept as it is functional feedback, not decorative */
+.ai-typing-cursor {
+  display: inline-block; color: var(--amber, #f5a623);
+  font-size: 1rem; vertical-align: bottom;
+  animation: ai-blink .7s step-end infinite;
+}
+@keyframes ai-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Large text mode */
+.ai-large-text .ai-output-text { font-size: 1.15rem; line-height: 1.9; }
+.ai-large-text .ai-pill        { font-size: .72rem; padding: .48rem .9rem; }
+.ai-large-text .ai-text-input  { font-size: .9rem; }
+.ai-large-text .ai-modal-title { font-size: .95rem; }
+.ai-large-text .ai-placeholder { font-size: 1rem; }
+
+/* ── Input Zone ──────────────────────────────────────────────────── */
+.ai-input-zone {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .75rem 1rem;
+  border-top: 1px solid rgba(255,255,255,.06);
+  background: rgba(0,0,0,.15);
+  flex-shrink: 0;
+}
+.ai-mic-btn {
+  position: relative; width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(56,189,248,.1); border: 1.5px solid rgba(56,189,248,.35);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .2s, border-color .2s; flex-shrink: 0;
+}
+.ai-mic-btn:hover  { background: rgba(56,189,248,.2); border-color: rgba(56,189,248,.6); }
+.ai-mic-btn.active { background: rgba(56,189,248,.25); border-color: #38bdf8; box-shadow: 0 0 12px rgba(56,189,248,.3); }
+.ai-mic-btn.unsupported { opacity: .4; cursor: not-allowed; }
+.ai-mic-icon { font-size: 1.1rem; line-height: 1; }
+
+.ai-text-input-wrap { flex: 1; }
+.ai-text-input {
+  width: 100%; padding: .5rem .8rem;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 10px; color: var(--fg, #eef0f6);
+  font-family: var(--font-mono, monospace); font-size: .72rem;
+  outline: none; transition: border-color .15s, background .15s;
+}
+.ai-text-input:focus { border-color: rgba(245,166,35,.5); background: rgba(245,166,35,.04); }
+.ai-text-input::placeholder { color: rgba(255,255,255,.3); }
+
+.ai-send-btn {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--amber, #f5a623); color: #000; border: none;
+  font-weight: 700; font-size: 1rem; cursor: pointer;
+  transition: opacity .15s; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.ai-send-btn:hover { opacity: .85; }
+
+/* ── No Speech Warning ───────────────────────────────────────────── */
+.ai-no-speech-warn {
+  font-size: .72rem; color: rgba(245,166,35,.7);
+  padding: .5rem 1.2rem; text-align: center;
+  border-top: 1px solid rgba(245,166,35,.1);
+  background: rgba(245,166,35,.04); flex-shrink: 0;
+}
+
+/* ── Mode badge ──────────────────────────────────────────────────── */
+.ai-mode-badge {
+  display: inline-block;
+  font-family: var(--font-mono, 'Space Mono', monospace);
+  font-size: .58rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  padding: .15rem .55rem; border-radius: 4px;
+  background: rgba(245,166,35,.12);
+  border: 1px solid rgba(245,166,35,.3);
+  color: var(--amber, #f5a623);
+  margin-bottom: .1rem;
+  pointer-events: none;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .ai-modal-box { max-width: 100%; border-radius: 18px 18px 0 0; }
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .ai-orb { width: 58px; height: 58px; }
+  .ai-orb-core { width: 42px; height: 42px; font-size: .9rem; }
+}
+
+/* ── Print: hide entirely ────────────────────────────────────────── */
+@media print { #ai-bubble, #ai-modal { display: none !important; } }
+</style>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════════════ -->
 <script>
-    let _aiStream = null;
+(function() {
+'use strict';
 
-function openAIPanel() {
-  document.getElementById('ai-panel').classList.add('open');
+/* ── State ─────────────────────────────────────────────────────── */
+let _stream      = null;
+let _recognition = null;
+let _synth       = window.speechSynthesis || null;
+let _utterance   = null;
+let _voiceOn     = true;
+let _largeText   = false;
+let _isListening = false;
+let _isSpeaking  = false;
+let _speechSupported = false;
+let _pendingSpeech  = '';
+let _speechQueue    = [];
+
+/* ── DOM refs ────────────────────────────────────────────────────── */
+let _orb, _orbLabel, _orbCore, _statusLine,
+    _output, _cursor, _micBtn, _micIcon, _outputArea;
+
+/* ── Profile context ─────────────────────────────────────────────── */
+function _getProfile() {
+  const b = document.body;
+  return {
+    id:   b.dataset.memberId || b.dataset.memberid || '',
+    type: b.dataset.profileType || (location.pathname.startsWith('/lab/') ? 'lab' : 'staff')
+  };
 }
 
-function closeAIPanel() {
-  document.getElementById('ai-panel').classList.remove('open');
-  if (_aiStream) {
-    _aiStream.close();
-    _aiStream = null;
+/* ── Init ────────────────────────────────────────────────────────── */
+function _init() {
+  _orb        = document.getElementById('ai-orb');
+  _orbLabel   = document.getElementById('ai-orb-label');
+  _orbCore    = document.getElementById('ai-orb-core');
+  _statusLine = document.getElementById('ai-status-line');
+  _output     = document.getElementById('ai-output-text');
+  _cursor     = document.getElementById('ai-typing-cursor');
+  _micBtn     = document.getElementById('ai-mic-btn');
+  _micIcon    = document.getElementById('ai-mic-icon');
+  _outputArea = document.getElementById('ai-output-area');
+
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec) {
+    _speechSupported = true;
+    _recognition = new SpeechRec();
+    _recognition.lang = 'en-IN';
+    _recognition.interimResults = true;
+    _recognition.maxAlternatives = 1;
+    _setupRecognition();
+  } else {
+    _speechSupported = false;
+    if (_micBtn) _micBtn.classList.add('unsupported');
+    const warn = document.getElementById('ai-no-speech-warn');
+    if (warn) warn.style.display = 'block';
   }
+
+  const inp = document.getElementById('ai-text-input');
+  if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') sendAIText(); });
+
+  const modal = document.getElementById('ai-modal');
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeAIModal(); });
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAIModal(); });
+
+  if (_orb) _orb.addEventListener('click', toggleMic);
+
+  _syncVoiceBtn();
+  _loadVoices();
 }
 
-function quickStream(phrase, btn) {
-  const input = document.getElementById('ai-panel-input');
-  input.value = phrase;
+/* ── Speech Recognition ─────────────────────────────────────────── */
+function _setupRecognition() {
+  if (!_recognition) return;
 
-  document.querySelectorAll('.ai-opt-btn').forEach(b => b.classList.remove('active'));
+  _recognition.onstart = () => {
+    _isListening = true;
+    _setOrbState('listening');
+    _setStatus('Listening…');
+    if (_micBtn) _micBtn.classList.add('active');
+    if (_micIcon) _micIcon.textContent = '🛑';
+  };
+
+  _recognition.onresult = e => {
+    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
+    const isFinal = e.results[e.results.length - 1].isFinal;
+    const inp = document.getElementById('ai-text-input');
+    if (inp) inp.value = transcript;
+    if (isFinal && transcript.trim()) {
+      _recognition.stop();
+      _startStream(transcript.trim());
+    }
+  };
+
+  _recognition.onerror = e => {
+    _isListening = false;
+    _setOrbState('idle');
+    _setStatus('Ready');
+    if (_micBtn) _micBtn.classList.remove('active');
+    if (_micIcon) _micIcon.textContent = '🎤';
+    if (e.error === 'no-speech') _setStatus('No speech detected — try again');
+  };
+
+  _recognition.onend = () => {
+    _isListening = false;
+    if (_micBtn) _micBtn.classList.remove('active');
+    if (_micIcon) _micIcon.textContent = '🎤';
+    if (!_stream) { _setOrbState('idle'); _setStatus('Ready'); }
+  };
+}
+
+/* ── Mic toggle ──────────────────────────────────────────────────── */
+window.toggleMic = function() {
+  if (!_speechSupported) {
+    document.getElementById('ai-no-speech-warn').style.display = 'block';
+    return;
+  }
+  if (_isListening) {
+    _recognition.stop();
+  } else {
+    _stopStream();
+    _stopSpeaking();
+    try { _recognition.start(); } catch(e) {}
+  }
+};
+
+/* ── Voice output toggle ─────────────────────────────────────────── */
+window.toggleVoice = function() {
+  _voiceOn = !_voiceOn;
+  _syncVoiceBtn();
+  if (!_voiceOn) _stopSpeaking();
+};
+function _syncVoiceBtn() {
+  const btn  = document.getElementById('ai-voice-btn');
+  const icon = document.getElementById('ai-voice-icon');
+  if (!btn || !icon) return;
+  icon.textContent = _voiceOn ? '🔊' : '🔇';
+  btn.classList.toggle('active', _voiceOn);
+  btn.title = _voiceOn ? 'Voice on — click to mute' : 'Voice off — click to unmute';
+}
+
+/* ── Large text toggle ───────────────────────────────────────────── */
+window.toggleLargeText = function() {
+  _largeText = !_largeText;
+  const box = document.querySelector('.ai-modal-box');
+  if (box) box.classList.toggle('ai-large-text', _largeText);
+  const btn = document.getElementById('ai-large-text-btn');
+  if (btn) btn.classList.toggle('active', _largeText);
+};
+
+/* ── Modal open/close ────────────────────────────────────────────── */
+window.openAIModal = function() {
+  const modal = document.getElementById('ai-modal');
+  if (modal) { modal.classList.add('open'); document.body.style.overflow = 'hidden'; }
+};
+
+window.closeAIModal = function() {
+  const modal = document.getElementById('ai-modal');
+  if (modal) { modal.classList.remove('open'); document.body.style.overflow = ''; }
+  _stopStream();
+  _stopSpeaking();
+  if (_isListening && _recognition) _recognition.stop();
+  _setOrbState('idle');
+  _setStatus('Ready');
+  document.querySelectorAll('.ai-pill').forEach(p => p.classList.remove('active'));
+};
+
+/* ── Quick brief pills ───────────────────────────────────────────── */
+window.quickBrief = function(phrase, btn) {
+  document.querySelectorAll('.ai-pill').forEach(p => p.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  const inp = document.getElementById('ai-text-input');
+  if (inp) inp.value = phrase;
+  _startStream(phrase);
+};
 
-  startStream(phrase);
-}
-
-function sendMessage() {
-  const input = document.getElementById('ai-panel-input');
-  const msg = input.value.trim();
+/* ── Text send ───────────────────────────────────────────────────── */
+window.sendAIText = function() {
+  const inp = document.getElementById('ai-text-input');
+  const msg = inp ? inp.value.trim() : '';
   if (!msg) return;
+  _startStream(msg);
+};
 
-  startStream(msg);
-}
-
-function startStream(message) {
-  const output = document.getElementById('ai-panel-output');
-  const cursor = document.getElementById('ai-panel-cursor');
-
-  output.textContent = '';
-  cursor.style.display = 'block';
-
-  if (_aiStream) {
-    _aiStream.close();
-    _aiStream = null;
+/* ── Core streaming ──────────────────────────────────────────────── */
+function _startStream(message) {
+  const p = _getProfile();
+  if (!p.id) {
+    _showOutput('Could not determine profile. Please refresh the page.');
+    return;
   }
 
-  const memberId = document.body.dataset.memberId;
+  _stopStream();
+  _stopSpeaking();
 
-  const url = `/api/ai/stream?profile_type=lab&profile_id=${memberId}&message=${encodeURIComponent(message)}`;
+  if (_output)  { _output.innerHTML = ''; }
+  if (_cursor)  { _cursor.style.display = 'inline'; }
+  _pendingSpeech = '';
+  _speechQueue   = [];
 
-  _aiStream = new EventSource(url);
+  _setOrbState('thinking');
+  _setStatus('Thinking…');
 
-  _aiStream.onmessage = function(e) {
-    if (e.data === '[DONE]') {
-      cursor.style.display = 'none';
-      document.querySelectorAll('.ai-opt-btn').forEach(b => b.classList.remove('active'));
-      _aiStream.close();
-      _aiStream = null;
+  const url = `/api/ai/stream?profile_type=${p.type}&profile_id=${p.id}&message=${encodeURIComponent(message)}`;
+  _stream = new EventSource(url);
+
+  _stream.onmessage = e => {
+    const data = e.data;
+
+    if (data === '[DONE]') {
+      if (_cursor) _cursor.style.display = 'none';
+      _stopStream();
+      if (_pendingSpeech.trim()) _queueSpeak(_pendingSpeech.trim());
+      _flushSpeechQueue();
+      _setStatus('Done');
+      document.querySelectorAll('.ai-pill').forEach(p => p.classList.remove('active'));
       return;
     }
 
-    if (e.data.startsWith('[ERROR]')) {
-      output.textContent = e.data;
-      cursor.style.display = 'none';
-      _aiStream.close();
-      _aiStream = null;
+    if (data.startsWith('[ERROR]')) {
+      if (_cursor) _cursor.style.display = 'none';
+      _showOutput(data);
+      _stopStream();
+      _setOrbState('idle');
+      _setStatus('Error');
       return;
     }
 
     try {
-      output.textContent += JSON.parse(e.data);
-      output.scrollTop = output.scrollHeight;
+      const token = JSON.parse(data);
+      if (token.startsWith('[MODE:') && token.includes(']')) {
+        const modeLabel = token.replace(/\[MODE:\s*/, '').replace(/\].*/, '').trim();
+        if (_output) {
+          const ph = _output.querySelector('.ai-placeholder');
+          if (ph) ph.remove();
+          const existing = _output.querySelector('.ai-mode-badge');
+          if (existing) existing.remove();
+          const badge = document.createElement('span');
+          badge.className = 'ai-mode-badge';
+          badge.textContent = modeLabel;
+          _output.insertBefore(badge, _output.firstChild);
+          const br = document.createElement('div');
+          br.style.cssText = 'height:.5rem;display:block;';
+          _output.insertBefore(br, badge.nextSibling);
+        }
+        return;
+      }
+      if (_output) {
+        const ph = _output.querySelector('.ai-placeholder');
+        if (ph) ph.remove();
+        _output.insertBefore(document.createTextNode(token), _cursor);
+      }
+      if (_outputArea) _outputArea.scrollTop = _outputArea.scrollHeight;
+
+      _pendingSpeech += token;
+      const sentenceEnd = _pendingSpeech.search(/[.!?\n]/);
+      if (sentenceEnd !== -1) {
+        const sentence = _pendingSpeech.slice(0, sentenceEnd + 1).trim();
+        _pendingSpeech = _pendingSpeech.slice(sentenceEnd + 1);
+        if (sentence.length > 3) _queueSpeak(sentence);
+      } else if (_pendingSpeech.length > 80) {
+        const commaEnd = _pendingSpeech.lastIndexOf(',');
+        if (commaEnd > 20) {
+          const clause = _pendingSpeech.slice(0, commaEnd + 1).trim();
+          _pendingSpeech = _pendingSpeech.slice(commaEnd + 1);
+          if (clause.length > 5) _queueSpeak(clause);
+        }
+      }
     } catch(err) {}
   };
 
-  _aiStream.onerror = function() {
-    cursor.style.display = 'none';
-    if (output.textContent === '') {
-      output.textContent = 'Connection error. Is the server running?';
-    }
-    _aiStream.close();
-    _aiStream = null;
+  _stream.onerror = () => {
+    if (_cursor) _cursor.style.display = 'none';
+    if (!_output || !_output.textContent.trim()) _showOutput('Connection error. Is the server running?');
+    _stopStream();
+    _setOrbState('idle');
+    _setStatus('Error — check server');
   };
 }
+
+function _stopStream() {
+  if (_stream) { _stream.close(); _stream = null; }
+}
+
+/* ── TTS ─────────────────────────────────────────────────────────── */
+let _voiceCache = [];
+function _loadVoices() {
+  if (!_synth) return;
+  const v = _synth.getVoices();
+  if (v.length) { _voiceCache = v; return; }
+  _synth.addEventListener('voiceschanged', () => {
+    _voiceCache = _synth.getVoices();
+  }, { once: true });
+}
+
+function _pickVoice() {
+  if (!_voiceCache.length) _voiceCache = _synth ? _synth.getVoices() : [];
+  return _voiceCache.find(v => v.lang.startsWith('en') && v.name.includes('Google'))
+      || _voiceCache.find(v => v.lang.startsWith('en') && v.name.includes('Microsoft'))
+      || _voiceCache.find(v => v.lang.startsWith('en') && v.name.includes('Samantha'))
+      || _voiceCache.find(v => v.lang.startsWith('en'))
+      || _voiceCache[0]
+      || null;
+}
+
+function _queueSpeak(text) {
+  if (!_voiceOn || !_synth) return;
+  const t = text.trim();
+  if (!t || (t.startsWith('[') && t.endsWith(']'))) return;
+  if (t.startsWith('[') && t.includes(':')) return;
+  _speechQueue.push(t);
+  if (!_isSpeaking) _speakNext();
+}
+
+function _flushSpeechQueue() {
+  if (!_voiceOn || !_synth || !_speechQueue.length) return;
+  if (!_isSpeaking) _speakNext();
+}
+
+let _ttsKeepalive = null;
+function _startKeepalive() {
+  if (_ttsKeepalive) return;
+  _ttsKeepalive = setInterval(() => {
+    if (_synth && _synth.speaking) { _synth.pause(); _synth.resume(); }
+  }, 10000);
+}
+function _stopKeepalive() {
+  if (_ttsKeepalive) { clearInterval(_ttsKeepalive); _ttsKeepalive = null; }
+}
+
+function _speakNext() {
+  if (!_voiceOn || !_synth || !_speechQueue.length) {
+    _isSpeaking = false;
+    _stopKeepalive();
+    _setOrbState('idle');
+    _setStatus('Ready');
+    return;
+  }
+  _isSpeaking = true;
+  _startKeepalive();
+  _setOrbState('speaking');
+  _setStatus('Speaking…');
+
+  const text = _speechQueue.shift();
+  _utterance = new SpeechSynthesisUtterance(text);
+  _utterance.rate   = 0.90;
+  _utterance.pitch  = 1.0;
+  _utterance.volume = 1.0;
+  _utterance.lang   = 'en-IN';
+
+  const v = _pickVoice();
+  if (v) _utterance.voice = v;
+
+  _utterance.onend   = () => { _isSpeaking = false; _speakNext(); };
+  _utterance.onerror = (e) => { console.warn('TTS error:', e.error); _isSpeaking = false; _speakNext(); };
+  _synth.speak(_utterance);
+}
+
+function _stopSpeaking() {
+  _speechQueue   = [];
+  _pendingSpeech = '';
+  _isSpeaking    = false;
+  _stopKeepalive();
+  if (_synth) { _synth.cancel(); }
+}
+
+/* ── Orb state helpers ───────────────────────────────────────────── */
+function _setOrbState(state) {
+  if (!_orb) return;
+  _orb.classList.remove('listening', 'speaking', 'thinking');
+  if (state !== 'idle') _orb.classList.add(state);
+  const labels = { idle: 'Tap to speak', listening: 'Listening…', speaking: 'Speaking…', thinking: 'Thinking…' };
+  if (_orbLabel) _orbLabel.textContent = labels[state] || 'Ready';
+  if (_orbCore) {
+    const icons = { idle: '✦', listening: '◉', speaking: '▶', thinking: '…' };
+    _orbCore.textContent = icons[state] || '✦';
+  }
+}
+
+function _setStatus(text) {
+  if (_statusLine) _statusLine.textContent = text;
+}
+
+function _showOutput(text) {
+  if (_output) _output.textContent = text;
+}
+
+/* ── Boot ────────────────────────────────────────────────────────── */
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _init);
+} else {
+  _init();
+}
+
+})();
 </script>

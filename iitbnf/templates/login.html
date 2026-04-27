@@ -126,11 +126,6 @@
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
 
-    .login-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 30px 55px rgba(0, 0, 0, 0.35);
-    }
-
     /* Logo Section */
     .login-logo {
       display: flex;
@@ -342,35 +337,6 @@
       }
     }
 
-    /* Light Theme Support (optional) */
-    [data-theme="light"] body.login-page {
-      background: radial-gradient(circle at 20% 30%, #f0f4ff, #e6e9f0);
-    }
-    
-    [data-theme="light"] .login-card {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.5);
-    }
-    
-    [data-theme="light"] .login-title,
-    [data-theme="light"] .form-label {
-      color: #1a1f2e;
-    }
-    
-    [data-theme="light"] .login-sub {
-      color: rgba(0, 0, 0, 0.6);
-    }
-    
-    [data-theme="light"] .form-input {
-      background: rgba(0, 0, 0, 0.05);
-      border-color: rgba(0, 0, 0, 0.15);
-      color: #1a1f2e;
-    }
-    
-    [data-theme="light"] .form-input::placeholder {
-      color: rgba(0, 0, 0, 0.4);
-    }
   </style>
 
   <script>
@@ -427,24 +393,5 @@
     </div>
   </main>
 
-  <button id="theme-btn" class="theme-toggle" onclick="toggleTheme()">Light Mode</button>
-
-  <script>
-    // ── Theme toggle ──────────────────────────────────────────
-    function toggleTheme() {
-      const html = document.documentElement;
-      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      html.setAttribute('data-theme', next);
-      localStorage.setItem('iitbnf_theme', next);
-      const btn = document.getElementById('theme-btn');
-      if (btn) btn.textContent = next === 'dark' ? 'Light Mode' : 'Dark Mode';
-    }
-    // Set correct label on load
-    (function() {
-      const btn = document.getElementById('theme-btn');
-      if (btn) btn.textContent =
-        document.documentElement.getAttribute('data-theme') === 'dark' ? 'Light Mode' : 'Dark Mode';
-    })();
-  </script>
 </body>
 </html>

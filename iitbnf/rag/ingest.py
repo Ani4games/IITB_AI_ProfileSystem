@@ -18,13 +18,14 @@ import pickle
 import time
 from pathlib import Path
 from collections import defaultdict
+import re
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 logger = logging.getLogger(__name__)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-DOCUMENTS_DIR = Path(__file__).parent.parent / "documents"
+DOCUMENTS_DIR = Path(__file__).parent.parent 
 INDEX_PATH    = Path(__file__).parent.parent / "tfidf_index.pkl"
 CHUNK_SIZE    = 400
 CHUNK_OVERLAP = 50
@@ -33,7 +34,63 @@ CHUNK_OVERLAP = 50
 _vectorizer: TfidfVectorizer | None = None
 _matrix                             = None   # scipy sparse (n_chunks × n_features)
 _chunks: list[dict]                 = []     # [{"text", "source", "chunk_index"}]
+def extract_year(text: str):
+    year_match = re.search(r"\b(20\d{2})\b", text)
+    if year_match:
+        return year_match.group(1)
+    return None 
+def extract_staff_id(text: str):
+    id_match = re.search(r"\bID[:\s]?(\d{3,6})\b", text, re.I)
+    if id_match:
+        return id_match.group(1)
+    return None
+def extract_staff_name(text: str):
+    name_match = re.search(r"\bName[:\s]?([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\b", text)
+    if name_match:
+        return name_match.group(1)
+    return None
+def classify_chunk_type(source: str, text: str) -> str:
+    t = text.lower()
 
+    if "equipment" in t or "requests" in t or "booking" in t:
+        return "equipment_activity"
+
+    if "attendance" in t or "present" in t or "%" in t:
+        return "attendance"
+
+    if "leave" in t or "pl:" in t or "el:" in t or "rl:" in t:
+        return "leave_rule"
+
+    if "designation" in t or "team" in t or "qualification" in t:
+        return "staff_profile"
+
+    return "general"
+
+def should_skip_chunk(text: str) -> bool:
+    t = text.lower()
+
+    skip_patterns = [
+        "phpmyadmin sql dump",
+        "table structure for table",
+        "dumping data for table",
+        "create table",
+        "insert into",
+        "alter table",
+        "primary key",
+        "auto_increment",
+        "engine=",
+    ]
+
+    if any(pattern in t for pattern in skip_patterns):
+        return True
+
+    if t.count("`") > 10:
+        return True
+
+    if len(t.split()) < 5:
+        return True
+
+    return False
 # ── [FIX 1] Safe DB import — won't crash if db module is not on sys.path ──────
 def _get_db_funcs():
     """
@@ -110,7 +167,19 @@ def chunk_text(text: str, source: str) -> list[dict]:
         end   = min(start + CHUNK_SIZE, len(words))
         chunk = " ".join(words[start:end])
         if chunk.strip():                          # never store a blank chunk
-            chunks.append({"text": chunk, "source": source, "chunk_index": idx})
+            if should_skip_chunk(text):
+                continue
+            chunk_type = classify_chunk_type(source, text)
+            staff_id = None
+            staff_name = None
+            year = extract_year(text)
+            staff_id = extract_staff_id(text)
+            staff_name = extract_staff_name(text)
+            chunks.append({"text": chunk, "source": source, "chunk_index": idx, 
+                           "type": chunk_type,
+                            "staff_id": staff_id,
+                            "staff_name": staff_name,
+                            "year": year,})
         start += CHUNK_SIZE - CHUNK_OVERLAP
         idx   += 1
     return chunks
@@ -336,7 +405,7 @@ def _prewarm_vectors(chunks: list[dict]):
         if rag_dir not in sys.path:
             sys.path.insert(0, rag_dir)
 
-        from retrieve import _get_chunk_vecs, WORD_VEC_BACKEND  # noqa: PLC0415
+        from rag.retrieve import _get_chunk_vecs, WORD_VEC_BACKEND  # noqa: PLC0415
         if not chunks:
             logger.warning("Pre-warm skipped — no chunks provided.")
             return
@@ -408,3 +477,6 @@ def init_rag(force: bool = False):
     # And in init_rag(), pass chunks after build_index():
     build_index(all_chunks)
     _prewarm_vectors(all_chunks)   # ✅ pass in-memory chunks directly
+    logger.info("Final chunk count: %d", len(all_chunks))
+    for c in all_chunks[:10]:
+        logger.info("Chunk source=%s text=%s", c["source"], c["text"][:150])

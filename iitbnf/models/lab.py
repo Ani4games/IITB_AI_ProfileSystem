@@ -38,32 +38,46 @@ def get_lab_user(memberid):
     """, (memberid,))
     return rows[0] if rows else None
 
-
+@cached(ttl_seconds=300)
 def get_all_lab_users():
-    return slots_query("""
+    # Remove the STR_TO_DATE filter — filter in Python instead
+    rows = slots_query("""
         SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.department,
                l.expiry_date, l.is_admin
         FROM login l
         LEFT JOIN hr_portal.profile p ON p.member_id = l.memberid
-        WHERE l.position NOT IN (
-            'Faculty', 'IITBNF Staff', 'Institute Facility',
-            'NCPRE Academic', 'Project Staff'
-        )
-          AND (p.member_id IS NULL OR p.leaving_date IS NULL
+        WHERE (p.member_id IS NULL 
+               OR p.leaving_date IS NULL 
                OR p.leaving_date = '0000-00-00'
-               OR p.leaving_date >= '2026-03-24')
-          AND (
-            l.expiry_date IS NULL
-            OR l.expiry_date = ''
-            OR l.expiry_date = '0000-00-00'
-            OR (
-                STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') IS NOT NULL
-                AND STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') >= '2026-03-24'
-            )
-          )
+               OR p.leaving_date >= CURDATE())
         ORDER BY l.position, l.fname, l.lname
-    """)
+    """) or []
+    
+    # Filter expired users in Python — no per-row function call in SQL
+    from datetime import datetime
+    today = datetime.today()
+    cutoff = datetime(2026, 1, 1)  # or use today
+    
+    active = []
+    for u in rows:
+        exp = u.get("expiry_date") or ""
+        if not exp or exp in ("", "0000-00-00"):
+            active.append(u)
+            continue
+        try:
+            exp_dt = datetime.strptime(exp, "%m/%d/%Y")
+            if exp_dt >= cutoff:
+                active.append(u)
+        except:
+            active.append(u)  # unparseable = keep
+    return active
 
+def _get_lab_projects(memberid):
+    return slots_query("""
+        SELECT projectid, project_code, project_title, funding_agency,
+               start_date, end_date, status
+        FROM faculty_projects WHERE memberid = %s ORDER BY start_date DESC
+    """, (memberid,)) or []
 
 def get_lab_reservations(memberid, year=None):
     year_filter = "AND YEAR(FROM_UNIXTIME(res.startdate)) = %s" if year else ""
@@ -87,7 +101,6 @@ def get_lab_reservations(memberid, year=None):
         ORDER BY res.startdate DESC LIMIT 200
     """, params)
 
-
 def get_lab_equipment_requests(memberid, year=None):
     year_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
     params = (memberid, year) if year else (memberid,)
@@ -98,9 +111,9 @@ def get_lab_equipment_requests(memberid, year=None):
         FROM equipment_usage_approval e
         JOIN resources r ON r.machid = e.equipmentid
         WHERE e.requestedby=%s {year_filter}
-        ORDER BY e.date_of_request DESC LIMIT 200
+        ORDER BY e.date_of_request DESC
+        LIMIT 300
     """, params)
-
 
 def get_lab_access_log(memberid, year=None):
     year_filter = "AND YEAR(date_request) = %s" if year else ""
@@ -110,15 +123,6 @@ def get_lab_access_log(memberid, year=None):
         FROM lab_access WHERE memberid=%s {year_filter}
         ORDER BY date_request DESC LIMIT 100
     """, params)
-
-
-def get_lab_tool_permissions(memberid):
-    return slots_query("""
-        SELECT r.name AS tool_name, r.category, r.location, p.date AS permission_date
-        FROM permissions p JOIN resources r ON r.machid=p.machid
-        WHERE p.memberid=%s ORDER BY r.name
-    """, (memberid,))
-
 
 #(ttl_seconds=1800)
 @cached(ttl_seconds=300)
@@ -134,7 +138,6 @@ def get_lab_stats(memberid):
         "projects":     lambda: cnt("SELECT COUNT(*) AS cnt FROM faculty_projects WHERE memberid=%s", (memberid,)),
     })
 
-
 def get_announcements():
     import time as _time
     now = int(_time.time())
@@ -143,7 +146,6 @@ def get_announcements():
         FROM announcements WHERE start_datetime <= %s AND end_datetime >= %s
         ORDER BY announcementid DESC
     """, (now, now)) or []
-
 
 def get_announcements_all():
     return slots_query("""
@@ -164,7 +166,6 @@ def get_lab_cancellations(memberid):
         ORDER BY c.cancel_time DESC
     """, (memberid,))
 
-
 def get_lab_errors(memberid):
     return slots_query("""
         SELECT e.machid, e.resid,
@@ -181,7 +182,6 @@ def get_lab_errors(memberid):
         ORDER BY e.status ASC, e.timestamp DESC
     """, (memberid,))
 
-
 def get_lab_registration(memberid):
     """Registration details with cosupervisor name resolution."""
     rows = slots_query("""
@@ -194,7 +194,6 @@ def get_lab_registration(memberid):
         WHERE r.memberid = %s LIMIT 1
     """, (memberid,))
     return rows[0] if rows else None
-
 
 def get_session_reports(memberid):
     """Equipment session reports submitted by a lab user after usage."""
@@ -216,7 +215,6 @@ FACULTY_POSITIONS = (
     'NCPRE Academic', 'Project Staff'
 )
 
-
 def is_faculty(memberid) -> bool:
     """Returns True if this member holds a faculty-type position."""
     row = slots_query(
@@ -227,23 +225,7 @@ def is_faculty(memberid) -> bool:
         return False
     return (row[0].get("position") or "") in FACULTY_POSITIONS
 
-
 # ── Resources / Equipment detail ──────────────────────────────────────────────
-
-def get_tool_detail(machid: int) -> dict | None:
-    """Full resource record including operators and faculty incharge."""
-    rows = slots_query("""
-        SELECT r.machid, r.name, r.category, r.location, r.type_of_tool,
-               r.operator_name, r.operator_name1, r.operator_name2,
-               r.faculty_incharge, r.isworking, r.shortname,
-               r.make, r.model, r.serial_number,
-               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS faculty_name
-        FROM resources r
-        LEFT JOIN login l ON l.memberid = r.faculty_incharge
-        WHERE r.machid = %s LIMIT 1
-    """, (machid,))
-    return rows[0] if rows else None
-
 
 def get_member_tool_permissions(memberid: int) -> list:
     """
@@ -263,7 +245,6 @@ WHERE p.memberid = %s
 ORDER BY r.name
     """, (memberid,)) or []
 
-
 # ── System owner ──────────────────────────────────────────────────────────────
 
 from datetime import datetime
@@ -278,36 +259,43 @@ def get_system_owner_tools(memberid: int) -> list:
         (memberid,)
     ) or []
 
-    results = []
+    # Collect ALL machids from comma-separated strings in one pass
+    all_ids = []
+    date_map = {}
     for row in rows:
         raw = str(row.get("machid") or "")
         ids = [i.strip() for i in raw.split(",") if i.strip().isdigit()]
-
         for mid in ids:
-            tool = slots_query("""
-                SELECT machid, name, category, location, type_of_tool,
-                       operator_name, isworking
-                FROM resources WHERE machid = %s LIMIT 1
-            """, (int(mid),))
+            all_ids.append(int(mid))
+            date_map[int(mid)] = row.get("date")  # store date per machid
 
-            if tool:
-                t = dict(tool[0])
+    if not all_ids:
+        return []
 
-                raw_date = row.get("date")
+    # ONE query instead of N queries
+    placeholders = ",".join(["%s"] * len(all_ids))
+    tools = slots_query(f"""
+        SELECT machid, name, category, location, type_of_tool,
+               operator_name, isworking
+        FROM resources WHERE machid IN ({placeholders})
+    """, tuple(all_ids)) or []
 
-                t["ownership_date"] = None
-                if raw_date:
-                    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y"):
-                        try:
-                            t["ownership_date"] = datetime.strptime(raw_date.strip(), fmt).strftime("%d-%m-%Y")
-                            break
-                        except:
-                            continue
-
-                results.append(t)
-
+    results = []
+    for t in tools:
+        t = dict(t)
+        raw_date = date_map.get(t["machid"])
+        t["ownership_date"] = None
+        if raw_date:
+            for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y"):
+                try:
+                    t["ownership_date"] = datetime.strptime(
+                        str(raw_date).strip(), fmt
+                    ).strftime("%d-%m-%Y")
+                    break
+                except:
+                    continue
+        results.append(t)
     return results
-
 # ── System owner track ────────────────────────────────────────────────────────
 def get_system_owner_track(memberid: int) -> list:
     """

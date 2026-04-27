@@ -2,138 +2,195 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>System Ownership Report</title>
+<title>System Owner</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; padding: 30px; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; padding: 30px; }
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+  /* ── HEADER — table layout (flex not supported by xhtml2pdf) ── */
+  .doc-header {
+    display: table;
+    width: 100%;
     border-bottom: 2px solid #d97706;
-    padding-bottom: 16px;
-    margin-bottom: 24px;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
   }
-  .header-left h1 { font-size: 20px; color: #d97706; font-family: 'Courier New', monospace; }
-  .header-left .sub { font-size: 11px; color: #666; margin-top: 4px; }
-  .header-right { text-align: right; font-size: 10px; color: #999; }
+  .doc-header-left  { display: table-cell; vertical-align: bottom; }
+  .doc-header-right { display: table-cell; vertical-align: bottom; text-align: right; }
 
-  .identity-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+  .doc-logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: #d97706;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.12em;
+  }
+  .doc-logo-sub {
+    font-size: 9px;
+    color: #666;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .doc-meta {
+    font-size: 9px;
+    color: #777;
+    text-align: right;
+    line-height: 1.6;
+  }
+  .doc-meta strong { color: #111; font-weight: 700; }
+
+  /* ── IDENTITY BLOCK — table layout (grid not supported by xhtml2pdf) ── */
+  .id-block {
+    display: table;
+    width: 100%;
     background: #f9f9f9;
     border: 1px solid #e5e5e5;
-    border-radius: 6px;
-    padding: 16px;
-    margin-bottom: 24px;
+    padding: 12px;
+    margin-bottom: 20px;
   }
-  .id-cell .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #999; }
-  .id-cell .value { font-size: 12px; font-weight: 600; color: #1a1a1a; margin-top: 2px; }
+  .id-col {
+    display: table-cell;
+    vertical-align: top;
+    width: 33%;
+    padding-right: 12px;
+  }
+  .id-col:last-child { padding-right: 0; }
+  .id-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #999;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .id-value {
+    font-size: 11px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
 
-  .section { margin-bottom: 24px; }
+  /* ── SECTION ── */
+  .section { margin-bottom: 20px; }
   .section-hdr {
     background: #d97706;
     color: #fff;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    padding: 6px 12px;
-    border-radius: 4px 4px 0 0;
+    padding: 6px 10px;
+    margin-bottom: 0;
   }
 
+  /* ── TABLE ── */
   table { width: 100%; border-collapse: collapse; }
+  thead { display: table-header-group; }
+  tr    { page-break-inside: avoid; }
+
   table th {
     background: #f5f5f5;
-    font-size: 10px;
+    font-size: 9px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    padding: 7px 10px;
+    padding: 6px 10px;
     text-align: left;
     border-bottom: 1px solid #ddd;
     color: #555;
   }
   table td {
-    padding: 7px 10px;
+    padding: 6px 10px;
     border-bottom: 1px solid #eee;
-    font-size: 11px;
+    font-size: 10px;
+    vertical-align: middle;
+    color: #111;
   }
   table tr:last-child td { border-bottom: none; }
   table tr:nth-child(even) td { background: #fafafa; }
 
+  /* ── BADGES ── */
   .badge {
     display: inline-block;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 9px;
     font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
   }
-  .badge-green { background: #d1fae5; color: #065f46; }
-  .badge-red   { background: #fee2e2; color: #991b1b; }
-  .badge-amber { background: #fef3c7; color: #92400e; }
+  .badge-green { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+  .badge-red   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+  .badge-amber { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 
   .empty {
-    padding: 20px;
+    padding: 16px;
     text-align: center;
     color: #999;
     font-style: italic;
     background: #fafafa;
     border: 1px dashed #ddd;
+    font-size: 10px;
   }
 
-  .footer {
-    margin-top: 32px;
-    padding-top: 12px;
+  /* ── FOOTER — table layout ── */
+  .doc-footer {
+    display: table;
+    width: 100%;
+    margin-top: 24px;
+    padding-top: 8px;
     border-top: 1px solid #ddd;
-    font-size: 9px;
-    color: #bbb;
-    display: flex;
-    justify-content: space-between;
+    font-size: 8px;
+    color: #aaa;
   }
+  .doc-footer-left  { display: table-cell; }
+  .doc-footer-right { display: table-cell; text-align: right; }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <div class="header-left">
-    <h1>IITBNF</h1>
-    <div class="sub">System Ownership Report — IIT Bombay Nanofabrication Facility</div>
+<!-- ══ HEADER ════════════════════════════════════════════════════════ -->
+<div class="doc-header">
+  <div class="doc-header-left">
+    <div class="doc-logo">IITBNF</div>
+    <div class="doc-logo-sub">IIT Bombay Nanofabrication Facility</div>
   </div>
-  <div class="header-right">
-    Generated: {{ now }}<br>
-    Member ID: {{ '%04d' % member_id }}
+  <div class="doc-header-right">
+    <div class="doc-meta">
+      <strong>System Owner Report</strong><br>
+      Member #{{ '%04d' % member_id }}<br>
+      Generated {{ now }}
+    </div>
   </div>
 </div>
 
-<!-- Identity -->
-<div class="identity-grid">
-  <div class="id-cell">
-    <div class="label">Name</div>
-    <div class="value">{{ name }}</div>
+<!-- ══ IDENTITY ══════════════════════════════════════════════════════ -->
+<div class="id-block">
+  <div class="id-col">
+    <span class="id-label">Name</span>
+    <span class="id-value">{{ name }}</span>
   </div>
   {% if person.designation or person.position %}
-  <div class="id-cell">
-    <div class="label">Designation</div>
-    <div class="value">{{ person.designation or person.position }}</div>
+  <div class="id-col">
+    <span class="id-label">Designation</span>
+    <span class="id-value">{{ person.designation or person.position }}</span>
   </div>
   {% endif %}
   {% if person.team %}
-  <div class="id-cell">
-    <div class="label">Team</div>
-    <div class="value">{{ person.team }}</div>
+  <div class="id-col">
+    <span class="id-label">Team</span>
+    <span class="id-value">{{ person.team }}</span>
   </div>
   {% endif %}
   {% if person.email %}
-  <div class="id-cell">
-    <div class="label">Email</div>
-    <div class="value">{{ person.email }}</div>
+  <div class="id-col">
+    <span class="id-label">Email</span>
+    <span class="id-value">{{ person.slot_email or person.email }}</span>
   </div>
   {% endif %}
 </div>
 
-<!-- Currently Assigned Tools -->
+<!-- ══ CURRENTLY ASSIGNED TOOLS ══════════════════════════════════════ -->
 <div class="section">
   <div class="section-hdr">Currently Assigned Tools ({{ owned | length }})</div>
   {% if owned %}
@@ -141,39 +198,51 @@
     <thead>
       <tr>
         <th>Tool Name</th>
-        <!-- <th>Category</th>
-        <th>Location</th>
-        <th>Type</th> -->
         <th>Years of Ownership</th>
-        <!-- <th>Equipment Status</th> -->
+        <th>Status</th>
       </tr>
     </thead>
     <tbody>
       {% for t in owned %}
       <tr>
         <td><strong>{{ t.name or '—' }}</strong></td>
-        <!-- <td>{{ t.category or '—' }}</td>
-        <td>{{ t.location or '—' }}</td>
-        <td>{{ t.type_of_tool or '—' }}</td> -->
         <td>
-          {% set d = t.duration_display or '—' %}
-          {% if d == 'Just Received' %}
-            <strong style="color:#92400e;">Just Received</strong>
-          {% elif d == '< 1 Year' %}
-            <strong style="color:#1d4ed8;">&lt; 1 Year</strong>
-          {% elif d == '—' %}
-            <span style="color:#999;">—</span>
+          {#
+            ownership_date is DD-MM-YYYY (e.g. 15-03-2022).
+            We parse it purely with string/int operations — no date() calls
+            because xhtml2pdf passes `now` as a plain string, not a datetime.
+            Today is hardcoded as 2026-04-24 (matches current date).
+          #}
+          {% if t.ownership_date %}
+            {% set parts = t.ownership_date.split('-') %}
+            {% if parts | length == 3 %}
+              {% set o_day   = parts[0] | int %}
+              {% set o_month = parts[1] | int %}
+              {% set o_year  = parts[2] | int %}
+              {% set yrs = 2026 - o_year %}
+              {# If the anniversary hasn't arrived yet this year, subtract 1 #}
+              {% if o_month > 4 or (o_month == 4 and o_day > 24) %}
+                {% set yrs = yrs - 1 %}
+              {% endif %}
+              {% if yrs <= 0 %}
+                <strong style="color:#92400e;">Less than 1 year</strong>
+              {% else %}
+                <strong style="color:#065f46;">{{ yrs }} year{{ 's' if yrs != 1 else '' }}</strong>
+              {% endif %}
+            {% else %}
+              —
+            {% endif %}
           {% else %}
-            <strong style="color:#065f46;">{{ d }}</strong>
+            —
           {% endif %}
         </td>
-        <!-- <td>
+        <td>
           {% if t.isworking %}
-            <span class="badge badge-green">Working</span>
+            <span class="badge badge-green">Active</span>
           {% else %}
-            <span class="badge badge-red">Down</span>
+            <span class="badge badge-red">Inactive</span>
           {% endif %}
-        </td> -->
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -183,6 +252,11 @@
   {% endif %}
 </div>
 
+<!-- ══ FOOTER ════════════════════════════════════════════════════════ -->
+<div class="doc-footer">
+  <div class="doc-footer-left">IIT Bombay Nanofabrication Facility</div>
+  <div class="doc-footer-right">Member #{{ '%04d' % member_id }}</div>
+</div>
 
 </body>
 </html>

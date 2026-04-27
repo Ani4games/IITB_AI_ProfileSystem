@@ -2,310 +2,447 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Profile PDF</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style_profile_pdf.css') }}">
+<title>IITBNF Profile — {{ person.display_name }}</title>
+<style>
+  /* ── RESET ── */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* ── BASE ── */
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10px;
+    color: #111;
+    background: #fff;
+    padding: 18px 22px 24px;
+    line-height: 1.4;
+  }
+
+  /* ── DOCUMENT HEADER ── */
+  .doc-header {
+    width: 100%;
+    border-bottom: 2px solid #111;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+  .doc-header-left  { float:left; }
+  .doc-header-right { float:right;  text-align: right; }
+  .doc-header::after {
+    content: "";
+    display: block;
+    clear: both;
+  }
+  .doc-logo {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111;
+    letter-spacing: .12em;
+  }
+  .doc-logo-sub {
+    font-size: 8px;
+    color: #555;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-top: 1px;
+  }
+  .doc-meta {
+    font-size: 8px;
+    color: #777;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .doc-meta strong { color: #111; font-weight: 700; }
+
+  /* ── IDENTITY BLOCK ── */
+  .id-block {
+    width: 100%;
+    border-top: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    padding: 8px 0;
+    margin-bottom: 12px;
+  }
+  .id-block::after {
+    content: "";
+    display: block;
+    clear: both;
+  }
+  .id-name-col { float:left;  width: 48%; padding-right: 12px; }
+  .id-fields-col { float:right; width: 52%; }
+
+  .id-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+  .id-role {
+    font-size: 9px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 1px;
+  }
+  .id-designation {
+    font-size: 10px;
+    color: #333;
+    margin-bottom: 1px;
+  }
+  .id-team {
+    font-size: 9px;
+    color: #777;
+  }
+
+  .id-kv-table { width: 100%; border-collapse: collapse; }
+  .id-kv-table td {
+    padding: 1px 0;
+    font-size: 9px;
+    border: none;
+    vertical-align: top;
+  }
+  .id-kv-table td:first-child {
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-size: 8px;
+    width: 80px;
+    padding-right: 6px;
+    white-space: nowrap;
+  }
+  .id-kv-table td:last-child { color: #111; font-weight: 600; }
+
+  /* ── SECTION ── */
+  .section { margin-bottom: 12px; break-inside: auto; page-break-inside: avoid; }
+
+  .section-hdr {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: #111;
+    border-left: 3px solid #111;
+    padding: 2px 0 2px 6px;
+    margin-bottom: 6px;
+  }
+
+  /* ── METRICS STRIP ── */
+  .metrics-strip {
+    width: 100%;
+    text-align: center;
+    border: 1px solid #e0e0e0;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+  .metrics-strip td {
+    text-align: center;
+    padding: 5px 4px;
+    border-right: 1px solid #e0e0e0;
+    width: 16%;
+    white-space: nowrap;
+  }
+  .metrics-strip td:last-child { border-right: none; }
+  .m-val {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1;
+    display: block;
+  }
+  .m-val.good { color: #166534; }
+  .m-val.warn { color: #92400e; }
+  .m-val.bad  { color: #991b1b; }
+  .m-key {
+    font-size: 7px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #888;
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* ── TOOL PERMISSIONS GRID ── */
+  .perm-grid {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4px;
+  }
+  .perm-grid td {
+    padding: 4px 6px;
+    vertical-align: top;
+    width: 25%;
+    border: 1px solid #ebebeb;
+  }
+  .perm-name {
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    color: #111;
+    line-height: 1.2;
+  }
+  .perm-date {
+    display: block;
+    font-size: 8px;
+    color: #888;
+    margin-top: 1px;
+  }
+  /* empty cell in last row of permissions grid */
+  .perm-empty {
+    background: #fafafa;
+  }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
+  tr    { page-break-inside: avoid; page-break-after: auto; }
+
+  table th {
+    font-size: 7px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #555;
+    padding: 4px 6px;
+    border-bottom: 1px solid #111;
+    text-align: left;
+    background: #fff;
+  }
+  table td {
+    padding: 4px 6px;
+    border-bottom: 1px solid #ebebeb;
+    font-size: 9px;
+    vertical-align: middle;
+    color: #111;
+  }
+  table tr:last-child td { border-bottom: none; }
+
+  /* ── SUBSECTION TITLE ── */
+  .sub-title {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #555;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 2px;
+    margin: 8px 0 4px;
+  }
+
+  /* ── BADGES ── */
+  .badge {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .badge-green  { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+  .badge-amber  { color: #92400e; border-color: #fde68a; background: #fffbeb; }
+  .badge-red    { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
+  .badge-blue   { color: #1e40af; border-color: #bfdbfe; background: #eff6ff; }
+  .badge-orange { color: #c2410c; border-color: #fed7aa; background: #fff7ed; }
+  .badge-muted  { color: #6b7280; border-color: #e5e7eb; background: #f9fafb; }
+
+  /* ── CHIP (permissions) ── */
+  .chip {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 3px;
+    font-size: 8px;
+    margin: 1px 1px 0 0;
+    color: #374151;
+  }
+
+  /* ── FOOTER ── */
+  .doc-footer {
+    width: 100%;
+    margin-top: 16px;
+    padding-top: 6px;
+    border-top: 1px solid #ddd;
+    font-size: 7px;
+    color: #aaa;
+  }
+  .doc-footer td:last-child { text-align: right; }
+</style>
 </head>
-
 <body>
 
-<!-- ===================== IDENTITY ===================== -->
-<div class="section">
-  <div class="section-hdr">Profile — Member {{ '%04d' % member_id }}</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Field</th><th>Value</th></tr>
-      <tr><td>Name</td><td><b>{{ person.display_name or person.name or '—' }}</b></td></tr>
-      <tr><td>Email</td><td>{{ person.email or '—' }}</td></tr>
-      <tr><td>Role</td><td>{{ person.role_name or person.role or '—' }}</td></tr>
-      {% if person.designation %}<tr><td>Designation</td><td>{{ person.designation }}</td></tr>{% endif %}
-      {% if person.team %}<tr><td>Team</td><td>{{ person.team }}</td></tr>{% endif %}
-      {% if person.type_of_appointment %}<tr><td>Appointment</td><td>{{ person.type_of_appointment }}</td></tr>{% endif %}
-      {% if person.qualification %}<tr><td>Qualification</td><td>{{ person.qualification }}</td></tr>{% endif %}
-      {% if person.joining_date and person.joining_date != '0000-00-00' %}<tr><td>Joined</td><td>{{ person.joining_date }}</td></tr>{% endif %}
-      {% if person.p_project_code %}<tr><td>Project Code</td><td>{{ person.p_project_code }}</td></tr>{% endif %}
+<!-- ══ HEADER ════════════════════════════════════════════════════════ -->
+<div class="doc-header">
+  <div class="doc-header-left">
+    <div class="doc-logo">IITBNF</div>
+    <div class="doc-logo-sub">IIT Bombay Nanofabrication Facility</div>
+  </div>
+  <div class="doc-header-right">
+    <div class="doc-meta">
+      <strong>Staff Profile Report</strong><br>
+      Member #{{ '%04d' % member_id }} &nbsp;·&nbsp; {{ selected_year }}<br>
+      Generated {{ now }}
+    </div>
+  </div>
+</div>
+
+<!-- ══ IDENTITY ═════════════════════════════════════════════════════ -->
+<div class="id-block">
+  <div class="id-name-col">
+    <div class="id-name">{{ person.display_name or '—' }}</div>
+    <div class="id-role">{{ person.role_name or 'Staff' }}</div>
+    <div class="id-designation">{{ person.designation or '—' }}</div>
+    {% if person.team %}<div class="id-team">{{ person.team }}</div>{% endif %}
+  </div>
+  <div class="id-fields-col">
+    <table class="id-kv-table">
+      {% if person.slot_email %}
+      <tr><td>Email</td><td>{{ person.slot_email }}</td></tr>
+      {% else %}
+      <tr><td>Email</td><td>{{ person.email }}</td></tr>
+      {% endif %}
+      {% if person.type_of_appointment %}
+      <tr><td>Appointment</td><td>{{ person.type_of_appointment }}</td></tr>
+      {% endif %}
+      {% if person.qualification %}
+      <tr><td>Qualification</td><td>{{ person.qualification }}</td></tr>
+      {% endif %}
+      {% if person.joining_date and person.joining_date not in ['0000-00-00','None',''] %}
+      <tr><td>Joined</td><td>{{ person.joining_date }}</td></tr>
+      {% endif %}
+      {% if person.p_project_code %}
+      <tr><td>Project Code</td><td>{{ person.p_project_code }}</td></tr>
+      {% endif %}
     </table>
   </div>
 </div>
 
-<!-- ===================== ATTENDANCE ===================== -->
+<!-- ══ ATTENDANCE ════════════════════════════════════════════════════ -->
 {% if att and att.days_present is defined %}
 <div class="section">
   <div class="section-hdr">Attendance — {{ selected_year }}</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Metric</th><th>Value</th></tr>
-      <tr><td>Days Present</td><td>{{ att.days_present }}</td></tr>
-      <tr><td>Mandatory Days</td><td>{{ att.mandatory_days }}</td></tr>
-      <tr><td>Attendance %</td><td>{{ att.attendance_pct }}%</td></tr>
-      <tr><td>Leave Utilisation</td><td>{{ att.leave_utilisation_pct }}%</td></tr>
-    </table>
-    {% if att.leave_summary %}
-    <br>
-    <table>
-      <tr><th>Leave Type</th><th>Taken</th><th>Max Allowed</th><th>Utilisation</th></tr>
+  <table class="metrics-strip">
+    <tr>
+      <td>
+        <span class="m-val {% if att.attendance_pct >= 90 %}good{% elif att.attendance_pct < 75 %}bad{% else %}warn{% endif %}">{{ att.attendance_pct }}%</span>
+        <span class="m-key">Attendance Percent</span>
+      </td>
+       <td>
+        <span class="m-val">{{ att.days_present }}</span>
+        <span class="m-key">Days Present</span>
+      </td>
+      <td>
+        <span class="m-val">{{ att.mandatory_days }}</span>
+        <span class="m-key">Working Days</span>
+      </td>
+    </tr>
+  </table>
+  <!-- {% if att.leave_summary %}
+  <div class="sub-title">Leave Breakdown</div>
+  <table>
+    <thead>
+      <tr><th>Leave Type</th><th>Days Taken</th><th>Max Allowed</th><th>Utilisation</th></tr>
+    </thead>
+    <tbody>
       {% for l in att.leave_summary %}
       <tr>
         <td>{{ l.type_of_leave }}</td>
         <td>{{ l.days_taken }}</td>
         <td>{{ l.max_allowed or '—' }}</td>
-        <td>{{ l.util_pct ~ '%' if l.util_pct is not none else '—' }}</td>
+        <td>{{ (l.util_pct | string + '%') if l.util_pct is not none else '—' }}</td>
       </tr>
       {% endfor %}
-    </table>
-    {% endif %}
-  </div>
+    </tbody>
+  </table>
+  {% endif %} -->
 </div>
 {% endif %}
 
-<!-- ===================== EQUIPMENT ===================== -->
-{% if equip and equip.available %}
+<!-- ══ SLOT ACTIVITY ═════════════════════════════════════════════════ -->
+{% if slot_activity and slot_activity.available and slot_activity.total > 0 %}
 <div class="section">
-  <div class="section-hdr">Equipment Usage — {{ selected_year }}</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Metric</th><th>Value</th></tr>
-      <tr><td>Total Requests</td><td>{{ equip.total_slots }}</td></tr>
-      <tr><td>Tools Used</td><td>{{ equip.tools_count }}</td></tr>
-      {% if equip.approval_stats %}
-      <tr><td>Approved</td><td>{{ equip.approval_stats.approved or 0 }}</td></tr>
-      <tr><td>Pending</td><td>{{ equip.approval_stats.pending or 0 }}</td></tr>
-      <tr><td>Rejected</td><td>{{ equip.approval_stats.rejected or 0 }}</td></tr>
-      {% endif %}
-    </table>
-    {% if equip.tools_used %}
-    <br>
-    <table>
-      <tr><th>Tool</th><th>Requests</th><th>Approved</th><th>Pending</th></tr>
-      {% for t in equip.tools_used %}
-      <tr>
-        <td>{{ t.tool_name }}</td>
-        <td>{{ t.times_booked }}</td>
-        <td>{{ t.approved or 0 }}</td>
-        <td>{{ t.pending or 0 }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-    {% endif %}
-  </div>
+  <div class="section-hdr">Slot Activity — {{ selected_year }}</div>
+  <table class="metrics-strip">
+    <tr>
+      <td><span class="m-val">{{ slot_activity.total }}</span><span class="m-key">Total Requests</span></td>
+      <td><span class="m-val good">{{ slot_activity.slot_booked }}</span><span class="m-key">Slot Booked</span></td>
+      <td><span class="m-val warn">{{ slot_activity.pending }}</span><span class="m-key">Pending</span></td>
+      <td><span class="m-val">{{ slot_activity.slot_cancelled }}</span><span class="m-key">Slots Cancelled</span></td>
+      <td><span class="m-val">{{ slot_activity.approved }}</span><span class="m-key">Approved</span></td>
+      <td><span class="m-val bad">{{ slot_activity.rejected }}</span><span class="m-key">Rejected</span></td>
+    </tr>
+  </table>
 </div>
 {% endif %}
 
-<!-- ===================== PROJECTS ===================== -->
-{% if projects and projects.projects %}
-<div class="section">
-  <div class="section-hdr">Projects</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Project</th><th>Category</th><th>End Date</th><th>Status</th></tr>
-      {% for p in projects.projects %}
-      <tr>
-        <td>{{ p.project_title or p.project or '—' }}</td>
-        <td>{{ p.category_name or '—' }}</td>
-        <td>{{ p.project_end_date or '—' }}</td>
-        <td>{{ 'Active' if p.active else 'Closed' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-</div>
-{% endif %}
-
-<!-- ===================== PUBLICATIONS ===================== -->
-{% if projects and projects.papers %}
-<div class="section">
-  <div class="section-hdr">Publications</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Year</th><th>Title</th><th>Type</th><th>Venue</th></tr>
-      {% for p in projects.papers %}
-      <tr>
-        <td>{{ p.year }}</td>
-        <td>{{ p.title }}</td>
-        <td>{{ p.type or '—' }}</td>
-        <td>{{ p.conf_name or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-</div>
-{% endif %}
-
-
-
-<!-- ===================== TRAINING ===================== -->
-{% if training %}
-<div class="section">
-  <div class="section-hdr">Training Records</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Equipment</th><th>Trained On</th><th>Trainer</th></tr>
-      {% for t in training %}
-      <tr>
-        <td>{{ t.tool_name or '—' }}</td>
-        <td>{{ t.trained_on or '—' }}</td>
-        <td>{{ t.trainer_name or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-</div>
-{% endif %}
-
-<!-- ===================== COMMITTEES ===================== -->
-{% if committees %}
-<div class="section">
-  <div class="section-hdr">Committees</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Committee</th><th>Position</th></tr>
-      {% for c in committees %}
-      <tr>
-        <td>{{ c.committee_name or '—' }}</td>
-        <td>{{ c.position or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-</div>
-{% endif %}
-
-<!-- ===================== TRACKING ===================== -->
-{% if tracking %}
-<div class="section">
-  <div class="section-hdr">Profile Change History</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Date</th><th>Field</th><th>Old Value</th><th>New Value</th><th>Updated By</th></tr>
-      {% for t in tracking %}
-      <tr>
-        <td>{{ t.timestamp or '—' }}</td>
-        <td>{{ t.column_name or '—' }}</td>
-        <td>{{ t.old_value or '—' }}</td>
-        <td>{{ t.new_value or '—' }}</td>
-        <td>{{ t.updated_by_name or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-</div>
-{% endif %}
-
-<!-- ===================== RESERVATIONS ===================== -->
-{% if reservations %}
-<div class="section">
-  <div class="section-hdr">Slot Reservations — {{ selected_year }}</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Equipment</th><th>Start</th><th>End</th><th>Status</th></tr>
-      {% for r in reservations %}
-      <tr>
-        <td>{{ r.tool_name or '—' }}</td>
-        <td>{{ r.start_dt or '—' }}</td>
-        <td>{{ r.end_dt or '—' }}</td>
-        <td>{{ r.booking_status or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-</div>
-{% endif %}
-
-<!-- ===================== TOOL PERMISSIONS ===================== -->
+<!-- ══ TOOL PERMISSIONS ══════════════════════════════════════════════ -->
 {% if tool_perms_rich %}
 <div class="section">
-  <div class="section-hdr">Tool Permissions</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Tool</th><th>Faculty Incharge</th><th>Granted On</th></tr>
-      {% for t in tool_perms_rich %}
-      <tr>
-        <td>{{ t.tool_name }}</td>
-        <td>{{ t.faculty_name or '—' }}</td>
-        <td>{{ t.permission_date or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+  <div class="section-hdr">Authorized Tool Permissions ({{ tool_perms_rich | length }})</div>
+  <table class="perm-grid">
+    {% for t in tool_perms_rich %}
+      {% if loop.index0 % 4 == 0 %}<tr>{% endif %}
+      <td>
+        <span class="perm-name">{{ t.tool_name }}</span>
+        <span class="perm-date">{{ t.permission_date or '—' }}</span>
+      </td>
+      {% if loop.index0 % 4 == 3 or loop.last %}
+        {% set remainder = tool_perms_rich | length % 4 %}
+        {% if loop.last and remainder != 0 %}
+          {% for _ in range(4 - remainder) %}<td class="perm-empty"></td>{% endfor %}
+        {% endif %}
+        </tr>
+      {% endif %}
+    {% endfor %}
+  </table>
 </div>
 {% endif %}
 
-<!-- ===================== CURRENTLY ASSIGNED TOOLS ===================== -->
+<!-- ══ SYSTEM OWNER — CURRENT ════════════════════════════════════════ -->
 {% if system_owned %}
 <div class="section">
-  <div class="section-hdr">Currently Assigned Tools ({{ system_owned | length }})</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Tool</th><th>Category</th><th>Location</th><th>Ownership Since</th><th>Status</th></tr>
-      {% for t in system_owned %}
-      <tr>
-        <td>{{ t.name or '—' }}</td>
-        <td>{{ t.category or '—' }}</td>
-        <td>{{ t.location or '—' }}</td>
-        <td>{{ t.ownership_date or '—' }}</td>
-        <td>{{ 'Working' if t.isworking else 'Down' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+  {% set working = system_owned | selectattr('isworking') | list | length %}
+  <div class="section-hdr">System Owner ({{ system_owned | length }} Tools)</div>
+  <table class="metrics-strip">
+    <tr>
+      <td><span class="m-val">{{ system_owned | length }}</span><span class="m-key">Total Systems Assigned</span></td>
+      <td><span class="m-val good">{{ working }}</span><span class="m-key">Active Systems</span></td>
+      <td><span class="m-val {% if system_owned | length - working > 0 %}bad{% else %}good{% endif %}">{{ system_owned | length - working }}</span><span class="m-key">Inactive Systems</span></td>
+    </tr>
+  </table>
 </div>
 {% endif %}
 
-<!-- ===================== SYSTEM OWNERSHIP HISTORY ===================== -->
+<!-- ══ SYSTEM OWNERSHIP HISTORY ══════════════════════════════════════ -->
 {% if system_owner_track %}
 <div class="section">
-  <div class="section-hdr">System Ownership History</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Tool</th><th>Category</th><th>Owned From</th><th>Removed On</th><th>Status</th></tr>
-      {% for s in system_owner_track %}
-      <tr>
-        <td>{{ s.tool_name or '—' }}</td>
-        <td>{{ s.category or '—' }}</td>
-        <td>{{ s.ownership_date or '—' }}</td>
-        <td>{{ s.removal_date or '—' }}</td>
-        <td>{{ s.status or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
+  {% set active_own = system_owner_track | selectattr('is_active') | list | length %}
+  <div class="section-hdr">System Owner Track ({{ system_owner_track | length }} Records)</div>
+  <table class="metrics-strip">
+    <tr>
+      <td><span class="m-val">{{ system_owner_track | length }}</span><span class="m-key">Total Ownership Records</span></td>
+      <td><span class="m-val good">{{ active_own }}</span><span class="m-key">Active</span></td>
+      <td><span class="m-val">{{ system_owner_track | length - active_own }}</span><span class="m-key">Removed</span></td>
+    </tr>
+  </table> 
 </div>
 {% endif %}
 
-<!-- ===================== PERMISSIONS ===================== -->
+<!-- ══ SYSTEM PERMISSIONS ════════════════════════════════════════════ -->
 {% if permissions %}
 <div class="section">
   <div class="section-hdr">System Permissions</div>
-  <div class="section-body">
-    <div>
-      {% for p in permissions %}
-        <span class="chip">{{ p.field }}</span>
-      {% endfor %}
-    </div>
-  </div>
+  {% for p in permissions %}<span class="chip">{{ p.field }}</span>{% endfor %}
 </div>
 {% endif %}
 
-<!-- ===================== ERROR REPORTS ===================== -->
-{% if errors is defined and errors %}
-<div class="section">
-  <div class="section-hdr">Error Reports</div>
-  <div class="section-body">
-    <table>
-      <tr><th>Equipment</th><th>Details</th><th>Action Taken</th><th>Reported</th></tr>
-      {% for e in errors %}
-      <tr>
-        <td>{{ e.tool_name or '—' }}</td>
-        <td>{{ e.error_details or '—' }}</td>
-        <td>{{ e.action_taken or '—' }}</td>
-        <td>{{ e.timestamp or '—' }}</td>
-      </tr>
-      {% endfor %}
-    </table>
-  </div>
-</div>
-{% endif %}
+<!-- ══ FOOTER ════════════════════════════════════════════════════════ -->
+<table class="doc-footer">
+  <tr>
+    <td>IIT Bombay Nanofabrication Facility</td>
+    <td>Member #{{ '%04d' % member_id }} &nbsp;·&nbsp; {{ selected_year }}</td>
+  </tr>
+</table>
 
 </body>
 </html>

@@ -318,38 +318,6 @@
       z-index: 10;
     }
 
-    /* ── LIGHT THEME OVERRIDES ── */
-    [data-theme="light"] {
-      --overlay: rgba(240,253,244,0.85);
-      --fg: #111827;
-      --muted: rgba(17,24,39,0.6);
-    }
-    [data-theme="light"] .bg-scene::before {
-      background:
-        radial-gradient(ellipse 80% 60% at 70% 40%, rgba(148, 240, 238, 0.7) 0%, transparent 70%),
-        radial-gradient(ellipse 60% 80% at 20% 80%, rgba(209, 250, 246, 0.8) 0%, transparent 60%),
-        linear-gradient(145deg, #d1fae5 0%, #a7f3d0 40%, #ecfdf5 70%, #f0fdf4 100%);
-    }
-    [data-theme="light"] .bg-grid {
-      background-image:
-        linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
-    }
-    [data-theme="light"] .lp-feat {
-      background: rgba(255,255,255,0.6);
-      border-color: rgba(0,0,0,0.08);
-    }
-    [data-theme="light"] .lp-feat:hover {
-      background: rgba(255,255,255,0.85);
-    }
-    [data-theme="light"] .theme-pill {
-      background: rgba(0,0,0,0.06);
-      border-color: rgba(0,0,0,0.1);
-      color: rgba(17,24,39,0.7);
-    }
-    [data-theme="light"] .logo-text { color: rgba(17,24,39,0.9); }
-    [data-theme="light"] .lp-hero em { color: #047857; }
-
     /* ── RESPONSIVE ── */
     @media (max-width: 768px) {
       .lp-nav   { padding: 1.25rem 1.5rem; }
@@ -379,11 +347,6 @@
       </div>
     </div>
 
-    <div class="lp-nav-right">
-      <button class="theme-pill" id="theme-toggle">
-        <span id="theme-icon">☀️</span> <span id="theme-text">Light Mode</span>
-      </button>
-    </div>
   </nav>
 
   <!-- Main hero content -->
@@ -433,25 +396,5 @@
     </div>
   </div>
 
-  <script>
-    const toggleBtn  = document.getElementById('theme-toggle');
-    const themeIcon  = document.getElementById('theme-icon');
-    const themeText  = document.getElementById('theme-text');
-
-    const updateUI = (theme) => {
-      themeIcon.innerText = theme === 'dark' ? '☀️' : '🌙';
-      themeText.innerText = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
-    };
-
-    updateUI(document.documentElement.getAttribute('data-theme'));
-
-    toggleBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('theme', next);
-      updateUI(next);
-    });
-  </script>
 </body>
 </html>
