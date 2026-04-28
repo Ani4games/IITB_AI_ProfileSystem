@@ -94,12 +94,11 @@ def get_person(member_id):
                l.memberid AS slot_memberid,
                l.position AS slot_position,
                l.department AS slot_department,
-               l.email     AS slot_email,
-               p.iitb_joining_date
+               l.email AS slot_email
         FROM profile p
         LEFT JOIN role r          ON r.memberid = p.member_id
         LEFT JOIN role_master rm  ON rm.role_id = r.role
-        LEFT JOIN slotbooking.login l ON l.memberid = p.member_id
+        LEFT JOIN slotbooking.login l ON LOWER(TRIM(l.email)) = LOWER(TRIM(p.email))
         WHERE p.member_id = %s
           AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         LIMIT 1
@@ -111,26 +110,56 @@ def get_person(member_id):
     joined = (p.get("joined_name") or "").strip()
     p["display_name"] = joined if joined else get_display_name(p["member_id"], p.get("email", ""))
 
-    # If the memberid join found no slotbooking row, try matching on email
-    # (handles cases where HR memberid != slotbooking memberid for the same person)
+    # If the exact-email JOIN found no slotbooking row, run a richer fallback.
+    # This handles the common cases where:
+    #   • HR stores abc@iitb.ac.in but slotbooking stores abc@gmail.com
+    #   • Invisible whitespace/encoding differences survive TRIM()
+    #   • The HR memberid != slotbooking memberid for the same person
+    # The fallback fetches ALL the slot columns we need so that slot_memberid,
+    # slot_position, and slot_department are also populated, not just slot_email.
     if not p.get("slot_email"):
         hr_email = (p.get("email") or "").strip()
+        slot_row = None
+
         if hr_email:
+            # Strategy 1: exact match (catches encoding edge-cases the JOIN missed)
             r = slots_query(
-                "SELECT email FROM login WHERE LOWER(TRIM(email)) = LOWER(%s) LIMIT 1",
+                "SELECT memberid, email, position, department "
+                "FROM login WHERE LOWER(TRIM(email)) = LOWER(%s) LIMIT 1",
                 (hr_email,),
             )
-            if not r and "@" in hr_email:
+            if r:
+                slot_row = r[0]
+
+            # Strategy 2: same username prefix, any domain (abc@iitb vs abc@gmail)
+            if not slot_row and "@" in hr_email:
                 prefix = hr_email.split("@")[0]
                 r = slots_query(
-                    "SELECT email FROM login WHERE LOWER(TRIM(email)) LIKE LOWER(%s) LIMIT 1",
+                    "SELECT memberid, email, position, department "
+                    "FROM login WHERE LOWER(TRIM(email)) LIKE LOWER(%s) LIMIT 1",
                     (f"{prefix}@%",),
                 )
+                if r:
+                    slot_row = r[0]
+
+        # Strategy 3: fall back to same numeric memberid in slotbooking
+        if not slot_row:
+            r = slots_query(
+                "SELECT memberid, email, position, department "
+                "FROM login WHERE memberid = %s LIMIT 1",
+                (member_id,),
+            )
             if r:
-                p["slot_email"] = r[0]["email"]
+                slot_row = r[0]
+
+        # Apply all resolved slot fields at once so nothing is left NULL
+        if slot_row:
+            p["slot_email"]      = slot_row.get("email")      or p.get("slot_email")
+            p["slot_memberid"]   = slot_row.get("memberid")   or p.get("slot_memberid")
+            p["slot_position"]   = slot_row.get("position")   or p.get("slot_position")
+            p["slot_department"] = slot_row.get("department") or p.get("slot_department")
 
     return p
-
 
 def get_permissions(member_id):
     return hr_query("SELECT field FROM user_permission WHERE memberid=%s", (member_id,))
@@ -587,18 +616,24 @@ def get_holidays_for_year(year):
 
 def calc_mandatory_days(year, month=None, holidays=None):
     holidays = holidays or get_holidays_for_year(year)
+    today = date.today()
     if month:
         from calendar import monthrange
         total_days = monthrange(year, month)[1]
-        working_days = get_working_days(
-            date(year, month, 1),
-            date(year, month, total_days)
-        )
+        month_end = date(year, month, total_days)
+        # Cap at today for the current month of the current year
+        effective_end = min(month_end, today)
+        working_days = get_working_days(date(year, month, 1), effective_end)
     else:
-        working_days = get_working_days(date(year, 1, 1), date(year, 12, 31))
+        year_end = date(year, 12, 31)
+        # Cap at today for the current year so mandatory days don't include future days
+        effective_end = min(year_end, today)
+        working_days = get_working_days(date(year, 1, 1), effective_end)
     holiday_count = sum(
         1 for h in holidays
-        if h.year == year and (month is None or h.month == month) and h.weekday() < 5
+        if h.year == year and (month is None or h.month == month)
+        and h.weekday() < 5
+        and h <= today  # don't count future holidays either
     )
     return max(working_days - holiday_count, 0)
 @cached(ttl_seconds=120)   # 2-minute cache — same as attendance_stats
