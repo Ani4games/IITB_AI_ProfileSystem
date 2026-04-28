@@ -94,11 +94,12 @@ def get_person(member_id):
                l.memberid AS slot_memberid,
                l.position AS slot_position,
                l.department AS slot_department,
-               l.email AS slot_email
+               l.email     AS slot_email,
+               p.iitb_joining_date
         FROM profile p
         LEFT JOIN role r          ON r.memberid = p.member_id
         LEFT JOIN role_master rm  ON rm.role_id = r.role
-        LEFT JOIN slotbooking.login l ON LOWER(TRIM(l.email)) = LOWER(TRIM(p.email))
+        LEFT JOIN slotbooking.login l ON l.memberid = p.member_id
         WHERE p.member_id = %s
           AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         LIMIT 1
@@ -109,6 +110,25 @@ def get_person(member_id):
     p["role_name"]    = clean_role(p.get("raw_role"))
     joined = (p.get("joined_name") or "").strip()
     p["display_name"] = joined if joined else get_display_name(p["member_id"], p.get("email", ""))
+
+    # If the memberid join found no slotbooking row, try matching on email
+    # (handles cases where HR memberid != slotbooking memberid for the same person)
+    if not p.get("slot_email"):
+        hr_email = (p.get("email") or "").strip()
+        if hr_email:
+            r = slots_query(
+                "SELECT email FROM login WHERE LOWER(TRIM(email)) = LOWER(%s) LIMIT 1",
+                (hr_email,),
+            )
+            if not r and "@" in hr_email:
+                prefix = hr_email.split("@")[0]
+                r = slots_query(
+                    "SELECT email FROM login WHERE LOWER(TRIM(email)) LIKE LOWER(%s) LIMIT 1",
+                    (f"{prefix}@%",),
+                )
+            if r:
+                p["slot_email"] = r[0]["email"]
+
     return p
 
 
