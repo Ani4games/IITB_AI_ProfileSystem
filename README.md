@@ -14,7 +14,6 @@ A Flask-based web application for HR analytics, staff and lab-user profile manag
 - **AI summaries** — streaming LLM-generated narrative reports using a local GGUF model (Qwen 2.5 1.5B) via llama-cpp-python, with a CAG (Context-Augmented Generation) layer and gated TF-IDF RAG for comparative/policy questions
 - **PDF exports** — WeasyPrint-rendered PDFs for full profiles, system owner reports, and ownership track reports, generated asynchronously in background threads
 - **Admin panel** — announcement CRUD, unified people search
-- **AI voice assistant** — Web Speech API STT/TTS panel embedded in every profile page
 - **Debug tooling** — `/debug/timings`, `/debug/ai/full/<type>/<id>`, `/debug/staff/<id>` endpoints for diagnosing performance and AI pipeline failures
 
 ---
@@ -44,6 +43,7 @@ app.py                  Flask factory — registers blueprints, starts RAG inges
 │   ├── retrieve.py         Hybrid TF-IDF + word-vector retrieval (spaCy / GloVe)
 │   ├── pipeline.py         LLM prompt builder, rag_generate, rag_chat, rag_stream
 │   └── agent.py            Intent detection layer (short vs executive mode)
+      -composer.py          Templates for the Short summary creation
 ├── db.py                   Thread-safe connection pools for hr_portal + slotbooking
 ├── cache.py                In-memory TTL cache + @cached decorator
 ├── auth.py                 Session helpers and route guards (currently disabled)
@@ -214,6 +214,7 @@ iitbnf/
 │   ├── ingest.py
 │   ├── pipeline.py
 │   └── retrieve.py
+      -composer.py
 ├── routes/
 │   ├── admin_panel.py
 │   ├── ai_routes.py
@@ -248,7 +249,8 @@ iitbnf/
 ```
 
 ---
-
+** Please remove composer_model.pkl from the file each time you wish to run by entering the following command in the VSCode Terminal:
+rm models/composer_model.pkl
 ## Known Limitations
 
 - In-memory cache is not shared across multiple worker processes (incompatible with multi-process Gunicorn without an external cache like Redis)
