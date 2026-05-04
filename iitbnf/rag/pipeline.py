@@ -12,7 +12,7 @@ Public API:    rag_generate(ctx, audience)  → str   (full report)
     rag_stream(ctx, mode)        → Generator[str]  (SSE tokens)
 
 """
-
+import re
 import logging
 import os
 import threading
@@ -24,7 +24,6 @@ from rag.retrieve import retrieve
 # the returned 3-tuple, so len() always returned 3 (tuple length) and the
 # index was always seen as non-empty even when it was blank.
 from rag.ingest import collection_size
-
 logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -356,6 +355,98 @@ def _build_chat_prompt(question: str, ctx: dict, chunks: list[dict]) -> str:
     f"<|im_start|>assistant\n"
 )
 
+def _build_executive_prompt(
+    ctx:         dict,
+    base_summary: str,
+    profile_type: str = "staff",
+) -> str:
+    """
+    Executive summary prompt.
+
+    Strategy: give the LLM the composer's clean factual base as a
+    grounding reference. It is explicitly told it may ONLY use the
+    numbers and facts already present — it elaborates tone and
+    structure, never invents data.
+
+    This eliminates hallucination while letting the LLM add the
+    professional register, transitions, and interpretive commentary
+    that the template system cannot.
+    """
+    context_block = _format_context(ctx)
+    subject_name  = ctx.get("name", "this person")
+    is_lab        = profile_type == "lab"
+
+    if is_lab:
+        role_desc = (
+            f"a {ctx.get('category', 'lab')} user "
+            f"from the {ctx.get('department', 'facility')} department"
+        )
+        focus_para = (
+            "Paragraph 3: Equipment and facility usage — "
+            "describe slot reservations, equipment requests, approvals, "
+            "and session reports using only the numbers provided. "
+            "Comment on the level of engagement with facility resources."
+        )
+    else:
+        role_desc = (
+            f"{ctx.get('designation', 'staff member')} "
+            f"in the {ctx.get('team', 'facility')} team"
+        )
+        focus_para = (
+            "Paragraph 3: Equipment activity and system responsibilities — "
+            "cover slot bookings, equipment requests, system ownership, "
+            "and tool permissions using only the numbers provided."
+        )
+
+    return (
+        f"<|im_start|>system\n"
+        f"You are a senior HR analyst writing formal executive summaries "
+        f"for IIT Bombay Nanofabrication Facility (IITBNF) management. "
+        f"You will be given a factual base summary and the raw personnel data "
+        f"it was derived from. Your task is to expand this into a formal "
+        f"executive summary.\n\n"
+        f"STRICT RULES:\n"
+        f"- Use ONLY numbers and facts present in the Personnel Data or Base Summary.\n"
+        f"- Do NOT invent, estimate, or extrapolate any figures.\n"
+        f"- Do NOT mention any other person by name.\n"
+        f"- Write in formal third person throughout.\n"
+        f"- Do NOT use bullet points or headers — flowing paragraphs only.\n"
+        f"- Each paragraph must be 3-5 sentences.\n"
+        f"<|im_end|>\n"
+
+        f"<|im_start|>user\n"
+        f"Write a formal 4-paragraph executive summary for {subject_name}, "
+        f"{role_desc} at IITBNF.\n\n"
+
+        f"Paragraph 1 — Professional Profile: State {subject_name}'s role, "
+        f"team, qualification, appointment type, and tenure at the facility. "
+        f"Contextualise their position within the facility's operations.\n\n"
+
+        f"Paragraph 2 — Attendance and Punctuality: Report the exact "
+        f"attendance percentage and days present. State clearly whether "
+        f"this meets, exceeds, or falls below the 75% mandatory threshold. "
+        f"Comment on leave patterns if data is available.\n\n"
+
+        f"{focus_para}\n\n"
+
+        f"Paragraph 4 — Research and Academic Output: Cover publications "
+        f"and project involvement. If neither is present, state that clearly "
+        f"and note this may reflect the nature of the role rather than "
+        f"a deficiency.\n\n"
+
+        f"End with one sentence overall assessment of the member's "
+        f"engagement with the facility.\n\n"
+
+        f"Base Summary (factual anchor — do not contradict this):\n"
+        f"---\n{base_summary}\n---\n\n"
+
+        f"Personnel Data:\n"
+        f"---\n{context_block}\n---\n\n"
+
+        f"Write only about {subject_name}. "
+        f"Use only the data above.<|im_end|>\n"
+        f"<|im_start|>assistant\n"
+    )
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -370,10 +461,26 @@ def rag_generate(ctx: dict, audience: str = "management") -> str:
         ctx      : context dict from _build_staff_context / _build_lab_context
         audience : "management" or "individual"
     """
+    def rag_generate(ctx: dict, audience: str = "management") -> str:
+    # Fast path: TF-IDF composer (no LLM needed)
+        try:
+            from rag.composer import compose_staff_summary, compose_lab_summary
+            # Detect profile type from context shape
+            is_lab = "category" in ctx or "session_reports" in ctx
+            summary = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
+            if summary and len(summary.split()) > 20:
+                logger.info("Composer summary generated (%d words).", len(summary.split()))
+                return summary
+        except Exception as e:
+            logger.warning("Composer failed, falling back to LLM: %s", e)
+
+        # Slow path: GGUF model
+        prompt = _build_report_prompt(ctx, audience, [])
+        return _call_llm(prompt, max_tokens=MAX_TOKENS)
     # Pass empty chunks — no RAG retrieval to prevent hallucination
     prompt = _build_report_prompt(ctx, audience, [])
     return _call_llm(prompt, max_tokens=MAX_TOKENS)
-import re
+
 
 # ── Comparative / policy trigger keywords ─────────────────────────────────────
 # If the user's question contains ANY of these, it means the personal CAG
@@ -585,6 +692,23 @@ def rag_stream(ctx: dict, mode: str = "short"):
     [FIX 6] _inference_lock is always released in a finally block even if the
             client disconnects, preventing deadlock on subsequent requests.
     """
+
+    # Try composer first — yields instantly, no model loading
+    try:
+        from rag.composer import compose_staff_summary, compose_lab_summary
+        is_lab  = "category" in ctx or "session_reports" in ctx
+        summary = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
+        if summary and len(summary.split()) > 20:
+            # Simulate streaming by yielding word by word
+            # This keeps the SSE stream alive and the UI feel responsive
+            words = summary.split(" ")
+            for i, word in enumerate(words):
+                yield word + (" " if i < len(words) - 1 else "")
+            return
+    except Exception as e:
+        logger.warning("Composer stream failed, falling back to LLM: %s", e)
+
+    # Fall back to GGUF streaming (existing code unchanged below)
     llm = _get_llm()
     if llm is None:
         yield "[ERROR] Model not loaded — check models/ directory."
@@ -654,4 +778,81 @@ def rag_stream(ctx: dict, mode: str = "short"):
         yield "[ERROR] Generation failed."
     finally:
         # [FIX 6] Always release the lock — no matter what happened above.
+        _inference_lock.release()
+def rag_stream_executive(ctx: dict, profile_type: str = "staff"):
+    """
+    Executive summary streaming.
+
+    1. Runs the composer instantly to get the factual base.
+    2. Feeds base + ctx into the LLM prompt.
+    3. Streams LLM output token by token.
+
+    Falls back to composer-only output if the LLM is unavailable,
+    so the UI always gets something useful.
+
+    Yields str tokens.
+    """
+    # ── Step 1: get factual base from composer ────────────────────────────
+    base_summary = ""
+    try:
+        from rag.composer import compose_staff_summary, compose_lab_summary
+        is_lab       = profile_type == "lab"
+        base_summary = (
+            compose_lab_summary(ctx) if is_lab
+            else compose_staff_summary(ctx)
+        )
+        logger.info(
+            "Executive mode: composer base ready (%d words).",
+            len(base_summary.split()),
+        )
+    except Exception as e:
+        logger.warning("Composer failed in executive mode: %s", e)
+
+    # ── Step 2: try LLM ───────────────────────────────────────────────────
+    llm = _get_llm()
+
+    if llm is None:
+        # LLM not available — stream the composer output with a note
+        logger.warning("LLM not available for executive mode — streaming composer output.")
+        yield "[NOTE: LLM model not loaded — showing standard summary]\n\n"
+        if base_summary:
+            for word in base_summary.split(" "):
+                yield word + " "
+        else:
+            yield "Could not generate summary. Check model path and DB connection."
+        return
+
+    # ── Step 3: build prompt anchored to composer base ────────────────────
+    prompt = _build_executive_prompt(ctx, base_summary, profile_type)
+    prompt = _safe_truncate_prompt(prompt, max_tokens=500)
+
+    logger.info("Streaming executive summary for: %s", ctx.get("name", "unknown"))
+
+    # ── Step 4: stream ─────────────────────────────────────────────────────
+    _inference_lock.acquire()
+    try:
+        stream = llm(
+            prompt,
+            max_tokens  = 500,        # executive = longer
+            temperature = 0.4,        # slightly creative but still professional
+            top_p       = 0.92,
+            repeat_penalty = 1.15,    # discourage looping on short models
+            stop        = ["<|im_end|>", "<|im_start|>"],
+            echo        = False,
+            stream      = True,
+        )
+        for chunk in stream:
+            token = chunk["choices"][0].get("text", "")
+            if token:
+                yield token
+
+    except GeneratorExit:
+        logger.info("rag_stream_executive: client disconnected.")
+    except Exception as e:
+        logger.error("Executive stream failed: %s", e, exc_info=True)
+        # Graceful fallback mid-stream
+        yield "\n\n[Generation interrupted — showing base summary]\n\n"
+        if base_summary:
+            yield base_summary
+    finally:
         _inference_lock.release()

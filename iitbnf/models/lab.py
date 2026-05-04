@@ -2,7 +2,7 @@
 models/lab.py — All data queries for lab users (slotbooking) profiles.
 """
 from datetime import datetime
-
+import time
 from db import slots_query
 from utils import run_parallel
 from cache import cached
@@ -18,7 +18,16 @@ def safe_json(obj):
     elif isinstance(obj, (datetime, date)):
         return obj.isoformat()
     return obj
+@cached(ttl_seconds=300)
 def get_lab_user(memberid):
+    """
+    Single lab user record by memberid.  Cached 5 minutes — the profile
+    page and any background PDF job for the same user share this result
+    without a second round-trip.
+
+    Expiry filtering is done in SQL using CURDATE() so the query is always
+    correct regardless of when the server process was started.
+    """
     rows = slots_query("""
         SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.is_admin,
                l.rollno, l.department, l.supervisor, l.research_area,
@@ -28,50 +37,77 @@ def get_lab_user(memberid):
         LEFT JOIN login s ON s.memberid = l.supervisor
         LEFT JOIN hr_portal.profile p ON p.member_id = l.memberid
         WHERE l.memberid = %s
-          AND (p.member_id IS NULL OR p.leaving_date IS NULL
-               OR p.leaving_date = '0000-00-00'
-               OR p.leaving_date >= '2026-01-01')
-          AND (l.expiry_date IS NULL OR l.expiry_date = '' OR l.expiry_date = '0000-00-00'
-               OR (STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') IS NOT NULL
-                   AND STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') >= '2026-01-01'))
-        LIMIT 1
-    """, (memberid,))
-    return rows[0] if rows else None
-
-@cached(ttl_seconds=300)
-def get_all_lab_users():
-    # Remove the STR_TO_DATE filter — filter in Python instead
-    rows = slots_query("""
-        SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.department,
-               l.expiry_date, l.is_admin
-        FROM login l
-        LEFT JOIN hr_portal.profile p ON p.member_id = l.memberid
-        WHERE (p.member_id IS NULL 
-               OR p.leaving_date IS NULL 
+          AND (p.member_id IS NULL
+               OR p.leaving_date IS NULL
                OR p.leaving_date = '0000-00-00'
                OR p.leaving_date >= CURDATE())
-        ORDER BY l.position, l.fname, l.lname
-    """) or []
-    
-    # Filter expired users in Python — no per-row function call in SQL
-    from datetime import datetime
-    today = datetime.today()
-    cutoff = datetime(2026, 1, 1)  # or use today
-    
-    active = []
-    for u in rows:
-        exp = u.get("expiry_date") or ""
-        if not exp or exp in ("", "0000-00-00"):
-            active.append(u)
-            continue
-        try:
-            exp_dt = datetime.strptime(exp, "%m/%d/%Y")
-            if exp_dt >= cutoff:
-                active.append(u)
-        except:
-            active.append(u)  # unparseable = keep
-    return active
+          AND (l.expiry_date IS NULL
+               OR l.expiry_date = ''
+               OR l.expiry_date = '0000-00-00'
+               OR STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') >= CURDATE())
+        LIMIT 1
+    """, (memberid,))
+    print(f"get_lab_user: fetched {len(rows)} records for memberid={memberid}")
+    print(f"Sample record: {rows[0] if rows else 'N/A'}")
+    return rows[0] if rows else None
 
+@cached(ttl_seconds=3600)
+def get_all_lab_users():
+    """
+    All active lab users for the admin panel search index.
+    Cached 1 hour.
+
+    Active = not expired per slotbooking.login.expiry_date.
+    We do NOT cross-reference hr_portal departed staff because memberids
+    are not guaranteed unique across both databases — a departed staff ID
+    could falsely match an active PhD/MTech/BTech/INUP lab user.
+    """
+    # Step 1: fetch only non-expired slotbooking users directly in SQL.
+    # STR_TO_DATE on expiry_date is unavoidable (stored as MM/DD/YYYY text)
+    # but we scope it to rows where expiry_date is non-null/non-empty first,
+    # which lets the engine skip the conversion for the majority of rows.
+    rows = slots_query("""
+        SELECT memberid, email, fname, lname, position, department,
+               expiry_date, is_admin
+        FROM login
+        WHERE expiry_date IS NULL
+           OR expiry_date = ''
+           OR expiry_date = '0000-00-00'
+           OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE()
+        ORDER BY fname, lname
+    """) or []
+
+    # The SQL query above already filters out expired lab users via expiry_date.
+    # We do NOT cross-reference hr_portal.departed members here because:
+    #   1. Lab users (Ph.D, M.Tech, B.Tech, INUP, etc.) are managed solely
+    #      by slotbooking.login — their expiry_date is the authoritative signal.
+    #   2. Numeric memberids are not guaranteed to be unique across both DBs,
+    #      so a departed HR staff member's member_id could falsely match an
+    #      active lab user's memberid, causing them to disappear from search.
+    # print("DEBUG START")
+
+    # print(slots_query("SELECT DATABASE()"))
+    # print(slots_query("SELECT COUNT(*) FROM login"))
+
+    # rows = slots_query("""
+    #     SELECT memberid FROM login LIMIT 5
+    # """)
+    # print("Sample rows:", rows)
+
+    # rows = slots_query("""SELECT memberid, email, fname, lname, position, department,
+    #            expiry_date, is_admin
+    #     FROM login
+    #     WHERE expiry_date IS NULL
+    #        OR expiry_date = ''
+    #        OR expiry_date = '0000-00-00'
+    #        OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE()
+    #     ORDER BY fname, lname  """)
+    # print("Final rows:", len(rows) if rows else rows)
+
+    # print("DEBUG END")
+    return rows
+
+@cached(ttl_seconds=300)
 def _get_lab_projects(memberid):
     return slots_query("""
         SELECT projectid, project_code, project_title, funding_agency,
@@ -152,6 +188,7 @@ def get_announcements_all():
         SELECT announcementid, announcement, start_datetime, end_datetime
         FROM announcements ORDER BY announcementid DESC
     """) or []
+@cached(ttl_seconds=300)
 def get_lab_cancellations(memberid):
     return slots_query("""
         SELECT c.resid,
@@ -296,13 +333,17 @@ def get_system_owner_tools(memberid: int) -> list:
                     continue
         results.append(t)
     return results
-# ── System owner track ────────────────────────────────────────────────────────
-def get_system_owner_track(memberid: int) -> list:
-    """
-    Correct lifecycle pairing for system owner tracking.
-    Handles multiple create/delete cycles per tool.
-    """
 
+# This is the detailed tool usage history for system owner tracking, showing create/delete events with dates and durations.
+import time
+from collections import defaultdict
+from datetime import datetime
+
+# This is the detailed tool usage history for system owner tracking, showing create/delete events with dates and durations.
+@cached(ttl_seconds=300)
+def get_system_owner_track(memberid: int) -> list:
+    t0 = time.time()
+    
     rows = slots_query("""
         SELECT
             t.deviceid,
@@ -315,71 +356,91 @@ def get_system_owner_track(memberid: int) -> list:
         WHERE t.memberid = %s
         ORDER BY t.deviceid, t.date ASC
     """, (memberid,)) or []
-
-    from collections import defaultdict
-    from datetime import datetime
-    def days_between(start, end):
-        if not start or not end:
-            return None
-        s = datetime.strptime(start, '%d-%m-%Y')
-        e = datetime.strptime(end, '%d-%m-%Y')
-        return (e - s).days
+    
+    t1 = time.time()
+    print(f"[TIMING] SQL query: {(t1-t0)*1000:.2f}ms, rows={len(rows)}")
+    
+    # Step 1: Parse timestamps to date objects
+    t2 = time.time()
+    def to_date(ts):
+        return datetime.fromtimestamp(ts).date() if ts else None
     
     tool_map = defaultdict(list)
+    parsed_count = 0
+    skipped_count = 0
     
-    def fmt(ts):
-        return datetime.fromtimestamp(ts).strftime('%d-%m-%Y') if ts else None
-    
-    # Step 1: group by tool
     for r in rows:
-        if not r.get("date"):
-            continue  # skip bad rows
-
+        date_obj = to_date(r.get("date"))
+        if not date_obj:
+            skipped_count += 1
+            continue
+        parsed_count += 1
+        r["_date_obj"] = date_obj
         tool_map[r["deviceid"]].append(r)
-
+    
+    t3 = time.time()
+    print(f"[TIMING] Parse dates + group by tool: {(t3-t2)*1000:.2f}ms")
+    print(f"        - Parsed: {parsed_count} rows, Skipped: {skipped_count} rows")
+    print(f"        - Unique tools: {len(tool_map)}")
+    
+    # Step 2: Process timeline for each tool
+    t4 = time.time()
     result = []
-
-    # Step 2: process each tool timeline
+    
     for deviceid, events in tool_map.items():
         current = None
-
+        
         for e in events:
             action = (e.get("action") or "").lower().strip()
-            ts = e.get("date")
-
+            date_obj = e["_date_obj"]
+            
             if action == "create":
-                # Start new ownership cycle
                 current = {
                     "tool_name": e.get("tool_name"),
                     "category": e.get("category"),
-                    "owned_since": fmt(ts),
+                    "owned_since": date_obj,
                     "removed_on": None,
                     "is_active": True
                 }
-
+            
             elif action == "delete":
                 if current:
-                    # Close current cycle
-                    current["removed_on"] = fmt(ts)
+                    current["removed_on"] = date_obj
                     current["is_active"] = False
-                    duration = days_between(current["owned_since"], current["removed_on"])
-                    current["duration_days"] = duration if duration is not None else "—"
+                    current["duration_days"] = (date_obj - current["owned_since"]).days
                     result.append(current)
                     current = None
                 else:
-                    # Edge case: delete without create
                     result.append({
                         "tool_name": e.get("tool_name"),
                         "category": e.get("category"),
                         "owned_since": None,
-                        "removed_on": fmt(ts),
-                        "is_active": False
+                        "removed_on": date_obj,
+                        "is_active": False,
+                        "duration_days": "—",
                     })
-
-        # If still active after last event
+        
         if current:
-            duration = days_between(current["owned_since"], current["removed_on"])
-            current["duration_days"] = duration if duration is not None else "—"
+            current["duration_days"] = "—"  # Still active
             result.append(current)
-
+    
+    t5 = time.time()
+    print(f"[TIMING] Process timeline logic: {(t5-t4)*1000:.2f}ms")
+    print(f"        - Result entries before formatting: {len(result)}")
+    
+    # Step 3: Convert dates to strings
+    t6 = time.time()
+    for item in result:
+        if item.get("owned_since"):
+            item["owned_since"] = item["owned_since"].strftime('%d-%m-%Y')
+        if item.get("removed_on"):
+            item["removed_on"] = item["removed_on"].strftime('%d-%m-%Y')
+    
+    t7 = time.time()
+    print(f"[TIMING] Format dates to strings: {(t7-t6)*1000:.2f}ms")
+    
+    # Total time
+    print(f"[TIMING] TOTAL function time: {(t7-t0)*1000:.2f}ms")
+    print("-" * 50)
+    
     return result

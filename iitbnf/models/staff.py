@@ -46,114 +46,83 @@ _UID_CACHE_TTL                    = 1800  # 30 minutes
 
 # ── Member lists ──────────────────────────────────────────────────────────────
 
-@cached(ttl_seconds=300)
+@cached(ttl_seconds=3600)  # Increased TTL (1 hour)
 def get_all_members():
     rows = hr_query("""
-        SELECT p.member_id, p.designation, p.team, p.email,
-               COALESCE(rm.role_name, 'Staff') AS raw_role,
-               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS joined_name
+        SELECT 
+            p.member_id,
+            p.designation,
+            p.team,
+            p.email,
+            COALESCE(rm.role_name, 'Staff') AS raw_role
         FROM profile p
-        LEFT JOIN role r          ON r.memberid = p.member_id
-        LEFT JOIN role_master rm  ON rm.role_id = r.role
-        LEFT JOIN slotbooking.login l ON l.memberid = p.member_id
-        WHERE NOT (
-            (p.email IS NULL OR p.email = '') AND
-            (p.designation IS NULL OR p.designation = '') AND
-            (p.team IS NULL OR p.team = '')
+        LEFT JOIN role r         ON r.memberid = p.member_id
+        LEFT JOIN role_master rm ON rm.role_id = r.role
+        WHERE (
+            (p.email IS NOT NULL AND p.email != '')
+            OR (p.designation IS NOT NULL AND p.designation != '')
+            OR (p.team IS NOT NULL AND p.team != '')
         )
-        AND (p.leaving_date IS NULL OR p.leaving_date = '0000-00-00' OR p.leaving_date >= '2025-01-01')
+        AND COALESCE(p.leaving_date, '9999-12-31') >= '2025-01-01'
         AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         ORDER BY p.member_id
     """)
+
     if not rows:
         return []
 
-    blank_ids = [
-        m["member_id"] for m in rows
-        if not (m.get("joined_name") or "").strip()
-    ]
-    from utils import bulk_display_names
-    fallback_names = bulk_display_names(blank_ids) if blank_ids else {}
+    from utils import bulk_display_names, clean_role
 
-    processed = []
+    # Fetch all names in one efficient query (no cross-DB join)
+    member_ids = [m["member_id"] for m in rows]
+    names_map = bulk_display_names(member_ids)
+
+    # Process rows in-place (no extra lists/loops)
     for m in rows:
-        joined = (m.get("joined_name") or "").strip()
-        m["display_name"] = joined if joined else fallback_names.get(
-            m["member_id"], f"Member #{str(m['member_id']).zfill(4)}"
+        m["display_name"] = names_map.get(
+            m["member_id"],
+            f"Member #{str(m['member_id']).zfill(4)}"
         )
         m["role_name"] = clean_role(m.get("raw_role"))
-        processed.append(m)
-    return processed
+    print(f"get_all_members: fetched {len(rows)} members")
+    print(f"Sample member: {rows[0] if rows else 'N/A'}")
+    return rows
 
-
+@cached(ttl_seconds=300)
 def get_person(member_id):
+    # Step 1: fetch HR profile only — no cross-DB join, fast PK lookup.
     rows = hr_query("""
         SELECT p.*,
-               COALESCE(rm.role_name, 'Staff') AS raw_role,
-               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS joined_name,
-               l.memberid AS slot_memberid,
-               l.position AS slot_position,
-               l.department AS slot_department,
-               l.email AS slot_email
+               COALESCE(rm.role_name, 'Staff') AS raw_role
         FROM profile p
         LEFT JOIN role r          ON r.memberid = p.member_id
         LEFT JOIN role_master rm  ON rm.role_id = r.role
-        LEFT JOIN slotbooking.login l ON LOWER(TRIM(l.email)) = LOWER(TRIM(p.email))
         WHERE p.member_id = %s
           AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         LIMIT 1
     """, (member_id,))
     if not rows:
         return None
+
     p = rows[0]
     p["role_name"]    = clean_role(p.get("raw_role"))
-    joined = (p.get("joined_name") or "").strip()
-    p["display_name"] = joined if joined else get_display_name(p["member_id"], p.get("email", ""))
+    p["display_name"] = get_display_name(p["member_id"], p.get("email", ""))
 
-    # If the exact-email JOIN found no slotbooking row, run a richer fallback.
-    # This handles the common cases where:
-    #   • HR stores abc@iitb.ac.in but slotbooking stores abc@gmail.com
-    #   • Invisible whitespace/encoding differences survive TRIM()
-    #   • The HR memberid != slotbooking memberid for the same person
-    # The fallback fetches ALL the slot columns we need so that slot_memberid,
-    # slot_position, and slot_department are also populated, not just slot_email.
-    if not p.get("slot_email"):
-        hr_email = (p.get("email") or "").strip()
-        slot_row = None
-
-        if hr_email:
-            # Strategy 1: exact match (catches encoding edge-cases the JOIN missed)
-            r = slots_query(
-                "SELECT memberid, email, position, department "
-                "FROM login WHERE LOWER(TRIM(email)) = LOWER(%s) LIMIT 1",
-                (hr_email,),
-            )
-            if r:
-                slot_row = r[0]
-
-            # Strategy 2: same username prefix, any domain (abc@iitb vs abc@gmail)
-            if not slot_row and "@" in hr_email:
-                prefix = hr_email.split("@")[0]
-                r = slots_query(
-                    "SELECT memberid, email, position, department "
-                    "FROM login WHERE LOWER(TRIM(email)) LIKE LOWER(%s) LIMIT 1",
-                    (f"{prefix}@%",),
-                )
-                if r:
-                    slot_row = r[0]
-
-        # Strategy 3: fall back to same numeric memberid in slotbooking
-        if not slot_row:
-            r = slots_query(
-                "SELECT memberid, email, position, department "
-                "FROM login WHERE memberid = %s LIMIT 1",
-                (member_id,),
-            )
-            if r:
-                slot_row = r[0]
-
-        # Apply all resolved slot fields at once so nothing is left NULL
-        if slot_row:
+    # Step 2: resolve slotbooking UID via the shared cache (avoids 3 sequential queries).
+    # _warmup_uid() is called before run_parallel in the profile route so this
+    # is almost always a dict lookup (~0 ms), not a DB query.
+    uid = _get_uid_from_member(member_id)
+    if uid is not None:
+        r = slots_query(
+            "SELECT memberid, email, position, department, fname, lname "
+            "FROM login WHERE memberid = %s LIMIT 1",
+            (uid,),
+        )
+        if r:
+            slot_row = r[0]
+            joined = ((slot_row.get("fname") or "") + " " + (slot_row.get("lname") or "")).strip()
+            if joined:
+                p["display_name"] = joined
             p["slot_email"]      = slot_row.get("email")      or p.get("slot_email")
             p["slot_memberid"]   = slot_row.get("memberid")   or p.get("slot_memberid")
             p["slot_position"]   = slot_row.get("position")   or p.get("slot_position")
@@ -202,22 +171,27 @@ def get_working_days(from_d, to_d):
 def calculate_attendance(days_present, mandatory):
     return round(days_present / mandatory * 100, 1) if mandatory else 0
 
-@cached(ttl_seconds=120)   # 2-minute cache — same as trend
-def get_attendance_stats(member_id, month=None, year=None):
+@cached(ttl_seconds=300)
+def get_attendance_stats(member_id, year=None):
+    today = date.today()
+    year  = int(year or today.year)   # always int, never None stored in key
     try:
-        today = date.today()
-        year  = year or today.year
+        # Single query: count present days only — no ORDER BY, no row fetch
+        count_rows = hr_query(
+            "SELECT COUNT(*) AS cnt FROM user_attendance "
+            "WHERE memberid=%s AND date BETWEEN %s AND %s",
+            (member_id, f"{year}-01-01", f"{year}-12-31"),
+        )
+        days_present = int(count_rows[0]["cnt"]) if count_rows else 0
 
-        attendance_rows = get_attendance_rows(member_id, year=year)
-        days_present    = len(attendance_rows)
-        mandatory       = calc_mandatory_days(year)
-        att_pct         = calculate_attendance(days_present, mandatory)
+        mandatory = calc_mandatory_days(year)
+        att_pct   = calculate_attendance(days_present, mandatory)
 
         return {
             "days_present":   days_present,
             "mandatory_days": mandatory,
             "attendance_pct": att_pct,
-            "recent_log":     attendance_rows[:30],
+            "recent_log":     [],   # loaded lazily via AJAX if needed
             "trend":          [],
         }
     except Exception as e:
@@ -285,19 +259,11 @@ def _get_uid_from_member_cached(email):
     return r[0]["memberid"] if r else None
 
 
+@cached(ttl_seconds=300)
 def get_staff_owner_track(member_id: int) -> list:
     """
     Ownership span history for a staff member.
-
-    Resolution strategy
-    ───────────────────
-    1. Resolve HR member_id → slotbooking memberid via _get_uid_from_member.
-    2. If that uid already has system_owner_track rows, return them directly.
-    3. If the standard resolver returned a uid but it has zero track rows
-       (possible when the person registered under a different email), search
-       all slotbooking accounts that share the same email-username prefix and
-       pick the one with the highest system_owner_track row count.
-    4. Return [] only when no candidate account can be found at all.
+    Cached 5 minutes. N+1 COUNT loop replaced with a single GROUP BY query.
     """
     from models.lab import get_system_owner_track
 
@@ -308,7 +274,9 @@ def get_staff_owner_track(member_id: int) -> list:
         if track:
             return track
 
-    # ── Fallback: pick the candidate with the most track rows ─────────────
+    # Fallback: find the candidate account with the most track rows.
+    # Old code fired one COUNT(*) query per candidate — replaced with
+    # a single GROUP BY query across all candidates at once.
     p = hr_query(
         "SELECT email FROM profile WHERE member_id = %s LIMIT 1",
         (member_id,)
@@ -318,36 +286,35 @@ def get_staff_owner_track(member_id: int) -> list:
 
     email      = p[0]["email"]
     email_user = email.split("@")[0] if "@" in email else ""
+
     candidates = []
-
     if email_user:
-        candidates = slots_query("""
-            SELECT memberid FROM login
-            WHERE LOWER(TRIM(email)) LIKE LOWER(%s)
-        """, (f"{email_user}@%",)) or []
-
+        candidates = slots_query(
+            "SELECT memberid FROM login WHERE LOWER(TRIM(email)) LIKE LOWER(%s)",
+            (f"{email_user}@%",)
+        ) or []
     if not candidates:
-        candidates = slots_query("""
-            SELECT memberid FROM login
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s)) LIMIT 5
-        """, (email,)) or []
-
+        candidates = slots_query(
+            "SELECT memberid FROM login WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s)) LIMIT 5",
+            (email,)
+        ) or []
     if not candidates:
         return get_system_owner_track(uid) if uid else []
 
-    best_uid, best_cnt = uid, 0
-    for c in candidates:
-        mid = c["memberid"]
-        row = slots_query(
-            "SELECT COUNT(*) AS cnt FROM system_owner_track WHERE memberid = %s",
-            (mid,)
-        )
-        cnt = int(row[0]["cnt"]) if row else 0
-        if cnt > best_cnt:
-            best_cnt = cnt
-            best_uid = mid
+    cand_ids = [c["memberid"] for c in candidates]
 
-    return get_system_owner_track(best_uid) if best_uid else []
+    # Single GROUP BY query instead of N COUNT queries
+    placeholders = ",".join(["%s"] * len(cand_ids))
+    counts = slots_query(
+        f"SELECT memberid, COUNT(*) AS cnt FROM system_owner_track "
+        f"WHERE memberid IN ({placeholders}) GROUP BY memberid",
+        tuple(cand_ids)
+    ) or []
+
+    count_map = {r["memberid"]: int(r["cnt"]) for r in counts}
+    best_uid  = max(cand_ids, key=lambda mid: count_map.get(mid, 0))
+
+    return get_system_owner_track(best_uid)
 
 
 def _get_uid_from_member(member_id: int) -> int | None:
@@ -383,32 +350,29 @@ def _warmup_uid(member_id: int) -> None:
 def _resolve_uid_uncached(member_id: int) -> int | None:
     """
     Multi-step UID resolution. Only called on cache miss (~once per member
-    per 30 minutes).  Four fallback strategies in order of reliability.
+    per 30 minutes). Starts with the cheapest queries first — no cross-DB
+    joins. Falls back to progressively more expensive strategies.
     """
-    p = hr_query("""
-        SELECT p.email,
-               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS display_name,
-               l.fname AS slot_fname, l.lname AS slot_lname
-        FROM profile p
-        LEFT JOIN slotbooking.login l ON LOWER(TRIM(l.email)) = LOWER(TRIM(p.email))
-        WHERE p.member_id = %s LIMIT 1
-    """, (member_id,))
+    # Fetch just the email from HR — fast single-table PK lookup, no join.
+    p = hr_query(
+        "SELECT email FROM profile WHERE member_id = %s LIMIT 1",
+        (member_id,)
+    )
     if not p:
         return None
 
-    row   = p[0]
-    email = row.get("email", "")
+    email = (p[0].get("email") or "").strip()
 
-    # Step 1 — exact email match
+    # Step 1 — exact email match (indexed on slotbooking side)
     uid = _get_uid_from_member_cached(email)
     if uid is not None:
         return uid
 
-    # Step 2 — same email username, any domain
+    # Step 2 — same email username, any domain (abc@iitb vs abc@gmail)
     email_user = email.split("@")[0] if "@" in email else ""
     if email_user:
         r = slots_query(
-            "SELECT memberid, fname, lname FROM login "
+            "SELECT memberid FROM login "
             "WHERE LOWER(TRIM(email)) LIKE LOWER(%s) LIMIT 5",
             (f"{email_user}@%",)
         )
@@ -422,69 +386,50 @@ def _resolve_uid_uncached(member_id: int) -> int | None:
                     ",".join(str(c["memberid"]) for c in r)
                 )
             ) or []
-            count_map = {row["mid"]: row["cnt"] for row in counts}
+            count_map = {row["mid"]: int(row["cnt"]) for row in counts}
             best = max(r, key=lambda c: count_map.get(c["memberid"], 0))
             return best["memberid"]
 
-    # Step 3 — name match via accidental memberid collision in slotbooking
-    name_row = slots_query(
-        "SELECT fname, lname FROM login WHERE memberid = %s LIMIT 1",
+    # Step 3 — same numeric memberid exists in slotbooking
+    r = slots_query(
+        "SELECT memberid FROM login WHERE memberid = %s LIMIT 1",
         (member_id,)
     )
-    if name_row:
-        fname = (name_row[0].get("fname") or "").strip()
-        lname = (name_row[0].get("lname") or "").strip()
-        if fname and lname:
-            r = slots_query(
-                "SELECT memberid FROM login "
-                "WHERE LOWER(TRIM(fname)) = LOWER(%s) AND LOWER(TRIM(lname)) = LOWER(%s) "
-                "ORDER BY memberid DESC LIMIT 5",
-                (fname, lname)
-            )
-            if r:
-                if len(r) == 1:
-                    return r[0]["memberid"]
-                counts = slots_query(
-                    "SELECT requestedby AS mid, COUNT(*) AS cnt "
-                    "FROM equipment_usage_approval "
-                    "WHERE requestedby IN ({}) GROUP BY requestedby".format(
-                        ",".join(str(c["memberid"]) for c in r)
-                    )
-                ) or []
-                count_map = {row["mid"]: row["cnt"] for row in counts}
-                best = max(r, key=lambda c: count_map.get(c["memberid"], 0))
-                return best["memberid"]
-
-    # Step 4 — email lookup then name search (last resort)
-    name_row = slots_query(
-        "SELECT fname, lname FROM login WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s)) LIMIT 1",
-        (email,)
-    )
-    if not name_row:
-        return None
-    fname = (name_row[0].get("fname") or "").strip()
-    lname = (name_row[0].get("lname") or "").strip()
-    if not fname or not lname:
-        return None
-    r = slots_query(
-        "SELECT memberid FROM login "
-        "WHERE LOWER(TRIM(fname)) = LOWER(%s) AND LOWER(TRIM(lname)) = LOWER(%s) LIMIT 5",
-        (fname, lname)
-    )
-    if not r:
-        return None
-    if len(r) == 1:
+    if r:
         return r[0]["memberid"]
-    counts = slots_query(
-        "SELECT requestedby AS mid, COUNT(*) AS cnt "
-        "FROM equipment_usage_approval "
-        "WHERE requestedby IN ({}) GROUP BY requestedby".format(
-            ",".join(str(c["memberid"]) for c in r)
+
+    # Step 4 — name-based match (last resort)
+    if email:
+        name_row = slots_query(
+            "SELECT fname, lname FROM login "
+            "WHERE LOWER(TRIM(email)) = LOWER(TRIM(%s)) LIMIT 1",
+            (email,)
         )
-    ) or []
-    count_map = {row["mid"]: row["cnt"] for row in counts}
-    best = max(r, key=lambda c: count_map.get(c["memberid"], 0))
-    return best["memberid"]
+        if name_row:
+            fname = (name_row[0].get("fname") or "").strip()
+            lname = (name_row[0].get("lname") or "").strip()
+            if fname and lname:
+                r = slots_query(
+                    "SELECT memberid FROM login "
+                    "WHERE LOWER(TRIM(fname)) = LOWER(%s) "
+                    "AND LOWER(TRIM(lname)) = LOWER(%s) LIMIT 5",
+                    (fname, lname)
+                )
+                if r:
+                    if len(r) == 1:
+                        return r[0]["memberid"]
+                    counts = slots_query(
+                        "SELECT requestedby AS mid, COUNT(*) AS cnt "
+                        "FROM equipment_usage_approval "
+                        "WHERE requestedby IN ({}) GROUP BY requestedby".format(
+                            ",".join(str(c["memberid"]) for c in r)
+                        )
+                    ) or []
+                    count_map = {row["mid"]: int(row["cnt"]) for row in counts}
+                    best = max(r, key=lambda c: count_map.get(c["memberid"], 0))
+                    return best["memberid"]
+
+    return None
 
 def _get_equipment_rows(uid, year=None):
     date_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
@@ -636,15 +581,13 @@ def calc_mandatory_days(year, month=None, holidays=None):
         and h <= today  # don't count future holidays either
     )
     return max(working_days - holiday_count, 0)
-@cached(ttl_seconds=120)   # 2-minute cache — same as attendance_stats
+@cached(ttl_seconds=120)
 def get_attendance_trend(member_id, year=None):
     """
     Monthly attendance trend — resolved in ONE query instead of 12.
-    Now cached to prevent re-computation on every dropdown AJAX call.
-    get_holidays() is also cached (in utils.py) so the holiday set is
-    fetched from the DB at most once per hour.
+    Cached to prevent re-computation on every dropdown AJAX call.
     """
-    year = year or date.today().year
+    year = int(year or date.today().year)   # normalise: None and int produce same key
 
     rows = get_attendance_rows(member_id, year= year)  # ✅ only once
     holidays = get_holidays_for_year(year)  # ✅ only once
@@ -767,13 +710,13 @@ def _aggregate_slot_stats(rows):
         })
     return processed, counts
 
-@cached(ttl_seconds=120)   # 2-minute cache — prevents re-running the correlated subquery on every dropdown
+@cached(ttl_seconds=300)
 def get_slot_activity(member_id: int, year=None) -> dict:
     """
     Combined equipment requests + slot reservations view for staff profiles.
     Cached to prevent re-running the correlated subquery on every year-dropdown change.
     """
-
+    year = int(year or date.today().year)   # normalise so cache key is stable
     rows = _get_slot_rows(member_id, year)
     processed, counts = _aggregate_slot_stats(rows)
 

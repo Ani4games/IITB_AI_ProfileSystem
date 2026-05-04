@@ -14,10 +14,10 @@ import threading
 from flask import Flask, session, redirect, url_for
 import config
 from db import hr_pool, slots_pool
-from cache import cache
+# from cache import cache
 from rag.ingest import init_rag
 
-cache.clear()
+# cache.clear()
 import logging
 
 logging.basicConfig(
@@ -31,15 +31,7 @@ app.config["SESSION_COOKIE_HTTPONLY"] = config.SESSION_COOKIE_HTTPONLY
 app.config["SESSION_COOKIE_SAMESITE"] = config.SESSION_COOKIE_SAMESITE
 app.config["PERMANENT_SESSION_LIFETIME"] = config.PERMANENT_SESSION_LIFETIME
 
-def warmup_pdf():
-    try:
-        from weasyprint import HTML
-        HTML(string="<h1>Warmup</h1>").write_pdf()
-        print("WeasyPrint warmed up")
-    except Exception as e:
-        print("Warmup failed:", e)
 
-threading.Thread(target=warmup_pdf, daemon=True).start()
 
 # ── Jinja filters ─────────────────────────────────────────────────────────────
 @app.template_filter("datetimeformat")
@@ -86,6 +78,32 @@ app.register_blueprint(debug_ai_bp)
 
 # ── RAG ingestion (background) ───────────────────────────────────────────────
 threading.Thread(target=init_rag, daemon=True).start()
+
+# ── Cache warmup (background) ─────────────────────────────────────────────────
+# Pre-populate the two most expensive cached functions so the first admin
+# panel request after a server restart is fast instead of taking 20 s.
+def _warmup_caches():
+    try:
+        from models.staff import get_all_members
+        from models.lab   import get_all_lab_users
+        get_all_members()
+        get_all_lab_users()
+    except Exception as e:
+        print(f"[warmup] Cache warmup failed (non-fatal): {e}")
+
+threading.Thread(target=_warmup_caches, daemon=True).start()
+
+# In app.py, alongside init_rag():
+
+def _startup_tasks():
+    init_rag()
+    try:
+        from rag.composer import warm_up
+        warm_up()
+    except Exception as e:
+        print(f"Composer warm-up failed (non-fatal): {e}")
+
+threading.Thread(target=_startup_tasks, daemon=True).start()
 
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 @app.teardown_appcontext

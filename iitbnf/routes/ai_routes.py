@@ -141,3 +141,112 @@ def ai_stream():
             "Connection":         "keep-alive",
         }
     )
+@bp.route("/api/ai/compose")
+@login_required
+def ai_compose():
+    """
+    SSE endpoint for the AI Profile tab.
+    
+    Query params:
+        profile_type : "staff" or "lab"
+        profile_id   : member ID
+        mode         : "short" (default) | "executive"
+    """
+    if not is_full_access():
+        return Response("data: [ERROR] Access restricted.\n\n",
+                        mimetype="text/event-stream"), 403
+
+    profile_type = request.args.get("profile_type", "staff")
+    profile_id   = request.args.get("profile_id", type=int)
+    mode         = request.args.get("mode", "short")
+
+    if not profile_id:
+        return Response("data: [ERROR] No profile ID.\n\n",
+                        mimetype="text/event-stream"), 400
+
+    if profile_type == "lab":
+        ctx = _build_lab_context(profile_id)
+    else:
+        ctx = _build_staff_context(profile_id)
+
+    if not ctx:
+        return Response("data: [ERROR] Could not load profile data.\n\n",
+                        mimetype="text/event-stream"), 404
+
+    # ── SHORT mode: composer only, instant ────────────────────────────────
+    if mode == "short":
+        def generate_short():
+            try:
+                from rag.composer import compose_staff_summary, compose_lab_summary
+                is_lab  = profile_type == "lab"
+                summary = (
+                    compose_lab_summary(ctx) if is_lab
+                    else compose_staff_summary(ctx)
+                )
+                if not summary:
+                    yield "data: [ERROR] Could not generate summary.\n\n"
+                    return
+                import json
+                yield f"data: {json.dumps({'type': 'text', 'content': summary})}\n\n"
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                yield f"data: [ERROR] {str(e)}\n\n"
+
+        return Response(
+            stream_with_context(generate_short()),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control":     "no-cache",
+                "X-Accel-Buffering": "no",
+                "Connection":        "keep-alive",
+            }
+        )
+
+    # ── EXECUTIVE mode: composer + LLM, streamed ──────────────────────────
+    token_queue = queue.Queue()
+    SENTINEL    = object()
+
+    def inference_worker():
+        try:
+            from rag.pipeline import rag_stream_executive
+            for token in rag_stream_executive(ctx, profile_type):
+                token_queue.put(token)
+        except Exception as e:
+            token_queue.put(f"[ERROR] {str(e)}")
+        finally:
+            token_queue.put(SENTINEL)
+
+    t = threading.Thread(target=inference_worker, daemon=True)
+    t.start()
+
+    def generate_executive():
+        import json
+        try:
+            while True:
+                try:
+                    item = token_queue.get(timeout=1.0)
+                except queue.Empty:
+                    yield ": heartbeat\n\n"
+                    continue
+
+                if item is SENTINEL:
+                    yield "data: [DONE]\n\n"
+                    break
+                elif isinstance(item, str) and item.startswith("[ERROR]"):
+                    yield f"data: {json.dumps({'type': 'error', 'content': item})}\n\n"
+                    break
+                else:
+                    # Stream tokens individually so typewriter works
+                    yield f"data: {json.dumps({'type': 'token', 'content': item})}\n\n"
+        except GeneratorExit:
+            pass
+
+    return Response(
+        stream_with_context(generate_executive()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control":     "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection":        "keep-alive",
+        }
+    )

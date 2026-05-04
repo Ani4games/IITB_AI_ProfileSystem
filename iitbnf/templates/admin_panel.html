@@ -813,20 +813,8 @@
 
 <!-- ══ DATA ══ -->
 <script>
-const PEOPLE = {{ people_json|safe }};
-const STAFF  = {{ staff_json|safe }};   /* kept for admin tables */
-const LAB    = {{ lab_json|safe }};     /* kept for admin tables */
-const MONTHLY_LABELS = {{ monthly_labels_json|safe }};
-const MONTHLY_DATA   = {{ monthly_data_json|safe }};
-let   ROLE_GROUPS = {{ role_groups_json|safe }};
-const HEALTH = {
-  total_staff:     {{ health.total_staff if health else 0 }},
-  total_lab:       {{ health.total_lab if health else 0 }},
-  active_projects: {{ health.active_projects if health else 0 }},
-  total_tools:     {{ health.total_tools if health else 0 }},
-  total_papers:    {{ health.total_papers if health else 0 }},
-  avg_attendance:  {{ health.avg_attendance if health else 0 }}
-};
+const PEOPLE = {{ people_json|tojson }};
+console.log("PEOPLE:", {{ people_json | tojson }});
 </script>
 
 <script>

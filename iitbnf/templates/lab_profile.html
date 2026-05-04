@@ -358,6 +358,176 @@
       background: var(--surface2); border: 1px solid var(--border2);
       color: var(--faint); padding: .2rem .6rem; border-radius: 4px;
     }
+    /* ── AI COMPOSE CARD ──────────────────────────────────────────────── */
+.ai-compose-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Toolbar */
+.ai-compose-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.ai-compose-toolbar-left  { display: flex; align-items: center; gap: .75rem; }
+.ai-compose-toolbar-right { display: flex; align-items: center; gap: .4rem; }
+
+.ai-compose-model-tag {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: var(--amber-dim);
+  border: 1px solid rgba(245,166,35,.3);
+  padding: .15rem .55rem;
+  border-radius: 4px;
+}
+.ai-compose-timestamp {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  color: var(--faint);
+}
+.ai-compose-action-btn {
+  font-family: var(--font-mono);
+  font-size: .62rem;
+  font-weight: 700;
+  padding: .22rem .6rem;
+  border-radius: 5px;
+  border: 1px solid var(--border2);
+  background: var(--surface3);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--tr);
+  letter-spacing: .04em;
+}
+.ai-compose-action-btn:hover {
+  color: var(--amber);
+  border-color: rgba(245,166,35,.4);
+  background: var(--amber-dim);
+}
+
+/* Output area */
+.ai-compose-output {
+  padding: 1.4rem 1.5rem;
+  min-height: 180px;
+  position: relative;
+}
+
+/* Idle / loading state */
+.ai-compose-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  min-height: 140px;
+  color: var(--muted);
+}
+.ai-idle-icon {
+  font-size: 1.8rem;
+  color: var(--amber);
+  opacity: .3;
+  animation: ai-idle-pulse 2s ease-in-out infinite;
+}
+@keyframes ai-idle-pulse {
+  0%, 100% { opacity: .2; transform: scale(1); }
+  50%       { opacity: .6; transform: scale(1.08); }
+}
+.ai-idle-text {
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  color: var(--faint);
+  letter-spacing: .06em;
+}
+
+/* Typed text */
+.ai-compose-text {
+  font-family: var(--font-body);
+  font-size: .92rem;
+  line-height: 1.85;
+  color: var(--fg);
+  white-space: pre-wrap;
+}
+
+/* Each paragraph gets its own div with a fade-in */
+.ai-para {
+  margin-bottom: 1rem;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .3s ease, transform .3s ease;
+}
+.ai-para.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ai-para:last-child { margin-bottom: 0; }
+
+/* Cursor blink */
+.ai-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--amber);
+  border-radius: 1px;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: ai-blink .65s step-end infinite;
+}
+@keyframes ai-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* Badge dot (pulsing while generating) */
+.ai-badge-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  margin-right: .3rem;
+  vertical-align: middle;
+}
+.ai-badge-dot.pulsing {
+  animation: ai-dot-pulse 1s ease-in-out infinite;
+}
+.ai-badge-dot.done {
+  background: var(--green);
+  animation: none;
+  box-shadow: 0 0 6px var(--green);
+}
+@keyframes ai-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .4; transform: scale(.7); }
+}
+
+/* Footer */
+.ai-compose-footer {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+  flex-wrap: wrap;
+}
+.ai-footer-stat {
+  font-family: var(--font-mono);
+  font-size: .58rem;
+  color: var(--faint);
+  letter-spacing: .06em;
+}
+.ai-footer-divider { color: var(--border2); font-size: .7rem; }
   </style>
 </head>
 <body data-member-id="{{ memberid }}" data-profile-type="lab">
@@ -374,7 +544,10 @@
     <div class="topbar-right">
       <button class="util-btn" onclick="toggleTheme()" id="theme-btn">☀ Light</button>
       <button class="util-btn" onclick="window.print()">⎙ Print</button>
-      <button class="util-btn amber" onclick="openPDFModal()">⬇ PDF</button>
+      <button class="util-btn amber" id="pdf-download-btn" onclick="handlePDFClick()" title="Download PDF report">
+        <span id="pdf-btn-dot" style="width:6px;height:6px;border-radius:50%;background:var(--amber);opacity:0.5;display:inline-block;transition:all .3s;flex-shrink:0;"></span>
+        <span id="pdf-btn-label">⬇ PDF</span>
+      </button>
       <a href="/logout" class="util-btn danger">⏻ Out</a>
     </div>
   </nav>
@@ -612,32 +785,75 @@
   </div><!-- end panel-dashboard -->
 
   <!-- PANEL: AI PROFILE -->
-  <div id="panel-ai" class="page-panel" role="tabpanel" aria-labelledby="tab-ai">
-    <div class="ai-profile-pane">
-      <div class="ai-profile-inner">
-        <div class="ai-profile-badge">✦ AI Profile</div>
-        <h2 class="ai-profile-heading">{{ user.fname }} {{ user.lname }}</h2>
-        <p class="ai-profile-sub">{{ user.position or 'Lab User' }}{% if user.department %} · {{ user.department }}{% endif %}</p>
-        <div class="ai-profile-divider"></div>
-        <div class="ai-profile-wip">
-          <div class="wip-icon">🔧</div>
-          <div class="wip-title">Work is Underway</div>
-          <div class="wip-desc">
-            This section will display a fully AI-generated narrative profile for
-            <strong>{{ user.fname }} {{ user.lname }}</strong> — covering lab activity,
-            equipment usage, research publications, and project involvement —
-            generated using RAG (Retrieval-Augmented Generation) from live facility data.
+<!-- PANEL: AI PROFILE — replace the entire ai-profile-pane div -->
+<div id="panel-ai" class="page-panel" role="tabpanel" aria-labelledby="tab-ai">
+  <div class="ai-profile-pane">
+    <div class="ai-profile-inner">
+
+      <!-- Header -->
+      <div class="ai-profile-badge" id="ai-badge">
+        <span class="ai-badge-dot" id="ai-badge-dot"></span>
+        <span id="ai-badge-text">✦ AI Profile</span>
+      </div>
+
+      <!-- For staff: person.display_name / For lab: user.fname user.lname -->
+      <h2 class="ai-profile-heading" id="ai-profile-name">
+        {{ person.display_name if person is defined else (user.fname ~ ' ' ~ user.lname) }}
+      </h2>
+      <p class="ai-profile-sub" id="ai-profile-sub">
+        {% if person is defined %}
+          {{ person.designation or '' }}{% if person.team %} · {{ person.team }}{% endif %}
+        {% else %}
+          {{ user.position or 'Lab User' }}{% if user.department %} · {{ user.department }}{% endif %}
+        {% endif %}
+      </p>
+
+      <div class="ai-profile-divider"></div>
+
+      <!-- Main output card -->
+      <div class="ai-compose-card" id="ai-compose-card">
+
+        <!-- Toolbar -->
+        <div class="ai-compose-toolbar">
+          <div class="ai-compose-toolbar-left">
+            <span class="ai-compose-model-tag">◈ IITBNF Analyst</span>
+            <span class="ai-compose-timestamp" id="ai-compose-ts"></span>
           </div>
-          <div class="wip-chips">
-            <span class="wip-chip">Lab Activity</span>
-            <span class="wip-chip">Equipment Usage</span>
-            <span class="wip-chip">Research Output</span>
-            <span class="wip-chip">Project Involvement</span>
+          <div class="ai-compose-toolbar-right">
+            <button class="ai-compose-action-btn" id="ai-copy-btn"
+                    onclick="copyAISummary()" title="Copy to clipboard" style="display:none;">
+              ⎘ Copy
+            </button>
+            <button class="ai-compose-action-btn" id="ai-regen-btn"
+                    onclick="startAICompose()" title="Regenerate">
+              ↻ Regenerate
+            </button>
           </div>
         </div>
+
+        <!-- Text output area -->
+        <div class="ai-compose-output" id="ai-compose-output">
+          <!-- Initial state -->
+          <div class="ai-compose-idle" id="ai-compose-idle">
+            <div class="ai-idle-icon">◈</div>
+            <div class="ai-idle-text">Generating profile analysis…</div>
+          </div>
+        </div>
+
+        <!-- Footer: word count + confidence indicators -->
+        <div class="ai-compose-footer" id="ai-compose-footer" style="display:none;">
+          <span class="ai-footer-stat" id="ai-word-count"></span>
+          <span class="ai-footer-divider">·</span>
+          <span class="ai-footer-stat">Data-driven · No hallucination</span>
+          <span class="ai-footer-divider">·</span>
+          <span class="ai-footer-stat" id="ai-section-count"></span>
+        </div>
+
       </div>
+
     </div>
-  </div><!-- end panel-ai -->
+  </div>
+</div>
 
   <!-- ══ MODALS ══════════════════════════════════════════════════════ -->
 
@@ -1046,8 +1262,6 @@
     </div>
   </div>
 
-  <!-- AI PANEL -->
-  {% include 'ai_panel.html' %}
 
   <!-- SCRIPTS -->
   <script>
@@ -1103,24 +1317,138 @@
     }
 
     function openPDFModal() { openModal('pdf-year-modal'); }
-    function confirmPDFDownload() {
-      const year = document.getElementById('pdf-year-select').value;
-      closeModal('pdf-year-modal');
-      _downloadPDF(`/lab/${LAB_MEMBERID}/pdf?year=${year}`, `IITBNF_Lab_${String(LAB_MEMBERID).padStart(4,'0')}_${year}.pdf`);
+
+    // ── Button state ──────────────────────────────────────────────────────────
+    function _setPDFBtnState(state) {
+      const dot   = document.getElementById('pdf-btn-dot');
+      const label = document.getElementById('pdf-btn-label');
+      if (!dot || !label) return;
+      if (state === 'rendering') {
+        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:#f59e0b;opacity:0.6;display:inline-block;animation:pulse 1.2s ease-in-out infinite;flex-shrink:0;';
+      } else if (state === 'ready') {
+        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:#22c55e;opacity:1;display:inline-block;box-shadow:0 0 6px #22c55e;flex-shrink:0;';
+        const btn = document.getElementById('pdf-download-btn');
+        if (btn) btn.title = 'PDF ready — click to download instantly';
+      } else {
+        dot.style.cssText = 'width:6px;height:6px;border-radius:50%;background:var(--amber);opacity:0.35;display:inline-block;flex-shrink:0;';
+      }
     }
-    async function _downloadPDF(url, filename) {
+
+    // ── Prefetch state ────────────────────────────────────────────────────────
+    let _labPdfJobId = null;
+    let _labPdfYear  = {{ selected_year }};
+    let _btnPollTimer = null;
+
+    function _startBtnPoll(jobId) {
+      if (_btnPollTimer) clearInterval(_btnPollTimer);
+      _setPDFBtnState('rendering');
+      _btnPollTimer = setInterval(async () => {
+        try {
+          const r = await fetch(`/lab/pdf/status/${jobId}`);
+          const d = await r.json();
+          if (d.status === 'done') {
+            clearInterval(_btnPollTimer); _btnPollTimer = null;
+            _setPDFBtnState('ready');
+          } else if (d.status === 'error' || d.status === 'not_found') {
+            clearInterval(_btnPollTimer); _btnPollTimer = null;
+            _setPDFBtnState('idle');
+          }
+        } catch (_) {}
+      }, 2000);
+    }
+
+    // ── Kick off prefetch immediately on page load ────────────────────────────
+    (function _prefetchLabPDF() {
+      fetch(`/lab/${LAB_MEMBERID}/pdf/prefetch?year=${_labPdfYear}`)
+        .then(r => r.json())
+        .then(d => {
+          _labPdfJobId = d.job_id;
+          _startBtnPoll(d.job_id);
+        })
+        .catch(() => {});
+    })();
+
+    // ── Smart click — instant download if ready, modal otherwise ─────────────
+    async function handlePDFClick() {
+      if (_labPdfJobId) {
+        try {
+          const r = await fetch(`/lab/pdf/status/${_labPdfJobId}`);
+          const d = await r.json();
+          if (d.status === 'done') {
+            window.location.href = `/lab/pdf/download/${_labPdfJobId}`;
+            return;
+          }
+        } catch (_) {}
+      }
+      openPDFModal();
+    }
+
+    async function confirmPDFDownload() {
+      const year = parseInt(document.getElementById('pdf-year-select').value, 10);
+      closeModal('pdf-year-modal');
+
+      // If same year and job exists, check immediately
+      if (_labPdfJobId && year === _labPdfYear) {
+        try {
+          const r = await fetch(`/lab/pdf/status/${_labPdfJobId}`);
+          const d = await r.json();
+          if (d.status === 'done') {
+            window.location.href = `/lab/pdf/download/${_labPdfJobId}`;
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Not ready — show progress
       openModal('pdf-progress-modal');
-      const prog = document.getElementById('pdf-prog'), msg = document.getElementById('pdf-status-msg');
-      let pct = 0;
-      const ticker = setInterval(() => { pct = Math.min(pct + Math.random()*14, 85); prog.style.width = pct + '%'; }, 450);
+      const prog = document.getElementById('pdf-prog');
+      const msg  = document.getElementById('pdf-status-msg');
+      prog.style.width = '5%';
+
+      // Start a fresh job if year changed or no job exists
+      if (!_labPdfJobId || year !== _labPdfYear) {
+        msg.textContent = 'Starting PDF generation…';
+        try {
+          const res = await fetch(`/lab/${LAB_MEMBERID}/pdf/start?year=${year}`);
+          const d   = await res.json();
+          _labPdfJobId = d.job_id;
+          _labPdfYear  = year;
+        } catch (e) {
+          msg.textContent = 'Failed to start PDF generation.';
+          setTimeout(() => closeModal('pdf-progress-modal'), 2000);
+          return;
+        }
+      } else {
+        msg.textContent = 'PDF is rendering — almost ready…';
+      }
+
+      // Poll until done
+      let pct = 5;
+      const fake = setInterval(() => {
+        if (pct < 92) { pct += pct < 60 ? Math.random()*12 : Math.random()*4; prog.style.width = Math.min(pct,92)+'%'; }
+      }, 250);
+
       try {
-        const res = await fetch(url); if (!res.ok) throw new Error('Server error');
-        const blob = await res.blob();
-        const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
-        a.click(); URL.revokeObjectURL(a.href);
-        clearInterval(ticker); prog.style.width = '100%'; msg.textContent = 'Download started!';
-        setTimeout(() => closeModal('pdf-progress-modal'), 1400);
-      } catch(e) { clearInterval(ticker); msg.textContent = 'PDF generation failed.'; setTimeout(() => closeModal('pdf-progress-modal'), 2500); }
+        let first = true;
+        while (true) {
+          if (!first) await new Promise(r => setTimeout(r, 300));
+          first = false;
+          const r = await fetch(`/lab/pdf/status/${_labPdfJobId}`);
+          const d = await r.json();
+          if (d.status === 'done') {
+            clearInterval(fake); prog.style.width = '100%'; msg.textContent = 'Download starting…';
+            _setPDFBtnState('ready');
+            setTimeout(() => { closeModal('pdf-progress-modal'); window.location.href = `/lab/pdf/download/${_labPdfJobId}`; }, 280);
+            return;
+          }
+          if (d.status === 'error') { clearInterval(fake); msg.textContent = `Failed: ${d.error||'unknown'}`; setTimeout(() => closeModal('pdf-progress-modal'), 2500); return; }
+          if (d.status === 'not_found') { clearInterval(fake); msg.textContent = 'Job expired — try again.'; setTimeout(() => closeModal('pdf-progress-modal'), 2000); return; }
+          msg.textContent = 'Rendering PDF…';
+        }
+      } catch (e) {
+        clearInterval(fake); msg.textContent = 'Connection error.';
+        setTimeout(() => closeModal('pdf-progress-modal'), 2000);
+      }
     }
 
     // AI handled by ai_panel.html include
@@ -1144,6 +1472,294 @@
       list.unshift(item); if (list.length > MAX) list = list.slice(0, MAX);
       localStorage.setItem(KEY, JSON.stringify(list));
     } catch(e) {}
+    /* ══════════════════════════════════════════════════════════════════
+   AI PROFILE TAB — TYPEWRITER ENGINE
+   Fetches the composed summary, then types it out character by
+   character with natural rhythm variations.
+══════════════════════════════════════════════════════════════════ */
+(function() {
+  // ── Config ───────────────────────────────────────────────────────
+  const PROFILE_TYPE = document.body.dataset.profileType || 'staff';
+  // Works for both profile.html (member_id) and lab_profile.html (memberid)
+  const PROFILE_ID   = document.body.dataset.memberId
+                    || document.body.dataset.memberid;
+
+  // Typing speed config (milliseconds)
+  const SPEED = {
+    char_base:     18,    // base delay per character
+    char_variance: 12,    // ± random variance
+    comma_pause:   90,    // extra pause after comma
+    period_pause:  160,   // extra pause after . ! ?
+    newline_pause: 280,   // pause before new paragraph starts
+    word_end:      8,     // tiny pause between words
+  };
+
+  // ── State ─────────────────────────────────────────────────────────
+  let _animFrame   = null;
+  let _currentText = "";
+  let _isTyping    = false;
+
+  // ── DOM refs ──────────────────────────────────────────────────────
+  const outputEl  = document.getElementById('ai-compose-output');
+  const footerEl  = document.getElementById('ai-compose-footer');
+  const badgeDot  = document.getElementById('ai-badge-dot');
+  const badgeText = document.getElementById('ai-badge-text');
+  const copyBtn   = document.getElementById('ai-copy-btn');
+  const tsEl      = document.getElementById('ai-compose-ts');
+  const wcEl      = document.getElementById('ai-word-count');
+  const scEl      = document.getElementById('ai-section-count');
+
+  // ── Utility ───────────────────────────────────────────────────────
+  function rand(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  function charDelay(char, nextChar) {
+    let delay = SPEED.char_base + rand(0, SPEED.char_variance);
+    if (',;:'.includes(char))  delay += SPEED.comma_pause;
+    if ('.!?'.includes(char))  delay += SPEED.period_pause;
+    if (char === ' ')          delay += SPEED.word_end;
+    return delay;
+  }
+
+  function setTimestamp() {
+    if (!tsEl) return;
+    const now = new Date();
+    tsEl.textContent = now.toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  function setBadge(state) {
+    if (!badgeDot || !badgeText) return;
+    if (state === 'generating') {
+      badgeDot.className = 'ai-badge-dot pulsing';
+      badgeText.textContent = '✦ Generating…';
+    } else if (state === 'done') {
+      badgeDot.className = 'ai-badge-dot done';
+      badgeText.textContent = '✦ AI Profile';
+    } else {
+      badgeDot.className = 'ai-badge-dot';
+      badgeText.textContent = '✦ AI Profile';
+    }
+  }
+
+  function setFooter(text) {
+    if (!footerEl || !wcEl) return;
+    const words    = text.split(/\s+/).filter(Boolean).length;
+    const paras    = text.split('\n\n').filter(Boolean).length;
+    wcEl.textContent = `${words} words`;
+    if (scEl) scEl.textContent = `${paras} paragraph${paras !== 1 ? 's' : ''}`;
+    footerEl.style.display = 'flex';
+  }
+
+  // ── Paragraph renderer ────────────────────────────────────────────
+  // Splits the summary into paragraphs, creates DOM nodes for each,
+  // then types into them sequentially.
+
+  function buildParagraphNodes(text) {
+    // Clear output
+    outputEl.innerHTML = '';
+
+    const paragraphs = text.split('\n\n').filter(p => p.trim());
+    const nodes      = [];
+
+    paragraphs.forEach((para, i) => {
+      const div = document.createElement('div');
+      div.className = 'ai-para';
+      div.setAttribute('data-index', i);
+      outputEl.appendChild(div);
+      nodes.push({ el: div, text: para.trim() });
+    });
+
+    // Add cursor to last paragraph initially
+    const cursor   = document.createElement('span');
+    cursor.className = 'ai-cursor';
+    cursor.id        = 'ai-typing-cursor';
+    if (nodes.length > 0) nodes[0].el.appendChild(cursor);
+
+    return nodes;
+  }
+
+  function typeIntoNode(node, charIndex, onComplete) {
+    // Make paragraph visible as soon as we start typing into it
+    if (!node.el.classList.contains('visible')) {
+      // Small entrance delay for each paragraph
+      setTimeout(() => node.el.classList.add('visible'), 50);
+    }
+
+    if (charIndex >= node.text.length) {
+      onComplete();
+      return;
+    }
+
+    const char     = node.text[charIndex];
+    const nextChar = node.text[charIndex + 1] || '';
+    const delay    = charDelay(char, nextChar);
+
+    _animFrame = setTimeout(() => {
+      if (!_isTyping) return;  // aborted
+
+      // Move cursor out, insert character as text node, put cursor back
+      const cursor = document.getElementById('ai-typing-cursor');
+      if (cursor && cursor.parentNode === node.el) {
+        node.el.insertBefore(document.createTextNode(char), cursor);
+      } else {
+        // Cursor was moved — just append
+        node.el.appendChild(document.createTextNode(char));
+      }
+
+      typeIntoNode(node, charIndex + 1, onComplete);
+    }, delay);
+  }
+
+  function typeSequentially(nodes, nodeIndex, onAllDone) {
+    if (nodeIndex >= nodes.length) {
+      onAllDone();
+      return;
+    }
+
+    const node   = nodes[nodeIndex];
+    const cursor = document.getElementById('ai-typing-cursor');
+
+    // Move cursor to current paragraph
+    if (cursor) {
+      node.el.appendChild(cursor);
+    }
+
+    // Paragraph entrance pause (longer for 2nd+ paragraphs)
+    const entrancePause = nodeIndex === 0 ? 0 : SPEED.newline_pause;
+
+    setTimeout(() => {
+      typeIntoNode(node, 0, () => {
+        // Brief pause after finishing a paragraph before starting next
+        setTimeout(() => {
+          typeSequentially(nodes, nodeIndex + 1, onAllDone);
+        }, nodeIndex < nodes.length - 1 ? SPEED.newline_pause : 0);
+      });
+    }, entrancePause);
+  }
+
+  // ── Main compose flow ─────────────────────────────────────────────
+  window.startAICompose = function() {
+    if (!outputEl) return;
+
+    // Abort any in-progress animation
+    _isTyping = false;
+    if (_animFrame) clearTimeout(_animFrame);
+
+    // Reset UI
+    outputEl.innerHTML = `
+      <div class="ai-compose-idle" id="ai-compose-idle">
+        <div class="ai-idle-icon">◈</div>
+        <div class="ai-idle-text">Generating profile analysis…</div>
+      </div>`;
+    if (footerEl) footerEl.style.display = 'none';
+    if (copyBtn)  copyBtn.style.display  = 'none';
+    setBadge('generating');
+    setTimestamp();
+
+    // Fetch from the compose endpoint
+    fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}`)
+      .then(r => {
+        const reader  = r.body.getReader();
+        const decoder = new TextDecoder();
+        let   buffer  = '';
+
+        function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) return;
+            buffer += decoder.decode(value, { stream: true });
+
+            // Parse SSE lines
+            const lines = buffer.split('\n');
+            buffer = lines.pop();  // keep incomplete line in buffer
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const raw = line.slice(6).trim();
+
+              if (raw === '[DONE]') return;
+              if (raw.startsWith('[ERROR]')) {
+                outputEl.innerHTML = `<p style="color:var(--red);font-family:var(--font-mono);font-size:.8rem;">${raw}</p>`;
+                setBadge('idle');
+                return;
+              }
+
+              try {
+                const msg = JSON.parse(raw);
+                if (msg.type === 'text' && msg.content) {
+                  _currentText = msg.content;
+                  _startTypewriter(_currentText);
+                }
+              } catch (e) {}
+            }
+            read();  // continue reading
+          });
+        }
+        read();
+      })
+      .catch(e => {
+        outputEl.innerHTML = `<p style="color:var(--red);font-family:var(--font-mono);font-size:.8rem;">Connection error: ${e.message}</p>`;
+        setBadge('idle');
+      });
+  };
+
+  function _startTypewriter(text) {
+    _isTyping = true;
+
+    const nodes = buildParagraphNodes(text);
+
+    if (nodes.length === 0) {
+      setBadge('done');
+      return;
+    }
+
+    typeSequentially(nodes, 0, () => {
+      // All done — remove cursor, update UI
+      _isTyping = false;
+      const cursor = document.getElementById('ai-typing-cursor');
+      if (cursor) cursor.remove();
+
+      setBadge('done');
+      setFooter(text);
+
+      if (copyBtn) copyBtn.style.display = 'inline-flex';
+
+      // Ensure last paragraph is visible
+      document.querySelectorAll('.ai-para').forEach(p => p.classList.add('visible'));
+    });
+  }
+
+  // ── Copy to clipboard ─────────────────────────────────────────────
+  window.copyAISummary = function() {
+    if (!_currentText) return;
+    navigator.clipboard.writeText(_currentText).then(() => {
+      if (copyBtn) {
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyBtn.textContent = orig; }, 1800);
+      }
+    });
+  };
+
+  // ── Auto-start when the AI tab is opened ─────────────────────────
+  // Patch the existing switchTab function to trigger compose
+  const _origSwitchTab = window.switchTab;
+  window.switchTab = function(name) {
+    _origSwitchTab(name);
+    if (name === 'ai' && !_isTyping && !_currentText) {
+      // Small delay so the tab transition completes first
+      setTimeout(startAICompose, 120);
+    }
+  };
+
+  // If the page loads directly on the AI tab (e.g. via hash), start immediately
+  if (window.location.hash === '#ai') {
+    switchTab('ai');
+  }
+
+})();
   </script>
 </body>
 </html>

@@ -63,24 +63,6 @@ def _build_search_index(members, lab_users):
     return people
 
 
-from cache import cached
-
-@cached(ttl_seconds=3600)  # chart data is fine stale for 1 hour
-def _get_monthly_chart_data(year):
-    rows = hr_query("""
-        SELECT MONTH(date) AS mo, COUNT(DISTINCT memberid) AS cnt
-        FROM user_attendance
-        WHERE YEAR(date) = %s
-        GROUP BY MONTH(date)
-        ORDER BY MONTH(date)
-    """, (year,))
-    mo_map = {r["mo"]: r["cnt"] for r in (rows or [])}
-    # Return two parallel lists consumed by Chart.js in the template
-    labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-    data   = [mo_map.get(i, 0) for i in range(1, 13)]
-    return labels, data
-
-# ✅ Blueprint with prefix
 bp = Blueprint("admin_panel", __name__, url_prefix="/admin-panel")
 
 
@@ -97,40 +79,15 @@ def admin_panel_page():
             "members":       get_all_members,
             "lab_users":     get_all_lab_users,
             "announcements": get_announcements_all,
-            "chart_data":     lambda: _get_monthly_chart_data(date.today().year),
         })
 
         from collections import defaultdict
 
         members   = results.get("members", [])
         lab_users = results.get("lab_users", [])
-
-        # ── ROLE GROUPING (FIXED) ─────────────────────────────
-        role_groups_dict = defaultdict(list)
-
-        for m in members:
-            role = m.get("designation") or "Unknown"
-            role_groups_dict[role].append(m)
-
-        # Convert to UI-friendly structure
-        role_groups = [
-            {
-                "role": role,
-                "list": group,
-                "count": len(group)
-            }
-            for role, group in role_groups_dict.items()
-        ]
-
-        # Sort by count DESC (prevents Jinja crash)
-        role_groups = sorted(role_groups, key=lambda x: x["count"], reverse=True)
-
         # ── SEARCH INDEX (unified — no staff/lab split) ───────
         people_index = _build_search_index(members, lab_users)
-        monthly_labels, monthly_data = _get_monthly_chart_data(date.today().year)
-
-        # Role counts for chart
-        rg_counts = {role: len(group) for role, group in role_groups_dict.items()}
+        # monthly_labels, monthly_data = _get_monthly_chart_data(date.today().year)
 
         # ── RENDER ───────────────────────────────────────────
         return render_template(
@@ -140,17 +97,13 @@ def admin_panel_page():
             announcements        = results.get("announcements", []),
             members_count        = len(members),
             lab_users_count      = len(lab_users),
-            role_groups          = role_groups,
-            health               = None,   # not yet implemented — prevents Jinja NameError
 
             # ── JS DATA ───────────────────────────────────────
-            people_json          = json.dumps(people_index),
+            
             # Keep legacy names for any template references that still use them
-            staff_json           = json.dumps([p for p in people_index if p["kind"] == "staff"]),
-            lab_json             = json.dumps([p for p in people_index if p["kind"] == "lab"]),
-            monthly_labels_json  = json.dumps(monthly_labels),
-            monthly_data_json    = json.dumps(monthly_data),
-            role_groups_json     = json.dumps(rg_counts),
+            staff_json           = [p for p in people_index if p["kind"] == "staff"],
+            lab_json             = [p for p in people_index if p["kind"] == "lab"],
+            people_json          = people_index  # unified search index for all people (staff + lab)
         )
 
     except Exception as e:

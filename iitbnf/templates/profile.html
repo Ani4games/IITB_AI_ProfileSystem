@@ -522,7 +522,252 @@
       .id-metrics { grid-template-columns: repeat(2, 1fr); }
       .modal-backdrop { padding: .5rem; }
     }
-  </style>
+    /* ── AI COMPOSE CARD ──────────────────────────────────────────────── */
+.ai-compose-card {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Toolbar */
+.ai-compose-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.ai-compose-toolbar-left  { display: flex; align-items: center; gap: .75rem; }
+.ai-compose-toolbar-right { display: flex; align-items: center; gap: .4rem; }
+
+.ai-compose-model-tag {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: var(--amber-dim);
+  border: 1px solid rgba(245,166,35,.3);
+  padding: .15rem .55rem;
+  border-radius: 4px;
+}
+.ai-compose-timestamp {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  color: var(--faint);
+}
+.ai-compose-action-btn {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: .22rem .6rem;
+  border-radius: 5px;
+  border: 1px solid var(--border2);
+  background: var(--surface3);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--tr);
+  letter-spacing: .04em;
+}
+.ai-compose-action-btn:hover {
+  color: var(--amber);
+  border-color: rgba(245,166,35,.4);
+  background: var(--amber-dim);
+}
+
+/* Output area */
+.ai-compose-output {
+  padding: 1.4rem 1.5rem;
+  min-height: 180px;
+  position: relative;
+}
+
+/* Idle / loading state */
+.ai-compose-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .75rem;
+  min-height: 140px;
+  color: var(--muted);
+}
+.ai-idle-icon {
+  font-size: 1.8rem;
+  color: var(--amber);
+  opacity: .3;
+  animation: ai-idle-pulse 2s ease-in-out infinite;
+}
+@keyframes ai-idle-pulse {
+  0%, 100% { opacity: .2; transform: scale(1); }
+  50%       { opacity: .6; transform: scale(1.08); }
+}
+.ai-idle-text {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  color: var(--faint);
+  letter-spacing: .06em;
+}
+
+/* Typed text */
+.ai-compose-text {
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  line-height: 1.85;
+  color: var(--fg);
+  white-space: pre-wrap;
+}
+
+/* Each paragraph gets its own div with a fade-in */
+.ai-para {
+  margin-bottom: 1rem;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .3s ease, transform .3s ease;
+}
+.ai-para.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ai-para:last-child { margin-bottom: 0; }
+
+/* Cursor blink */
+.ai-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--amber);
+  border-radius: 1px;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: ai-blink .65s step-end infinite;
+}
+@keyframes ai-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* Badge dot (pulsing while generating) */
+.ai-badge-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  margin-right: .3rem;
+  vertical-align: middle;
+}
+.ai-badge-dot.pulsing {
+  animation: ai-dot-pulse 1s ease-in-out infinite;
+}
+.ai-badge-dot.done {
+  background: var(--green);
+  animation: none;
+  box-shadow: 0 0 6px var(--green);
+}
+@keyframes ai-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .4; transform: scale(.7); }
+}
+
+/* Footer */
+.ai-compose-footer {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface2);
+  flex-wrap: wrap;
+}
+.ai-footer-stat {
+  font-family: var(--font-mono);
+  font-size: .58rem;
+  color: var(--faint);
+  letter-spacing: .06em;
+}
+.ai-footer-divider { color: var(--border2); font-size: .7rem; }
+/* ── Mode toggle ──────────────────────────────────────────────── */
+.ai-mode-toggle {
+  display: flex;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ai-mode-btn {
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: .22rem .65rem;
+  background: var(--surface3);
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--tr);
+  border-right: 1px solid var(--border2);
+}
+.ai-mode-btn:last-child { border-right: none; }
+.ai-mode-btn:hover { color: var(--fg); background: var(--surface2); }
+.ai-mode-btn.active {
+  background: var(--amber-dim);
+  color: var(--amber);
+}
+.ai-mode-btn.active.executive {
+  background: var(--blue-dim);
+  color: var(--blue);
+}
+
+/* Executive mode — slightly different output styling ────────────── */
+.ai-compose-output.executive-mode .ai-para {
+  line-height: 2;        /* more breathing room for long paragraphs */
+  font-size: .94rem;
+}
+.ai-executive-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-family: var(--font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--blue);
+  background: var(--blue-dim);
+  border: 1px solid rgba(56,189,248,.3);
+  padding: .12rem .5rem;
+  border-radius: 4px;
+  margin-bottom: .75rem;
+}
+
+/* LLM loading indicator */
+.ai-llm-loading {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 0;
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: var(--muted);
+}
+.ai-llm-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+</style>
 </head>
 <body data-member-id="{{ member_id }}">
   <div class="bg-grid"></div>
@@ -538,7 +783,24 @@
     <div class="topbar-right">
       <button class="util-btn" onclick="toggleTheme()" id="theme-btn">☀ Light</button>
       <button class="util-btn" onclick="window.print()">⎙ Print</button>
-      <button class="util-btn amber" onclick="openPDFModal()">⬇ PDF</button>
+      <!-- PDF split button: left = instant download, right = year picker -->
+      <div class="pdf-split-btn" id="pdf-split-wrap">
+        <button class="pdf-split-main" id="pdf-download-btn" onclick="handlePDFClick()" title="Download PDF report">
+          <span id="pdf-btn-dot"></span>
+          <span id="pdf-btn-label">⬇ PDF</span>
+        </button>
+        <button class="pdf-split-caret" id="pdf-caret-btn" onclick="togglePDFPicker(event)" title="Choose report year" aria-label="Choose report year">▾</button>
+        <div class="pdf-year-picker" id="pdf-year-picker" role="listbox" aria-label="Select report year">
+          {% for y in avail_years %}
+          <button class="pdf-year-opt {% if y == selected_year %}active{% endif %}"
+                  data-year="{{ y }}"
+                  onclick="pickPDFYear({{ y }})">
+            {{ y }}
+            <span class="pdf-year-status" id="pdf-year-status-{{ y }}"></span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
       <a href="/logout" class="util-btn danger">⏻ Out</a>
     </div>
   </nav>
@@ -676,33 +938,87 @@
   </div><!-- end panel-dashboard -->
 
   <!-- PANEL: AI PROFILE -->
-  <div id="panel-ai" class="page-panel" role="tabpanel" aria-labelledby="tab-ai">
-    <div class="ai-profile-pane">
-      <div class="ai-profile-inner">
-        <div class="ai-profile-badge">✦ AI Profile</div>
-        <h2 class="ai-profile-heading">{{ person.display_name }}</h2>
-        <p class="ai-profile-sub">{{ person.designation or '' }}{% if person.team %} · {{ person.team }}{% endif %}</p>
-        <div class="ai-profile-divider"></div>
-        <div class="ai-profile-wip">
-          <div class="wip-icon">🔧</div>
-          <div class="wip-title">Work is Underway</div>
-          <div class="wip-desc">
-            This section will display a fully AI-generated narrative profile for
-            <strong>{{ person.display_name }}</strong> — covering attendance patterns,
-            equipment activity, research output, and overall contributions —
-            generated using RAG (Retrieval-Augmented Generation) from live facility data.
+   <!-- PANEL: AI PROFILE — replace the entire ai-profile-pane div -->
+<div id="panel-ai" class="page-panel" role="tabpanel" aria-labelledby="tab-ai">
+  <div class="ai-profile-pane">
+    <div class="ai-profile-inner">
+
+      <!-- Header -->
+      <div class="ai-profile-badge" id="ai-badge">
+        <span class="ai-badge-dot" id="ai-badge-dot"></span>
+        <span id="ai-badge-text">✦ AI Profile</span>
+      </div>
+
+      <!-- For staff: person.display_name / For lab: user.fname user.lname -->
+      <h2 class="ai-profile-heading" id="ai-profile-name">
+        {{ person.display_name if person is defined else (user.fname ~ ' ' ~ user.lname) }}
+      </h2>
+      <p class="ai-profile-sub" id="ai-profile-sub">
+        {% if person is defined %}
+          {{ person.designation or '' }}{% if person.team %} · {{ person.team }}{% endif %}
+        {% else %}
+          {{ user.position or 'Lab User' }}{% if user.department %} · {{ user.department }}{% endif %}
+        {% endif %}
+      </p>
+
+      <div class="ai-profile-divider"></div>
+
+      <!-- Main output card -->
+      <div class="ai-compose-card" id="ai-compose-card">
+
+        <!-- Updated toolbar — add the mode toggle -->
+        <div class="ai-compose-toolbar">
+          <div class="ai-compose-toolbar-left">
+            <span class="ai-compose-model-tag">◈ IITBNF Analyst</span>
+            <span class="ai-compose-timestamp" id="ai-compose-ts"></span>
           </div>
-          <div class="wip-chips">
-            <span class="wip-chip">Attendance Analysis</span>
-            <span class="wip-chip">Equipment Usage</span>
-            <span class="wip-chip">Research Output</span>
-            <span class="wip-chip">Performance Narrative</span>
+          <div class="ai-compose-toolbar-right">
+
+            <!-- Mode toggle -->
+            <div class="ai-mode-toggle" role="group" aria-label="Summary mode">
+              <button class="ai-mode-btn active" id="btn-mode-short"
+                      onclick="setMode('short')" title="Fast, data-driven summary">
+                ◉ Brief
+              </button>
+              <button class="ai-mode-btn" id="btn-mode-executive"
+                      onclick="setMode('executive')" title="Full executive summary (requires AI model)">
+                ◈ Executive
+              </button>
+            </div>
+
+            <button class="ai-compose-action-btn" id="ai-copy-btn"
+                    onclick="copyAISummary()" title="Copy to clipboard"
+                    style="display:none;">
+              ⎘ Copy
+            </button>
+            <button class="ai-compose-action-btn" id="ai-regen-btn"
+                    onclick="startAICompose()" title="Regenerate">
+              ↻ Regenerate
+            </button>
           </div>
+        </div>
+
+        <!-- Text output area -->
+        <div class="ai-compose-output" id="ai-compose-output">
+          <!-- Initial state -->
+          <div class="ai-compose-idle" id="ai-compose-idle">
+            <div class="ai-idle-icon">◈</div>
+            <div class="ai-idle-text">Generating profile analysis…</div>
+          </div>
+        </div>
+
+        <!-- Footer: word count + confidence indicators -->
+        <div class="ai-compose-footer" id="ai-compose-footer" style="display:none;">
+          <span class="ai-footer-stat" id="ai-word-count"></span>
+          <span class="ai-footer-divider">·</span>
+          <span class="ai-footer-stat">Data-driven · No hallucination</span>
+          <span class="ai-footer-divider">·</span>
+          <span class="ai-footer-stat" id="ai-section-count"></span>
         </div>
       </div>
     </div>
-  </div><!-- end panel-ai -->
-
+  </div>
+</div>
   <!-- ══ MODALS ══════════════════════════════════════════════════════ -->
 
   <!-- ATTENDANCE MODAL -->
@@ -828,23 +1144,71 @@
   </div>
 
   <!-- PDF MODALS -->
-  <div class="modal-backdrop" id="pdf-year-modal" role="dialog" aria-modal="true">
-    <div class="modal-box-min pdf-modal-box">
-      <div class="modal-head">
-        <span class="modal-icon">⬇</span>
-        <span class="modal-title">Download PDF Report</span>
-        <button class="modal-close-btn" onclick="closeModal('pdf-year-modal')">✕</button>
-      </div>
-      <div class="pdf-modal-body">
-        <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem;line-height:1.6;">Select the year for your report.</p>
-        <label class="pdf-modal-label">Report Year</label>
-        <select id="pdf-year-select" class="pdf-modal-select">
-          {% for y in avail_years %}<option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
-        </select>
-        <button class="pdf-btn" onclick="confirmPDFDownload()">Generate & Download →</button>
-      </div>
-    </div>
-  </div>
+
+  <style>
+  /* ── PDF split button ── */
+  .pdf-split-btn {
+    position: relative; display: inline-flex; flex-shrink: 0;
+  }
+  .pdf-split-main {
+    font-family: var(--font-mono); font-size: .65rem; font-weight: 700;
+    letter-spacing: .05em; text-transform: uppercase;
+    padding: .32rem .65rem; border-radius: var(--radius) 0 0 var(--radius);
+    border: 1px solid rgba(245,166,35,.35); border-right: none;
+    background: var(--amber-dim); color: var(--amber);
+    cursor: pointer; display: inline-flex; align-items: center; gap: .4rem;
+    transition: all var(--tr); white-space: nowrap;
+  }
+  .pdf-split-main:hover { background: rgba(245,166,35,.2); }
+  .pdf-split-caret {
+    font-size: .65rem; padding: .32rem .45rem;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    border: 1px solid rgba(245,166,35,.35);
+    background: var(--amber-dim); color: var(--amber);
+    cursor: pointer; transition: all var(--tr);
+    display: flex; align-items: center;
+  }
+  .pdf-split-caret:hover { background: rgba(245,166,35,.25); }
+  .pdf-split-caret.open { background: rgba(245,166,35,.25); }
+
+  /* Year picker dropdown */
+  .pdf-year-picker {
+    display: none; position: absolute; top: calc(100% + 4px); right: 0;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    z-index: 300; min-width: 110px; overflow: hidden;
+    flex-direction: column;
+  }
+  .pdf-year-picker.open { display: flex; }
+  .pdf-year-opt {
+    font-family: var(--font-mono); font-size: .68rem;
+    padding: .45rem .75rem; text-align: left;
+    background: none; border: none; color: var(--fg); cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    transition: background var(--tr);
+    border-bottom: 1px solid var(--border);
+  }
+  .pdf-year-opt:last-child { border-bottom: none; }
+  .pdf-year-opt:hover     { background: var(--surface2); }
+  .pdf-year-opt.active    { color: var(--amber); }
+  .pdf-year-status {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    background: transparent;
+  }
+  .pdf-year-status.rendering { background: #f59e0b; animation: pulse 1.2s ease-in-out infinite; }
+  .pdf-year-status.ready     { background: #22c55e; box-shadow: 0 0 4px #22c55e; }
+
+  /* Main button dot */
+  #pdf-btn-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--amber); opacity: 0.35;
+    display: inline-block; flex-shrink: 0; transition: all .3s;
+  }
+  #pdf-btn-dot.rendering { opacity: .7; background: #f59e0b; animation: pulse 1.2s ease-in-out infinite; }
+  #pdf-btn-dot.ready     { opacity: 1; background: #22c55e; box-shadow: 0 0 6px #22c55e; animation: none; }
+  </style>
+
+  <!-- pdf-year-modal removed — replaced by inline split-button picker above -->
 
   <div class="modal-backdrop" id="pdf-progress-modal" role="dialog" aria-modal="true">
     <div class="modal-box pdf-modal-box">
@@ -1313,149 +1677,754 @@ async function loadSecondarySections() {
   }
 }
 
-    // Kick off secondary loads after first paint
-    requestAnimationFrame(() => { setTimeout(loadSecondarySections, 0); });
+// Kick off secondary loads after first paint
+requestAnimationFrame(() => { setTimeout(loadSecondarySections, 0); });
 
-    // ── PDF ──────────────────────────────────────────────────────────────────
-    function openPDFModal() { openModal('pdf-year-modal'); }
-    async function confirmPDFDownload() {
-      const year = document.getElementById('pdf-year-select').value;
-      closeModal('pdf-year-modal');
-      openModal('pdf-progress-modal');
+/**
+ * PDF PRE-GENERATION — drop-in replacement for the PDF script block in profile.html
+ *
+ * HOW IT WORKS
+ * ────────────
+ * 1. On page load, _prefetchAllPDFs() fires three silent fetch() calls:
+ *      • /profile/<id>/pdf/prefetch?year=<year>       → main profile PDF
+ *      • /api/profile/<id>/system-owner-pdf/prefetch  → owner PDF
+ *      • /api/profile/<id>/system-owner-track-pdf/prefetch → owner track PDF
+ *    Each call returns a job_id immediately. The server renders in the background.
+ *
+ * 2. job_ids are stored in _prefetchJobs so confirmPDFDownload() /
+ *    downloadOwnerPDF() / downloadOwnerTrackPDF() can hand them straight to
+ *    _waitAndDownload() without starting a new job.
+ *
+ * 3. _waitAndDownload(jobId, filename) polls /profile/pdf/status/<id> and
+ *    downloads the file as soon as status === "done".  Because the job
+ *    started on page load, it is usually already done by the time the user
+ *    clicks — the progress bar hits 100 % almost instantly.
+ *
+ * 4. If the user changes the year dropdown BEFORE clicking download, the
+ *    cached prefetch job is for the wrong year. openPDFModal() / confirmPDFDownload()
+ *    detects the mismatch and calls start_pdf for the new year instead.
+ *
+ * EXTENDING TO AI
+ * ───────────────
+ * The same pattern works for AI narratives:
+ *   • Add /api/ai/prefetch?profile_type=staff&profile_id=<id> on the server.
+ *   • Call it in _prefetchAllPDFs() alongside the PDF prefetches.
+ *   • Store the result in _prefetchJobs["ai"].
+ *   • When the user opens the AI panel, poll the cached job instead of
+ *     starting a new SSE stream.
+ */
 
+// ── State ───────────────────────────────────────────────────────────────────
+// _prefetchJobs.pdf is now a Map<year, job_id> covering ALL available years.
+// Owner/track PDFs are not year-specific so they stay as single job_ids.
+const _prefetchJobs = {
+  pdf:        new Map(),  // year (int) → job_id string
+  ownerPdf:   null,       // { job_id }
+  ownerTrack: null,       // { job_id }
+};
+
+// All years available for this profile — injected by Jinja
+const _availYears = {{ avail_years | tojson | safe }};
+
+// ── Button state management ──────────────────────────────────────────────────
+// dot: dim amber = rendering, green pulse = ready, none = idle
+function _setPDFBtnState(state) {
+  const dot   = document.getElementById('pdf-btn-dot');
+  const label = document.getElementById('pdf-btn-label');
+  if (!dot || !label) return;
+  if (state === 'rendering') {
+    dot.style.cssText   = 'width:6px;height:6px;border-radius:50%;background:#f59e0b;opacity:0.6;display:inline-block;animation:pulse 1.2s ease-in-out infinite;flex-shrink:0;';
+    label.textContent   = '⬇ PDF';
+  } else if (state === 'ready') {
+    dot.style.cssText   = 'width:6px;height:6px;border-radius:50%;background:#22c55e;opacity:1;display:inline-block;box-shadow:0 0 6px #22c55e;flex-shrink:0;';
+    label.textContent   = '⬇ PDF';
+    // Update tooltip
+    const btn = document.getElementById('pdf-download-btn');
+    if (btn) btn.title = 'PDF ready — click to download instantly';
+  } else {
+    dot.style.cssText   = 'width:6px;height:6px;border-radius:50%;background:var(--amber);opacity:0.35;display:inline-block;flex-shrink:0;';
+    label.textContent   = '⬇ PDF';
+  }
+}
+
+// Poll the default-year job every 2 s until done, then light up the button
+let _btnPollTimer = null;
+function _startBtnPoll(jobId, year) {
+  if (_btnPollTimer) clearInterval(_btnPollTimer);
+  _setPDFBtnState('rendering');
+  _btnPollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`/profile/pdf/status/${jobId}`);
+      const d = await r.json();
+      if (d.status === 'done') {
+        clearInterval(_btnPollTimer);
+        _btnPollTimer = null;
+        _setPDFBtnState('ready');
+      } else if (d.status === 'error' || d.status === 'not_found') {
+        clearInterval(_btnPollTimer);
+        _btnPollTimer = null;
+        _setPDFBtnState('idle');
+      }
+    } catch (_) {}
+  }, 2000);
+}
+
+// ── Smart click handler ──────────────────────────────────────────────────────
+// If the default-year PDF is already done → download immediately, no modal.
+// Otherwise → fall through to year-picker dropdown.
+async function handlePDFClick() {
+  const defaultJobId = _prefetchJobs.pdf.get(_initialYear);
+  if (defaultJobId) {
+    try {
+      const r = await fetch(`/profile/pdf/status/${defaultJobId}`);
+      const d = await r.json();
+      if (d.status === 'done') {
+        window.location.href = `/profile/pdf/download/${defaultJobId}`;
+        return;
+      }
+    } catch (_) {}
+  }
+  // Not ready — open year picker so user can see options while waiting
+  togglePDFPicker({ stopPropagation: () => {} });
+}
+
+// ── Year picker toggle ────────────────────────────────────────────────────────
+function togglePDFPicker(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  const picker = document.getElementById('pdf-year-picker');
+  const caret  = document.getElementById('pdf-caret-btn');
+  if (!picker) return;
+  const isOpen = picker.classList.toggle('open');
+  if (caret) caret.classList.toggle('open', isOpen);
+  if (isOpen) {
+    // Update status dots based on prefetch state
+    _availYears.forEach(y => {
+      const dot = document.getElementById(`pdf-year-status-${y}`);
+      if (!dot) return;
+      const jid = _prefetchJobs.pdf.get(y);
+      if (!jid) return;
+      fetch(`/profile/pdf/status/${jid}`)
+        .then(r => r.json())
+        .then(d => {
+          dot.className = 'pdf-year-status ' + (d.status === 'done' ? 'ready' : d.status === 'processing' ? 'rendering' : '');
+        }).catch(() => {});
+    });
+    // Close when clicking outside
+    setTimeout(() => {
+      document.addEventListener('click', _closePDFPicker, { once: true });
+    }, 0);
+  }
+}
+
+function _closePDFPicker(e) {
+  const wrap = document.getElementById('pdf-split-wrap');
+  if (wrap && wrap.contains(e.target)) return;
+  const picker = document.getElementById('pdf-year-picker');
+  const caret  = document.getElementById('pdf-caret-btn');
+  if (picker) picker.classList.remove('open');
+  if (caret)  caret.classList.remove('open');
+}
+
+// ── Pick a year from the dropdown ─────────────────────────────────────────────
+async function pickPDFYear(year) {
+  // Close picker
+  const picker = document.getElementById('pdf-year-picker');
+  const caret  = document.getElementById('pdf-caret-btn');
+  if (picker) picker.classList.remove('open');
+  if (caret)  caret.classList.remove('open');
+
+  const jobId = _prefetchJobs.pdf.get(year);
+  if (jobId) {
+    try {
+      const r = await fetch(`/profile/pdf/status/${jobId}`);
+      const d = await r.json();
+      if (d.status === 'done') {
+        window.location.href = `/profile/pdf/download/${jobId}`;
+        return;
+      }
+    } catch (_) {}
+  }
+  // Not ready — show progress modal and wait
+  openModal('pdf-progress-modal');
+  const prog = document.getElementById('pdf-prog');
+  const msg  = document.getElementById('pdf-status-msg');
+  prog.style.width = '5%';
+
+  let jid = jobId;
+  if (!jid) {
+    msg.textContent = 'Starting PDF generation…';
+    try {
+      const res = await fetch(`/profile/${MEMBER_ID}/pdf/start?year=${year}`);
+      const d   = await res.json();
+      jid = d.job_id;
+      _prefetchJobs.pdf.set(year, jid);
+    } catch (e) {
+      msg.textContent = 'Failed to start PDF generation.';
+      setTimeout(() => closeModal('pdf-progress-modal'), 2000);
+      return;
+    }
+  } else {
+    msg.textContent = 'PDF is rendering — almost ready…';
+  }
+  await _waitAndDownload(jid, `IITBNF_Profile_${String(MEMBER_ID).padStart(4,'0')}_${year}.pdf`);
+}
+
+// ── Fire all prefetch requests on page load ──────────────────────────────────
+function _prefetchAllPDFs() {
+  // 1. Main profile PDF — bulk-prefetch all years in one POST.
+  fetch(`/profile/${MEMBER_ID}/pdf/prefetch-all`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ years: _availYears, default_year: _initialYear }),
+  })
+    .then(r => r.json())
+    .then(d => {
+      const jobs = d.jobs || {};
+      for (const [yr, jid] of Object.entries(jobs)) {
+        _prefetchJobs.pdf.set(parseInt(yr, 10), jid);
+      }
+      // Start polling the default year's job to light up the button when ready
+      const defaultJob = _prefetchJobs.pdf.get(_initialYear);
+      if (defaultJob) _startBtnPoll(defaultJob, _initialYear);
+      console.debug('[PDF prefetch] bulk jobs registered:', Object.keys(jobs).length, 'years');
+    })
+    .catch(e => console.warn('[PDF prefetch] bulk PDF failed:', e));
+
+  // 2. System owner PDF (not year-specific)
+  fetch(`/api/profile/${MEMBER_ID}/system-owner-pdf/prefetch`)
+    .then(r => r.json())
+    .then(d => {
+      _prefetchJobs.ownerPdf = { job_id: d.job_id };
+      console.debug('[PDF prefetch] owner PDF job started:', d.job_id);
+    })
+    .catch(e => console.warn('[PDF prefetch] owner PDF failed:', e));
+
+  // 3. System owner track PDF (not year-specific)
+  fetch(`/api/profile/${MEMBER_ID}/system-owner-track-pdf/prefetch`)
+    .then(r => r.json())
+    .then(d => {
+      _prefetchJobs.ownerTrack = { job_id: d.job_id };
+      console.debug('[PDF prefetch] owner track PDF job started:', d.job_id);
+    })
+    .catch(e => console.warn('[PDF prefetch] owner track PDF failed:', e));
+}
+
+// Kick off prefetches after first paint — don't block the page render
+requestAnimationFrame(() => setTimeout(_prefetchAllPDFs, 0));
+
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+// openPDFModal now opens the year picker dropdown instead of a modal
+function openPDFModal() { togglePDFPicker({ stopPropagation: () => {} }); }
+
+// ── Owner PDF helpers ────────────────────────────────────────────────────────
+function downloadOwnerPDF() {
+  _downloadWithPrefetch(
+    _prefetchJobs.ownerPdf?.job_id,
+    `/api/profile/${MEMBER_ID}/system-owner-pdf/start`,
+    `System_Ownership_${MEMBER_ID}.pdf`,
+    (id) => { _prefetchJobs.ownerPdf = { job_id: id }; },
+  );
+}
+
+function downloadOwnerTrackPDF() {
+  _downloadWithPrefetch(
+    _prefetchJobs.ownerTrack?.job_id,
+    `/api/profile/${MEMBER_ID}/system-owner-track-pdf/start`,
+    `System_Ownership_Track_${MEMBER_ID}.pdf`,
+    (id) => { _prefetchJobs.ownerTrack = { job_id: id }; },
+  );
+}
+
+async function _downloadWithPrefetch(cachedJobId, startUrl, filename, onNewJob) {
+  openModal('pdf-progress-modal');
+  const prog = document.getElementById('pdf-prog');
+  const msg  = document.getElementById('pdf-status-msg');
+  prog.style.width = '5%';
+
+  let job_id = cachedJobId;
+
+  if (job_id) {
+    // Check whether the cached job is still valid (not errored / evicted)
+    try {
+      const check = await fetch(`/profile/pdf/status/${job_id}`);
+      const d     = await check.json();
+      if (d.status === 'error' || d.status === 'not_found') {
+        job_id = null;  // fall through to start a new one
+      }
+    } catch (_) {
+      job_id = null;
+    }
+  }
+
+  if (!job_id) {
+    msg.textContent = 'Starting PDF generation…';
+    try {
+      const res = await fetch(startUrl);
+      const d   = await res.json();
+      job_id    = d.job_id;
+      if (onNewJob) onNewJob(job_id);
+    } catch (e) {
+      msg.textContent = 'Failed to start PDF generation.';
+      setTimeout(() => closeModal('pdf-progress-modal'), 2000);
+      return;
+    }
+  } else {
+    msg.textContent = 'PDF was pre-generated — downloading…';
+  }
+
+  await _waitAndDownload(job_id, filename);
+}
+
+
+// ── Core polling + download (replaces the old _startAsyncPDF) ────────────────
+async function _waitAndDownload(jobId, filename) {
   const prog = document.getElementById('pdf-prog');
   const msg  = document.getElementById('pdf-status-msg');
 
-  prog.style.width = '5%';
-  msg.textContent = 'Starting PDF generation...';
+  let pct = parseInt(prog.style.width, 10) || 5;
+  const fake = setInterval(() => {
+    if (pct < 92) {
+      // Faster progress fill when close to done — feels more responsive
+      const step = pct < 60 ? Math.random() * 12 : Math.random() * 4;
+      pct += step;
+      prog.style.width = Math.min(pct, 92) + '%';
+    }
+  }, 250);
 
   try {
-    // STEP 1: start async job
-    const res = await fetch(`/profile/${MEMBER_ID}/pdf/start?year=${year}`);
-    const { job_id } = await res.json();
+    // Check immediately first — no initial delay
+    let firstCheck = true;
+    while (true) {
+      if (!firstCheck) await new Promise(r => setTimeout(r, 300));
+      firstCheck = false;
 
-    let pct = 15;
+      const res = await fetch(`/profile/pdf/status/${jobId}`);
+      const d   = await res.json();
 
-    // smooth fake progress (UX)
-    const fake = setInterval(() => {
-      if (pct < 85) {
-        pct += Math.random() * 5;
-        prog.style.width = pct + '%';
-      }
-    }, 500);
-
-    // STEP 2: poll backend
-    const interval = setInterval(async () => {
-      const statusRes = await fetch(`/profile/pdf/status/${job_id}`);
-      const data = await statusRes.json();
-
-      if (data.status === "processing") {
-        msg.textContent = 'Rendering PDF...';
-      }
-
-      if (data.status === "done") {
-        clearInterval(interval);
+      if (d.status === 'done') {
         clearInterval(fake);
-
         prog.style.width = '100%';
-        msg.textContent = 'Download starting...';
-
+        msg.textContent  = 'Download starting…';
+        // Update button to show it's now ready for future clicks
+        _setPDFBtnState('ready');
         setTimeout(() => {
           closeModal('pdf-progress-modal');
-          window.location.href = `/profile/pdf/download/${job_id}`;
-        }, 400);
+          window.location.href = `/profile/pdf/download/${jobId}`;
+        }, 280);
+        return;
       }
 
-      if (data.status === "error") {
-        clearInterval(interval);
+      if (d.status === 'error') {
         clearInterval(fake);
-
-        msg.textContent = 'PDF generation failed.';
-        setTimeout(() => closeModal('pdf-progress-modal'), 800);
+        msg.textContent = `PDF generation failed: ${d.error || 'unknown error'}`;
+        setTimeout(() => closeModal('pdf-progress-modal'), 2500);
+        return;
       }
 
-    }, 1500);
+      if (d.status === 'not_found') {
+        clearInterval(fake);
+        msg.textContent = 'Job expired — please try again.';
+        setTimeout(() => closeModal('pdf-progress-modal'), 2000);
+        return;
+      }
 
+      msg.textContent = 'Rendering PDF…';
+    }
   } catch (e) {
-    msg.textContent = 'Something went wrong.';
-    setTimeout(() => closeModal('pdf-progress-modal'), 800);
+    clearInterval(fake);
+    msg.textContent = 'Connection error during PDF generation.';
+    setTimeout(() => closeModal('pdf-progress-modal'), 2000);
   }
 }
-    function downloadOwnerPDF() {
-      _startAsyncPDF(
-        `/api/profile/${MEMBER_ID}/system-owner-pdf/start`,
-        `System_Ownership_${MEMBER_ID}.pdf`
-      );
+
+// ── Tab navigation ───────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.page-tab').forEach(t => {
+    t.classList.toggle('active', t.id === 'tab-' + name);
+    t.setAttribute('aria-selected', t.id === 'tab-' + name ? 'true' : 'false');
+  });
+  document.querySelectorAll('.page-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel-' + name);
+  });
+}
+
+// ── Recent profiles ──────────────────────────────────────────────────────
+try {
+  const KEY = 'iitbnf_recent_profiles', MAX = 8;
+  const item = { id: '{{ "%04d" % member_id }}', name: '{{ person.display_name }}', url: '/profile/{{ member_id }}', type: 'staff' };
+  let list = JSON.parse(localStorage.getItem(KEY) || '[]');
+  list = list.filter(r => !(r.id === item.id && r.type === item.type));
+  list.unshift(item); if (list.length > MAX) list = list.slice(0, MAX);
+  localStorage.setItem(KEY, JSON.stringify(list));
+} catch(e) {}
+(function() {
+  const PROFILE_TYPE = document.body.dataset.profileType || 'staff';
+  const PROFILE_ID   = document.body.dataset.memberId
+                    || document.body.dataset.memberid;
+
+  // ── Speed config ──────────────────────────────────────────────────
+  const SPEED = {
+    // Short mode — faster, snappier
+    short: {
+      char_base: 16, char_variance: 10,
+      comma_pause: 80, period_pause: 140,
+      newline_pause: 240, word_end: 6,
+    },
+    // Executive mode — slightly slower, more "thoughtful"
+    executive: {
+      char_base: 22, char_variance: 14,
+      comma_pause: 100, period_pause: 180,
+      newline_pause: 320, word_end: 8,
+    },
+  };
+
+  // ── State ──────────────────────────────────────────────────────────
+  let _mode        = 'short';
+  let _animFrame   = null;
+  let _currentText = "";
+  let _isTyping    = false;
+  let _tokenBuffer = "";   // for executive streaming — accumulate tokens
+
+  // ── DOM refs ───────────────────────────────────────────────────────
+  const outputEl  = document.getElementById('ai-compose-output');
+  const footerEl  = document.getElementById('ai-compose-footer');
+  const badgeDot  = document.getElementById('ai-badge-dot');
+  const badgeText = document.getElementById('ai-badge-text');
+  const copyBtn   = document.getElementById('ai-copy-btn');
+  const tsEl      = document.getElementById('ai-compose-ts');
+  const wcEl      = document.getElementById('ai-word-count');
+  const scEl      = document.getElementById('ai-section-count');
+
+  // ── Helpers ────────────────────────────────────────────────────────
+  function spd() { return SPEED[_mode] || SPEED.short; }
+
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  function charDelay(char) {
+    const s = spd();
+    let delay = s.char_base + rand(0, s.char_variance);
+    if (',;:'.includes(char))  delay += s.comma_pause;
+    if ('.!?'.includes(char))  delay += s.period_pause;
+    if (char === ' ')          delay += s.word_end;
+    return delay;
+  }
+
+  function setTimestamp() {
+    if (!tsEl) return;
+    tsEl.textContent = new Date().toLocaleTimeString('en-IN', {
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  function setBadge(state) {
+    if (!badgeDot || !badgeText) return;
+    const labels = {
+      generating: '✦ Generating…',
+      thinking:   '◈ AI Writing…',
+      done:       '✦ AI Profile',
+      idle:       '✦ AI Profile',
+    };
+    const dotClass = {
+      generating: 'ai-badge-dot pulsing',
+      thinking:   'ai-badge-dot pulsing',
+      done:       'ai-badge-dot done',
+      idle:       'ai-badge-dot',
+    };
+    badgeDot.className  = dotClass[state] || 'ai-badge-dot';
+    badgeText.textContent = labels[state] || '✦ AI Profile';
+  }
+
+  function setFooter(text) {
+    if (!footerEl || !wcEl) return;
+    const words = text.split(/\s+/).filter(Boolean).length;
+    const paras = text.split('\n\n').filter(Boolean).length;
+    wcEl.textContent = `${words} words`;
+    if (scEl) scEl.textContent = `${paras} paragraph${paras !== 1 ? 's' : ''}`;
+    footerEl.style.display = 'flex';
+  }
+
+  function showIdle(message) {
+    outputEl.innerHTML = `
+      <div class="ai-compose-idle" id="ai-compose-idle">
+        <div class="ai-idle-icon">◈</div>
+        <div class="ai-idle-text">${message}</div>
+      </div>`;
+  }
+
+  function showLLMLoading() {
+    outputEl.innerHTML = `
+      <div class="ai-llm-loading">
+        <div class="ai-llm-spinner"></div>
+        <span>AI model loading — this may take a moment on first run…</span>
+      </div>
+      <div id="ai-stream-target" class="ai-compose-text"></div>`;
+  }
+
+  // ── Mode selector ──────────────────────────────────────────────────
+  window.setMode = function(mode) {
+    _mode = mode;
+    document.querySelectorAll('.ai-mode-btn').forEach(b => {
+      b.classList.toggle('active', b.id === `btn-mode-${mode}`);
+      if (mode === 'executive') b.classList.toggle('executive', b.id === `btn-mode-${mode}`);
+      else b.classList.remove('executive');
+    });
+    outputEl.classList.toggle('executive-mode', mode === 'executive');
+    // Auto-start when mode changes (if panel is visible)
+    if (document.getElementById('panel-ai').classList.contains('active')) {
+      _currentText = '';
+      startAICompose();
     }
-    function downloadOwnerTrackPDF() {
-      _startAsyncPDF(
-        `/api/profile/${MEMBER_ID}/system-owner-track-pdf/start`,
-        `System_Ownership_Track_${MEMBER_ID}.pdf`
-      );
+  };
+
+  // ── Paragraph builder (shared by both modes) ───────────────────────
+  function buildParagraphNodes(text) {
+    outputEl.innerHTML = '';
+
+    // Executive mode gets a badge
+    if (_mode === 'executive') {
+      const badge = document.createElement('div');
+      badge.className   = 'ai-executive-badge';
+      badge.textContent = '◈ Executive Summary · AI Generated';
+      outputEl.appendChild(badge);
     }
 
-    // Shared async PDF helper — starts a job, polls for completion, downloads.
-    async function _startAsyncPDF(startUrl, filename) {
-      openModal('pdf-progress-modal');
-      const prog = document.getElementById('pdf-prog');
-      const msg  = document.getElementById('pdf-status-msg');
-      prog.style.width = '5%';
-      msg.textContent  = 'Starting PDF generation…';
+    const paragraphs = text.split('\n\n').filter(p => p.trim());
+    const nodes      = [];
 
-      try {
-        const res    = await fetch(startUrl);
-        const { job_id } = await res.json();
+    paragraphs.forEach((para, i) => {
+      const div       = document.createElement('div');
+      div.className   = 'ai-para';
+      outputEl.appendChild(div);
+      nodes.push({ el: div, text: para.trim() });
+    });
 
-        let pct  = 15;
-        const fake = setInterval(() => {
-          if (pct < 85) { pct += Math.random() * 6; prog.style.width = pct + '%'; }
-        }, 500);
+    const cursor     = document.createElement('span');
+    cursor.className = 'ai-cursor';
+    cursor.id        = 'ai-typing-cursor';
+    if (nodes.length > 0) nodes[0].el.appendChild(cursor);
 
-        const poll = setInterval(async () => {
-          const s = await fetch(`/profile/pdf/status/${job_id}`);
-          const d = await s.json();
-          if (d.status === 'processing') { msg.textContent = 'Rendering PDF…'; }
-          if (d.status === 'done') {
-            clearInterval(poll); clearInterval(fake);
-            prog.style.width = '100%';
-            msg.textContent  = 'Download starting…';
-            setTimeout(() => {
-              closeModal('pdf-progress-modal');
-              window.location.href = `/profile/pdf/download/${job_id}`;
-            }, 400);
-          }
-          if (d.status === 'error') {
-            clearInterval(poll); clearInterval(fake);
-            msg.textContent = 'PDF generation failed.';
-            setTimeout(() => closeModal('pdf-progress-modal'), 1500);
-          }
-        }, 1500);
+    return nodes;
+  }
 
-      } catch (e) {
-        msg.textContent = 'Something went wrong.';
-        setTimeout(() => closeModal('pdf-progress-modal'), 1500);
+  function typeIntoNode(node, charIndex, onComplete) {
+    if (!node.el.classList.contains('visible'))
+      setTimeout(() => node.el.classList.add('visible'), 50);
+
+    if (charIndex >= node.text.length) { onComplete(); return; }
+
+    const char  = node.text[charIndex];
+    const delay = charDelay(char);
+
+    _animFrame = setTimeout(() => {
+      if (!_isTyping) return;
+      const cursor = document.getElementById('ai-typing-cursor');
+      if (cursor && cursor.parentNode === node.el)
+        node.el.insertBefore(document.createTextNode(char), cursor);
+      else
+        node.el.appendChild(document.createTextNode(char));
+      typeIntoNode(node, charIndex + 1, onComplete);
+    }, delay);
+  }
+
+  function typeSequentially(nodes, nodeIndex, onAllDone) {
+    if (nodeIndex >= nodes.length) { onAllDone(); return; }
+
+    const node   = nodes[nodeIndex];
+    const cursor = document.getElementById('ai-typing-cursor');
+    if (cursor) node.el.appendChild(cursor);
+
+    const pause = nodeIndex === 0 ? 0 : spd().newline_pause;
+    setTimeout(() => {
+      typeIntoNode(node, 0, () => {
+        setTimeout(() => {
+          typeSequentially(nodes, nodeIndex + 1, onAllDone);
+        }, nodeIndex < nodes.length - 1 ? spd().newline_pause : 0);
+      });
+    }, pause);
+  }
+
+  function _startTypewriter(text) {
+    _isTyping    = true;
+    _currentText = text;
+    const nodes  = buildParagraphNodes(text);
+    if (!nodes.length) { setBadge('done'); return; }
+
+    typeSequentially(nodes, 0, () => {
+      _isTyping = false;
+      const cursor = document.getElementById('ai-typing-cursor');
+      if (cursor) cursor.remove();
+      document.querySelectorAll('.ai-para').forEach(p => p.classList.add('visible'));
+      setBadge('done');
+      setFooter(text);
+      if (copyBtn) copyBtn.style.display = 'inline-flex';
+    });
+  }
+
+  // ── Short mode: receive full text, start typewriter ────────────────
+  function runShortMode() {
+    showIdle('Generating profile analysis…');
+    setBadge('generating');
+    setTimestamp();
+    if (footerEl) footerEl.style.display = 'none';
+    if (copyBtn)  copyBtn.style.display  = 'none';
+
+    fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=short`)
+      .then(r => {
+        const reader  = r.body.getReader();
+        const decoder = new TextDecoder();
+        let   buffer  = '';
+
+        function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) return;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const raw = line.slice(6).trim();
+              if (raw === '[DONE]') return;
+              if (raw.startsWith('[ERROR]')) {
+                outputEl.innerHTML = `<p style="color:var(--red);font-size:.8rem;">${raw}</p>`;
+                setBadge('idle');
+                return;
+              }
+              try {
+                const msg = JSON.parse(raw);
+                if (msg.type === 'text' && msg.content) {
+                  _startTypewriter(msg.content);
+                }
+              } catch (e) {}
+            }
+            read();
+          });
+        }
+        read();
+      })
+      .catch(e => {
+        outputEl.innerHTML = `<p style="color:var(--red);">Error: ${e.message}</p>`;
+        setBadge('idle');
+      });
+  }
+
+  // ── Executive mode: stream tokens → accumulate → typewrite ─────────
+  // Strategy: collect ALL tokens first, then typewrite.
+  // This gives the LLM time to produce complete paragraphs before
+  // the animation starts, so the paragraph-splitting works correctly.
+  // The "AI model loading…" message bridges the wait.
+
+  function runExecutiveMode() {
+    _tokenBuffer = '';
+    showLLMLoading();
+    setBadge('thinking');
+    setTimestamp();
+    if (footerEl) footerEl.style.display = 'none';
+    if (copyBtn)  copyBtn.style.display  = 'none';
+
+    fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=executive`)
+      .then(r => {
+        const reader  = r.body.getReader();
+        const decoder = new TextDecoder();
+        let   buffer  = '';
+
+        // Live token preview — shows tokens appearing in the loading area
+        // so the user sees activity while the LLM runs
+        const previewEl = document.getElementById('ai-stream-target');
+
+        function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) return;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const raw = line.slice(6).trim();
+
+              if (raw === '[DONE]') {
+                // All tokens received — now do the proper typewriter
+                if (_tokenBuffer.trim()) {
+                  _startTypewriter(_tokenBuffer.trim());
+                }
+                return;
+              }
+
+              try {
+                const msg = JSON.parse(raw);
+
+                if (msg.type === 'token' && msg.content) {
+                  _tokenBuffer += msg.content;
+                  // Show live preview (no animation — just appending)
+                  if (previewEl) {
+                    previewEl.textContent = _tokenBuffer;
+                    previewEl.scrollTop   = previewEl.scrollHeight;
+                  }
+                  // Hide the spinner once first tokens arrive
+                  const spinner = outputEl.querySelector('.ai-llm-loading');
+                  if (spinner) spinner.style.display = 'none';
+                }
+
+                if (msg.type === 'error') {
+                  outputEl.innerHTML = `<p style="color:var(--red);font-size:.8rem;">${msg.content}</p>`;
+                  setBadge('idle');
+                  return;
+                }
+              } catch (e) {}
+            }
+            read();
+          });
+        }
+        read();
+      })
+      .catch(e => {
+        outputEl.innerHTML = `<p style="color:var(--red);">Error: ${e.message}</p>`;
+        setBadge('idle');
+      });
+  }
+
+  // ── Main entry point ───────────────────────────────────────────────
+  window.startAICompose = function() {
+    // Abort any in-progress animation
+    _isTyping    = false;
+    _tokenBuffer = '';
+    _currentText = '';
+    if (_animFrame) clearTimeout(_animFrame);
+
+    if (_mode === 'short') {
+      runShortMode();
+    } else {
+      runExecutiveMode();
+    }
+  };
+
+  // ── Copy ───────────────────────────────────────────────────────────
+  window.copyAISummary = function() {
+    const text = _currentText || _tokenBuffer;
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      if (copyBtn) {
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✓ Copied';
+        setTimeout(() => { copyBtn.textContent = orig; }, 1800);
       }
-    }
-    // ── Tab navigation ───────────────────────────────────────────────────────
-    function switchTab(name) {
-      document.querySelectorAll('.page-tab').forEach(t => {
-        t.classList.toggle('active', t.id === 'tab-' + name);
-        t.setAttribute('aria-selected', t.id === 'tab-' + name ? 'true' : 'false');
-      });
-      document.querySelectorAll('.page-panel').forEach(p => {
-        p.classList.toggle('active', p.id === 'panel-' + name);
-      });
-    }
+    });
+  };
 
-    // ── Recent profiles ──────────────────────────────────────────────────────
-    try {
-      const KEY = 'iitbnf_recent_profiles', MAX = 8;
-      const item = { id: '{{ "%04d" % member_id }}', name: '{{ person.display_name }}', url: '/profile/{{ member_id }}', type: 'staff' };
-      let list = JSON.parse(localStorage.getItem(KEY) || '[]');
-      list = list.filter(r => !(r.id === item.id && r.type === item.type));
-      list.unshift(item); if (list.length > MAX) list = list.slice(0, MAX);
-      localStorage.setItem(KEY, JSON.stringify(list));
-    } catch(e) {}
+  // ── Tab hook ───────────────────────────────────────────────────────
+  const _origSwitchTab = window.switchTab;
+  window.switchTab = function(name) {
+    _origSwitchTab(name);
+    if (name === 'ai' && !_isTyping && !_currentText) {
+      setTimeout(startAICompose, 120);
+    }
+  };
+
+  if (window.location.hash === '#ai') switchTab('ai');
+
+})();
   </script>
 </body>
 </html>

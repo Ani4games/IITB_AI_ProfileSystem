@@ -2,12 +2,19 @@
 routes/debug.py — Debug and performance monitoring routes (admin only).
 """
 import time as _time
-from datetime import datetime
+from datetime import datetime, date
 from flask import Blueprint, jsonify, request
 from auth import staff_required
 from flask import session
 from cache import cache
-from db import hr_pool, slots_pool
+from db import hr_pool, slots_pool, hr_query, slots_query
+from utils import run_parallel
+
+# Import at module level so the debug route shares the SAME cached instances
+# as the rest of the app.  Using __import__() inside the route creates a
+# separate module object and bypasses the @cached decorator.
+from models.staff import get_all_members
+from models.lab   import get_all_lab_users, get_announcements_all  # type: ignore[attr-defined]
 
 bp = Blueprint("debug", __name__)
 
@@ -54,9 +61,6 @@ def timings():
         /debug/timings?member_id=189      — profile page functions for member 189
         /debug/timings?member_id=189&cold=1  — bypass cache to see raw DB times
     """
-    from db import hr_query, slots_query
-    from utils import run_parallel
-
     member_id = request.args.get("member_id", type=int)
     cold      = request.args.get("cold", type=int, default=0)
 
@@ -79,14 +83,12 @@ def timings():
     # ── Always run: admin panel functions ─────────────────────────────────────
     t("hr SELECT 1",              lambda: hr_query("SELECT 1"))
     t("slots SELECT 1",           lambda: slots_query("SELECT 1"))
-    t("get_all_members",          lambda: __import__("models.staff", fromlist=["get_all_members"]).get_all_members())
-    t("get_all_lab_users",        lambda: __import__("models.lab",   fromlist=["get_all_lab_users"]).get_all_lab_users())
-    t("get_announcements_all",    lambda: __import__("models.lab",   fromlist=["get_announcements_all"]).get_announcements_all())
-    t("_get_monthly_chart_data",  lambda: __import__("routes.admin_panel", fromlist=["_get_monthly_chart_data"])._get_monthly_chart_data(datetime.now().year))
+    t("get_all_members",          lambda: get_all_members())
+    t("get_all_lab_users",        lambda: get_all_lab_users())
+    t("get_announcements_all",    lambda: get_announcements_all())
 
     # ── Profile-specific functions ────────────────────────────────────────────
     if member_id:
-        from datetime import date
         from models.staff import (
             get_person, get_attendance_stats, get_attendance_trend,
             get_available_years, get_slot_activity,

@@ -5,7 +5,7 @@
 <title>IITBNF Profile — {{ person.display_name }}</title>
 <style>
   /* ── RESET ── */
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* box-sizing omitted — xhtml2pdf ignores it and has its own box model */
 
   /* ── BASE ── */
   body {
@@ -26,11 +26,7 @@
   }
   .doc-header-left  { float:left; }
   .doc-header-right { float:right;  text-align: right; }
-  .doc-header::after {
-    content: "";
-    display: block;
-    clear: both;
-  }
+  .clearfix { clear: both; font-size: 0; line-height: 0; }
   .doc-logo {
     font-size: 16px;
     font-weight: 700;
@@ -59,11 +55,6 @@
     border-bottom: 1px solid #ddd;
     padding: 8px 0;
     margin-bottom: 12px;
-  }
-  .id-block::after {
-    content: "";
-    display: block;
-    clear: both;
   }
   .id-name-col { float:left;  width: 48%; padding-right: 12px; }
   .id-fields-col { float:right; width: 52%; }
@@ -111,7 +102,7 @@
   .id-kv-table td:last-child { color: #111; font-weight: 600; }
 
   /* ── SECTION ── */
-  .section { margin-bottom: 12px; break-inside: auto; page-break-inside: avoid; }
+  .section { margin-bottom: 12px; page-break-inside: avoid; }
 
   .section-hdr {
     font-size: 8px;
@@ -317,6 +308,7 @@
       {% endif %}
     </table>
   </div>
+  <div class="clearfix"></div>
 </div>
 
 <!-- ══ ATTENDANCE ════════════════════════════════════════════════════ -->

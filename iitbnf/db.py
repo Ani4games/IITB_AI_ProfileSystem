@@ -141,10 +141,46 @@ class SimpleConnectionPool:
 # ── Pool instances ─────────────────────────────────────────────────────────────
 # Slots DB gets a larger pool because profile pages fire more parallel queries
 # against it (reservations, equipment, permissions, system_owner, etc.).
-hr_pool    = SimpleConnectionPool(DB_HR,    max_connections=10, min_connections=3)
-slots_pool = SimpleConnectionPool(DB_SLOTS, max_connections=12, min_connections=3)
+hr_pool    = SimpleConnectionPool(DB_HR,    max_connections=15, min_connections=7)
+slots_pool = SimpleConnectionPool(DB_SLOTS, max_connections=20, min_connections=7)
 
+import time
+import threading
 
+def _keepalive_worker(pool, interval: int = 60):
+    """
+    Ping every connection in the pool every `interval` seconds.
+    Keeps MariaDB from closing idle connections via wait_timeout.
+    Runs as a daemon thread — dies with the main process.
+    """
+    while True:
+        time.sleep(interval)
+        live = []
+        # Drain the pool, ping each, put back the survivors
+        while not pool._pool.empty():
+            try:
+                conn = pool._pool.get_nowait()
+                try:
+                    conn.ping(reconnect=True)
+                    live.append(conn)
+                except Exception:
+                    with pool._lock:
+                        pool._active -= 1
+            except Exception:
+                break
+        for conn in live:
+            try:
+                pool._pool.put_nowait(conn)
+            except Exception:
+                pass
+
+# Start keepalive threads after pools are created
+threading.Thread(
+    target=_keepalive_worker, args=(hr_pool, 55), daemon=True
+).start()
+threading.Thread(
+    target=_keepalive_worker, args=(slots_pool, 55), daemon=True
+).start()
 # ── Query helpers ──────────────────────────────────────────────────────────────
 def execute_query(pool, sql, params=None, retry=1):
     """Execute a SELECT query with connection pooling and retry."""
