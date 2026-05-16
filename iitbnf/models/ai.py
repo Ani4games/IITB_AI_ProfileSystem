@@ -118,8 +118,7 @@ def _build_staff_context(member_id: int) -> dict | None:
         FROM   profile p
         LEFT JOIN role r          ON r.memberid  = p.member_id
         LEFT JOIN role_master rm  ON rm.role_id  = r.role
-        LEFT JOIN slotbooking.login l
-               ON LOWER(TRIM(l.email)) = LOWER(TRIM(p.email))
+        LEFT JOIN slotbooking.login l ON l.memberid = p.member_id
         WHERE  p.member_id = %s
           AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         LIMIT 1
@@ -132,6 +131,22 @@ def _build_staff_context(member_id: int) -> dict | None:
     email = row.get("email", "")
 
     full_name = (row.get("full_name") or "").strip()
+
+    # Fallback: email-username wildcard for the rare case where the
+    # slotbooking account has a different memberid but the same email prefix.
+    if not full_name and email and "@" in email:
+        try:
+            prefix = email.split("@")[0]
+            r2 = slots_query(
+                "SELECT fname, lname FROM login "
+                "WHERE LOWER(TRIM(email)) LIKE LOWER(%s) LIMIT 1",
+                (f"{prefix}@%",),
+            )
+            if r2:
+                full_name = ((r2[0].get("fname") or "") + " " + (r2[0].get("lname") or "")).strip()
+        except Exception:
+            pass
+
     if not full_name:
         full_name = f"Member #{str(member_id).zfill(4)}"
 

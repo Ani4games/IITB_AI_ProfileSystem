@@ -37,7 +37,7 @@ from flask import Blueprint, request, jsonify, session
 from auth import login_required, is_full_access
 from utils import run_parallel
 from models.staff import (
-    get_attendance_stats, get_equipment_stats, get_staff_owner_track,
+    get_attendance_stats, get_equipment_stats, get_staff_logbook_stats, get_staff_owner_track,
     get_staff_reservations, get_attendance_trend,
     get_slot_activity, get_staff_system_owned, get_staff_tool_perms_rich,
 )
@@ -219,3 +219,137 @@ def staff_tool_perms(member_id):
 def lab_system_owned(memberid):
     from models.lab import get_system_owner_tools
     return _cached_json({"data": get_system_owner_tools(memberid)})
+# ── ADD THIS BLOCK TO THE END OF section_routes.py ──────────────────────────
+#
+# GET /api/section/tool/<machid>/session_log?limit=30
+#
+# Fetches the last N rows from t_<machid> in slotbooking.
+# Returns column names dynamically so the frontend can render any schema.
+# Joins reservations so we can show who made each booking alongside the
+# raw instrument data.
+#
+# Safe against SQL injection: machid is typed as int by Flask, and the
+# table name is constructed only from that validated integer.
+# ────────────────────────────────────────────────────────────────────────────
+
+@bp.route("/api/section/tool/<int:machid>/session_log")
+@login_required
+def tool_session_log(machid):
+    """
+    Fetch the last N rows from t_<machid> joined with reservations.
+    Uses the shared _get_logbook_tables() cache instead of information_schema
+    queries (which are 300-800ms each on MariaDB).
+    """
+    if not is_full_access():
+        return jsonify({"success": False, "error": "Access restricted."}), 403
+
+    limit = min(request.args.get("limit", 30, type=int), 200)
+
+    try:
+        from db import slots_query
+        from models.staff import _get_logbook_tables
+
+        # ── Step 1: verify the table exists via shared cache (0ms on hit) ──────
+        logbook_tables = _get_logbook_tables()
+        if f"t_{machid}" not in logbook_tables:
+            return jsonify({
+                "success": False,
+                "error":   f"No session log table found for tool {machid}."
+            }), 404
+
+        # ── Step 2: fetch column names — one information_schema query ──────────
+        # We still need columns once, but we've already saved one query above.
+        col_rows = slots_query(
+            "SELECT COLUMN_NAME FROM information_schema.columns "
+            "WHERE table_schema = 'slotbooking' AND table_name = %s "
+            "ORDER BY ORDINAL_POSITION",
+            (f"t_{machid}",)
+        )
+        table_cols = [r["COLUMN_NAME"] for r in (col_rows or [])]
+
+        if not table_cols:
+            return jsonify({
+                "success": False,
+                "error":   "Could not retrieve column metadata."
+            }), 500
+
+        # ── Step 3: fetch data joined with reservations ───────────────────────
+        rows = slots_query(f"""
+            SELECT
+                lg.*,
+                FROM_UNIXTIME(res.startdate) AS booking_start,
+                FROM_UNIXTIME(res.enddate)   AS booking_end,
+                TRIM(CONCAT(
+                    COALESCE(l.fname, ''), ' ', COALESCE(l.lname, '')
+                )) AS member_name,
+                l.memberid AS member_id,
+                l.position AS member_position
+            FROM `t_{machid}` lg
+            LEFT JOIN reservations res ON res.resid = lg.reservation_id
+            LEFT JOIN login l           ON l.memberid = res.memberid
+            ORDER BY lg.reservation_id DESC
+            LIMIT %s
+        """, (limit,))
+
+        if rows is None:
+            rows = []
+
+        # ── Step 4: normalise for JSON ────────────────────────────────────────
+        from datetime import datetime, date as _date
+        from decimal import Decimal
+
+        def _safe(v):
+            if v is None:
+                return None
+            if isinstance(v, (datetime, _date)):
+                return str(v)
+            if isinstance(v, Decimal):
+                return float(v)
+            return v
+
+        clean_rows = [
+            {k: _safe(v) for k, v in row.items()}
+            for row in rows
+        ]
+
+        # ── Step 5: column list for the frontend header ───────────────────────
+        context_cols    = ["member_name", "booking_start", "booking_end"]
+        instrument_cols = [c for c in table_cols if c != "reservation_id"]
+        all_cols = (
+            ["reservation_id"]
+            + context_cols
+            + [c for c in instrument_cols if c not in context_cols]
+        )
+
+        return jsonify({
+            "success": True,
+            "machid":  machid,
+            "columns": all_cols,
+            "rows":    clean_rows,
+            "total":   len(clean_rows),
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@bp.route("/api/section/staff/<int:member_id>/logbook")
+@login_required
+def staff_logbook(member_id):
+    """
+    Logbook entries filled by this staff member across all t_<machid> tables.
+    Returns total entry count, number of distinct tools with logs, and a
+    per-tool breakdown sorted by entry count descending.
+
+    Deferred fetch — called independently from the frontend AFTER the main
+    secondary sections load, so it never blocks attendance/slot/perms display.
+    Cached 5 minutes in get_staff_logbook_stats().
+    """
+    if not is_full_access():
+        return jsonify({"error": "Access restricted."}), 403
+    try:
+        data = get_staff_logbook_stats(member_id)
+        return _cached_json(safe_json({"success": True, "data": data}), max_age=300)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

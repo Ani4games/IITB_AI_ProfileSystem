@@ -16,15 +16,15 @@ Performance notes
 3. Lab profile page PDF pre-generation is keyed by (memberid, year).
 """
 
-import io
 import os
 import uuid
 import threading
 import traceback
+import time
 from datetime import date, datetime
 from flask import (
     Blueprint, render_template, request, redirect,
-    url_for, session, flash, make_response, jsonify, send_file, current_app
+    url_for, session, flash, jsonify, send_file, current_app
 )
 from auth import login_required, is_full_access
 from utils import run_parallel, safe_dict
@@ -36,10 +36,8 @@ from models.lab import (
     get_lab_registration, get_session_reports,
     is_faculty, get_member_tool_permissions,
     get_system_owner_tools, get_system_owner_track,
-    safe_json,
 )
 from models.staff import get_available_years
-
 
 # ── PDF job stores ────────────────────────────────────────────────────────────
 LAB_PDF_JOBS: dict     = {}
@@ -49,12 +47,29 @@ _lab_prefetch_lock     = threading.Lock()
 
 # ── PDF renderer ──────────────────────────────────────────────────────────────
 def _html_to_pdf(html_string: str) -> bytes:
-    """xhtml2pdf (pisa) — 5-10x faster than WeasyPrint for table/float layouts."""
     import io
     from xhtml2pdf import pisa
+    print("[PDF] _html_to_pdf called — link_callback version")  # ← add this
+
+    def link_callback(uri, rel):
+        """
+        Block ALL external resource fetching.
+        xhtml2pdf calls this for every src/href it encounters.
+        Returning None tells it to skip the resource entirely.
+        """
+        # Allow local file:// paths only
+        if uri.startswith("file://"):
+            return uri
+        # Block everything else (http, https, data URIs with external refs)
+        return None
 
     buf = io.BytesIO()
-    result = pisa.CreatePDF(src=html_string, dest=buf, encoding="utf-8")
+    result = pisa.CreatePDF(
+        src            = html_string,
+        dest           = buf,
+        encoding       = "utf-8",
+        link_callback  = link_callback,   # ← blocks external fetches
+    )
     if result.err:
         raise ValueError(f"xhtml2pdf error: {result.err}")
     return buf.getvalue()
@@ -69,12 +84,22 @@ def _sanitize_list(data, limit: int | None = None):
     rows = data or []
     if limit:
         rows = rows[:limit]
+    # Fields that must be integers in the template (used in selectattr/comparisons).
+    # None values crash Jinja2's selectattr equalto filter.
+    INT_FIELDS = {"status", "approval", "is_admin", "isworking", "is_active",
+                  "activation_status", "isblackout"}
     out = []
     for row in rows:
         clean = {}
         for k, v in row.items():
             if isinstance(v, (datetime, date)):
                 clean[k] = v.strftime("%Y-%m-%d")
+            elif k in INT_FIELDS:
+                # Coerce to int; keep None as 0 so template comparisons work
+                try:
+                    clean[k] = int(v) if v is not None else 0
+                except (TypeError, ValueError):
+                    clean[k] = 0
             else:
                 clean[k] = v
         out.append(clean)
@@ -152,6 +177,7 @@ def _generate_lab_pdf_job(app, job_id: str, memberid: int, year: int):
     Called by both the prefetch endpoint and the on-demand start endpoint.
     """
     with app.app_context():
+        time.sleep(2)  # slight delay to ensure "Processing..." status is visible in UI 
         try:
             data = run_parallel({
                 "user":            lambda: get_lab_user(memberid),
@@ -172,11 +198,13 @@ def _generate_lab_pdf_job(app, job_id: str, memberid: int, year: int):
                 LAB_PDF_JOBS[job_id] = {"status": "error", "error": "User not found"}
                 return
 
-            reservations    = _sanitize_list(data.get("reservations")    or [], limit=200)
-            requests        = _sanitize_list(data.get("requests")        or [], limit=300)
-            lab_access      = _sanitize_list(data.get("lab_access")      or [], limit=100)
-            cancellations   = _sanitize_list(data.get("cancellations")   or [], limit=100)
-            session_reports = _sanitize_list(data.get("session_reports") or [], limit=100)
+            # Row caps: PDF is a summary document — keep tables short.
+            # 800 rows total was the main xhtml2pdf bottleneck.
+            reservations    = _sanitize_list(data.get("reservations")    or [], limit=30)
+            requests        = _sanitize_list(data.get("requests")        or [], limit=30)
+            lab_access      = _sanitize_list(data.get("lab_access")      or [], limit=20)
+            cancellations   = _sanitize_list(data.get("cancellations")   or [], limit=20)
+            session_reports = _sanitize_list(data.get("session_reports") or [], limit=20)
             tool_perms_rich = _sanitize_list(data.get("tool_perms_rich") or [])
             system_owned    = _sanitize_list(data.get("system_owned")    or [])
             owner_track     = _sanitize_list(data.get("owner_track")     or [])

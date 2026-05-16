@@ -139,6 +139,7 @@ def ai_stream():
             "Cache-Control":      "no-cache",
             "X-Accel-Buffering":  "no",    # disable nginx buffering if behind proxy
             "Connection":         "keep-alive",
+            "Transfer-Encoding": "chunked",   # add this line to ensure proper streaming
         }
     )
 @bp.route("/api/ai/compose")
@@ -237,12 +238,98 @@ def ai_compose():
                     break
                 else:
                     # Stream tokens individually so typewriter works
-                    yield f"data: {json.dumps({'type': 'token', 'content': item})}\n\n"
+                    yield f"data: {item}\n\n"
         except GeneratorExit:
             pass
 
     return Response(
         stream_with_context(generate_executive()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control":     "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection":        "keep-alive",
+        }
+    )
+
+@bp.route("/api/ai/session-digest")
+@login_required
+def ai_session_digest():
+    """
+    SSE endpoint — streams a 3-bullet digest of session reports for one tool.
+
+    Query params:
+        machid    : int  — the tool's machine ID
+        tool_name : str  — display name (used in the prompt)
+
+    Yields a [META] event first with report counts, then token stream.
+    """
+    if not is_full_access():
+        return Response("data: [ERROR] Access restricted.\n\n",
+                        mimetype="text/event-stream"), 403
+
+    machid    = request.args.get("machid", type=int)
+    tool_name = request.args.get("tool_name", "").strip() or "this tool"
+
+    if not machid:
+        return Response("data: [ERROR] machid required.\n\n",
+                        mimetype="text/event-stream"), 400
+
+    from db import slots_query
+
+    rows = slots_query("""
+        SELECT rp.report_details,
+               FROM_UNIXTIME(rp.datetime) AS submitted_at
+        FROM reporting rp
+        WHERE rp.machid = %s
+          AND rp.report_details IS NOT NULL
+          AND TRIM(rp.report_details) != ''
+        ORDER BY rp.datetime DESC
+        LIMIT 50
+    """, (machid,)) or []
+
+    total  = len(rows)
+    useful = sum(1 for r in rows)
+
+    token_queue = queue.Queue()
+    SENTINEL    = object()
+
+    def inference_worker():
+        try:
+            from rag.pipeline import digest_session_reports_stream
+            for token in digest_session_reports_stream(tool_name, rows):
+                token_queue.put(token)
+        except Exception as e:
+            token_queue.put(f"[ERROR] {str(e)}")
+        finally:
+            token_queue.put(SENTINEL)
+
+    threading.Thread(target=inference_worker, daemon=True).start()
+
+    def generate():
+        # First event: metadata so the UI can show accurate counts
+        meta = json.dumps({"type": "meta", "total": total, "useful": useful})
+        yield f"data: {meta}\n\n"
+        try:
+            while True:
+                try:
+                    item = token_queue.get(timeout=1.0)
+                except queue.Empty:
+                    yield ": heartbeat\n\n"
+                    continue
+                if item is SENTINEL:
+                    yield "data: [DONE]\n\n"
+                    break
+                elif isinstance(item, str) and item.startswith("[ERROR]"):
+                    yield f"data: {json.dumps(item)}\n\n"
+                    break
+                else:
+                    yield f"data: {json.dumps(item)}\n\n"
+        except GeneratorExit:
+            pass
+
+    return Response(
+        stream_with_context(generate()),
         mimetype="text/event-stream",
         headers={
             "Cache-Control":     "no-cache",

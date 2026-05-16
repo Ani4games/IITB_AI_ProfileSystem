@@ -6,14 +6,14 @@ from datetime import timedelta
 
 # ── Database ──────────────────────────────────────────────────────────────────
 DB_HR = {
-    "host":     os.getenv("DB_HOST", "localhost"),
+    "host":     ".",
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "hr_portal",
     "charset":  "utf8mb4",
 }
 DB_SLOTS = {
-    "host":     os.getenv("DB_HOST", "localhost"),
+    "host":    ".",
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "slotbooking",

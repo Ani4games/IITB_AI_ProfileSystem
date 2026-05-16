@@ -4,8 +4,13 @@
 <meta charset="UTF-8">
 <title>System Owner</title>
 <style>
-  * { margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; padding: 30px; }
+
+  body { 
+    font-family: Arial, Helvetica, sans-serif; 
+    font-size: 12px; 
+    color: #1a1a1a; 
+    padding: 30px; 
+  }
 
   /* ── HEADER — table layout (flex not supported by xhtml2pdf) ── */
   .doc-header {
@@ -23,12 +28,12 @@
     font-weight: 700;
     color: #d97706;
     font-family: 'Courier New', monospace;
-    letter-spacing: 0.12em;
+    letter-spacing: 2px;
   }
   .doc-logo-sub {
     font-size: 9px;
     color: #666;
-    letter-spacing: 0.06em;
+    letter-spacing: 1px;
     text-transform: uppercase;
     margin-top: 2px;
   }
@@ -59,7 +64,7 @@
   .id-label {
     font-size: 9px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.8px;
     color: #999;
     display: block;
     margin-bottom: 2px;
@@ -78,7 +83,7 @@
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 1.5px;
     padding: 6px 10px;
     margin-bottom: 0;
   }
@@ -92,7 +97,7 @@
     background: #f5f5f5;
     font-size: 9px;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 1px;
     padding: 6px 10px;
     text-align: left;
     border-bottom: 1px solid #ddd;
@@ -116,7 +121,7 @@
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.7px;
     border: 1px solid transparent;
   }
   .badge-green { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
@@ -152,15 +157,7 @@
 <!-- ══ HEADER ════════════════════════════════════════════════════════ -->
 <div class="doc-header">
   <div class="doc-header-left">
-    <div class="doc-logo">IITBNF</div>
-    <div class="doc-logo-sub">IIT Bombay Nanofabrication Facility</div>
-  </div>
-  <div class="doc-header-right">
-    <div class="doc-meta">
-      <strong>System Owner Report</strong><br>
-      Member #{{ '%04d' % member_id }}<br>
-      Generated {{ now }}
-    </div>
+    <div class="doc-logo">IITBNF System Owner Report</div>
   </div>
 </div>
 
@@ -211,7 +208,7 @@
             ownership_date is DD-MM-YYYY (e.g. 15-03-2022).
             We parse it purely with string/int operations — no date() calls
             because xhtml2pdf passes `now` as a plain string, not a datetime.
-            Today is hardcoded as 2026-04-24 (matches current date).
+            Today is hardcoded as 2026-01-01 (matches current date).
           #}
           {% if t.ownership_date %}
             {% set parts = t.ownership_date.split('-') %}
@@ -221,7 +218,7 @@
               {% set o_year  = parts[2] | int %}
               {% set yrs = 2026 - o_year %}
               {# If the anniversary hasn't arrived yet this year, subtract 1 #}
-              {% if o_month > 4 or (o_month == 4 and o_day > 24) %}
+              {% if o_month > 1 or (o_month == 1 and o_day > 1) %}
                 {% set yrs = yrs - 1 %}
               {% endif %}
               {% if yrs <= 0 %}
@@ -255,7 +252,6 @@
 <!-- ══ FOOTER ════════════════════════════════════════════════════════ -->
 <div class="doc-footer">
   <div class="doc-footer-left">IIT Bombay Nanofabrication Facility</div>
-  <div class="doc-footer-right">Member #{{ '%04d' % member_id }}</div>
 </div>
 
 </body>

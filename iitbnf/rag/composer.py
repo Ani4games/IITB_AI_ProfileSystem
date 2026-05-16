@@ -149,10 +149,10 @@ STAFF_TEMPLATES = [
     # skipped — no need for a second "joined on {date}" fallback because the
     # identity sentence above already anchors the person in context.
     {
-        "text":      "They joined the facility on {joining_date} and are currently appointed on a {appointment_type} basis.",
+        "text":      "{name} joined the facility on {iitb_joining_date} and are currently appointed on a {appointment_type} basis.",
         "slot":      "identity_detail",
         "condition": lambda c: (
-            bool(c.get("joining_date") and c.get("joining_date") != "N/A")
+            bool(c.get("iitb_joining_date") and c.get("iitb_joining_date") != "N/A")
             and bool(c.get("appointment_type") and c.get("appointment_type") != "N/A")
         ),
         "priority":  1,
@@ -160,10 +160,10 @@ STAFF_TEMPLATES = [
     },
     # Fallback: only joining date available
     {
-        "text":      "{name} has been with the facility since {joining_date}.",
+        "text":      "{name} has been with the facility since {iitb_joining_date}.",
         "slot":      "identity_detail",
         "condition": lambda c: (
-            bool(c.get("joining_date") and c.get("joining_date") != "N/A")
+            bool(c.get("iitb_joining_date") and c.get("iitb_joining_date") != "N/A")
             and not bool(c.get("appointment_type") and c.get("appointment_type") != "N/A")
         ),
         "priority":  2,
@@ -172,7 +172,7 @@ STAFF_TEMPLATES = [
 
     # ── Qualification ─────────────────────────────────────────────────────────
     {
-        "text":      "Their academic qualification is recorded as {qualification}.",
+        "text":      "{name}'s academic qualification is recorded as {qualification}.",
         "slot":      "qualification",
         "condition": lambda c: bool(c.get("qualification") and c.get("qualification") != "N/A"),
         "priority":  1,
@@ -277,7 +277,7 @@ STAFF_TEMPLATES = [
     # The "no data" template is removed — the SectionClassifier excludes the
     # section when eq_requests == 0, so a "none recorded" sentence is never reached.
     {
-        "text":      "{name} has submitted {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked, demonstrating consistent and active use of facility resources.",
+        "text":      "{name} has recieved {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked, demonstrating consistent and active use of facility resources.",
         "slot":      "equipment",
         "condition": lambda c: _eq(c) >= 10 and _slot(c) > 0,
         "priority":  1,

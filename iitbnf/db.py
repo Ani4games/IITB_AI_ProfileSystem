@@ -29,7 +29,7 @@ from queue import Queue, Empty, Full
 import pymysql
 import pymysql.cursors
 from config import DB_HR, DB_SLOTS
-
+import socket
 
 class SimpleConnectionPool:
     """Thread-safe database connection pool."""
@@ -49,20 +49,41 @@ class SimpleConnectionPool:
     # ── internal helpers ──────────────────────────────────────────────────────
 
     def _make_conn(self):
-        """Open a fresh pymysql connection with sensible timeouts."""
-        return pymysql.connect(
-            host            = self.db_config["host"],
+        import socket
+        import os
+        
+        host = self.db_config["host"]
+        is_named_pipe = host == "."
+        
+        connect_kwargs = dict(
+            host            = host,
             user            = self.db_config["user"],
             password        = self.db_config["password"],
             database        = self.db_config["database"],
             charset         = self.db_config.get("charset", "utf8mb4"),
             cursorclass     = pymysql.cursors.DictCursor,
             autocommit      = False,
-            connect_timeout = 2,    # fail fast if DB is unreachable
-            read_timeout    = 10,   # don't block forever on a slow query
+            connect_timeout = 2,
+            read_timeout    = 10,
             write_timeout   = 10,
         )
-
+        
+        if is_named_pipe:
+            # Named pipe on Windows — bypasses TCP stack entirely
+            connect_kwargs["unix_socket"] = "MySQL"  # matches your socket name
+            # Remove host for named pipe connections
+            del connect_kwargs["host"]
+        
+        conn = pymysql.connect(**connect_kwargs)
+        
+        if not is_named_pipe:
+            # Only apply TCP_NODELAY for TCP connections (fallback)
+            try:
+                conn.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            except Exception as e:
+                print(f"[DB] TCP_NODELAY failed (non-fatal): {e}")
+        
+        return conn
     def _create_connection(self):
         try:
             conn = self._make_conn()
@@ -141,8 +162,8 @@ class SimpleConnectionPool:
 # ── Pool instances ─────────────────────────────────────────────────────────────
 # Slots DB gets a larger pool because profile pages fire more parallel queries
 # against it (reservations, equipment, permissions, system_owner, etc.).
-hr_pool    = SimpleConnectionPool(DB_HR,    max_connections=15, min_connections=7)
-slots_pool = SimpleConnectionPool(DB_SLOTS, max_connections=20, min_connections=7)
+hr_pool    = SimpleConnectionPool(DB_HR,    max_connections=25, min_connections=13)
+slots_pool = SimpleConnectionPool(DB_SLOTS, max_connections=30, min_connections=15)
 
 import time
 import threading

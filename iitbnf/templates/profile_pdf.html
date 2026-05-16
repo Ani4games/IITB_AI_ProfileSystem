@@ -4,9 +4,6 @@
 <meta charset="UTF-8">
 <title>IITBNF Profile — {{ person.display_name }}</title>
 <style>
-  /* ── RESET ── */
-  /* box-sizing omitted — xhtml2pdf ignores it and has its own box model */
-
   /* ── BASE ── */
   body {
     font-family: Arial, Helvetica, sans-serif;
@@ -20,23 +17,23 @@
   /* ── DOCUMENT HEADER ── */
   .doc-header {
     width: 100%;
-    border-bottom: 2px solid #111;
+    border-bottom: 2px solid #e87102;
     padding-bottom: 8px;
     margin-bottom: 12px;
   }
-  .doc-header-left  { float:left; }
-  .doc-header-right { float:right;  text-align: right; }
+  .doc-header-left  { display: table-cell; }
+  .doc-header-right { display: table-cell; text-align: right; }
   .clearfix { clear: both; font-size: 0; line-height: 0; }
   .doc-logo {
     font-size: 16px;
     font-weight: 700;
-    color: #111;
-    letter-spacing: .12em;
+    color: #e87102;
+    letter-spacing: 1.5px;
   }
   .doc-logo-sub {
     font-size: 8px;
     color: #555;
-    letter-spacing: .06em;
+    letter-spacing: 0.6px;
     text-transform: uppercase;
     margin-top: 1px;
   }
@@ -50,14 +47,15 @@
 
   /* ── IDENTITY BLOCK ── */
   .id-block {
+    display: table;
     width: 100%;
     border-top: 1px solid #ddd;
     border-bottom: 1px solid #ddd;
     padding: 8px 0;
     margin-bottom: 12px;
   }
-  .id-name-col { float:left;  width: 48%; padding-right: 12px; }
-  .id-fields-col { float:right; width: 52%; }
+  .id-name-col { display: table-cell; width: 48%; padding-right: 12px; }
+  .id-fields-col { display: table-cell; width: 52%; }
 
   .id-name {
     font-size: 15px;
@@ -67,20 +65,12 @@
     margin-bottom: 2px;
   }
   .id-role {
-    font-size: 9px;
+    font-size: 12px;
+    font-weight: 600;
     color: #555;
     text-transform: uppercase;
-    letter-spacing: .06em;
+    letter-spacing: 0.5px;
     margin-bottom: 1px;
-  }
-  .id-designation {
-    font-size: 10px;
-    color: #333;
-    margin-bottom: 1px;
-  }
-  .id-team {
-    font-size: 9px;
-    color: #777;
   }
 
   .id-kv-table { width: 100%; border-collapse: collapse; }
@@ -93,7 +83,7 @@
   .id-kv-table td:first-child {
     color: #888;
     text-transform: uppercase;
-    letter-spacing: .04em;
+    letter-spacing: 0.6px;
     font-size: 8px;
     width: 80px;
     padding-right: 6px;
@@ -108,7 +98,7 @@
     font-size: 8px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .1em;
+    letter-spacing: 1.1px;
     color: #111;
     border-left: 3px solid #111;
     padding: 2px 0 2px 6px;
@@ -144,41 +134,12 @@
   .m-key {
     font-size: 7px;
     text-transform: uppercase;
-    letter-spacing: .05em;
+    letter-spacing: 0.8px;
     color: #888;
     display: block;
     margin-top: 2px;
   }
 
-  /* ── TOOL PERMISSIONS GRID ── */
-  .perm-grid {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 4px;
-  }
-  .perm-grid td {
-    padding: 4px 6px;
-    vertical-align: top;
-    width: 25%;
-    border: 1px solid #ebebeb;
-  }
-  .perm-name {
-    display: block;
-    font-size: 9px;
-    font-weight: 700;
-    color: #111;
-    line-height: 1.2;
-  }
-  .perm-date {
-    display: block;
-    font-size: 8px;
-    color: #888;
-    margin-top: 1px;
-  }
-  /* empty cell in last row of permissions grid */
-  .perm-empty {
-    background: #fafafa;
-  }
 
   /* ── TABLE ── */
   table { width: 100%; border-collapse: collapse; }
@@ -190,7 +151,7 @@
     font-size: 7px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .07em;
+    letter-spacing: 0.6px;
     color: #555;
     padding: 4px 6px;
     border-bottom: 1px solid #111;
@@ -211,7 +172,7 @@
     font-size: 8px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .07em;
+    letter-spacing: 0.6px;
     color: #555;
     border-bottom: 1px solid #ddd;
     padding-bottom: 2px;
@@ -225,7 +186,7 @@
     border-radius: 3px;
     font-size: 7px;
     font-weight: 700;
-    letter-spacing: .04em;
+    letter-spacing: 0.6px;
     text-transform: uppercase;
     border: 1px solid transparent;
   }
@@ -265,49 +226,33 @@
 <!-- ══ HEADER ════════════════════════════════════════════════════════ -->
 <div class="doc-header">
   <div class="doc-header-left">
-    <div class="doc-logo">IITBNF</div>
-    <div class="doc-logo-sub">IIT Bombay Nanofabrication Facility</div>
-  </div>
-  <div class="doc-header-right">
-    <div class="doc-meta">
-      <strong>Staff Profile Report</strong><br>
-      Member #{{ '%04d' % member_id }} &nbsp;·&nbsp; {{ selected_year }}<br>
-      Generated {{ now }}
-    </div>
+    <div class="doc-logo">IITBNF Staff Profile Report</div>
   </div>
 </div>
 
 <!-- ══ IDENTITY ═════════════════════════════════════════════════════ -->
 <div class="id-block">
-  <div class="id-name-col">
-    <div class="id-name">{{ person.display_name or '—' }}</div>
-    <div class="id-role">{{ person.role_name or 'Staff' }}</div>
-    <div class="id-designation">{{ person.designation or '—' }}</div>
-    {% if person.team %}<div class="id-team">{{ person.team }}</div>{% endif %}
-  </div>
-  <div class="id-fields-col">
-    <table class="id-kv-table">
+    <div class="id-name">{{ person.display_name or '—' }} </div>
+    <div class="id-role">{{ person.role_name or 'Staff' }} | {{ person.designation or '—' }} | {{ person.team }} </div>
+    <table class="metrics-strip">
       {% if person.slot_email %}
-      <tr><td>Email</td><td>{{ person.slot_email }}</td></tr>
+      <tr><td><span class="m-key">{{ person.slot_email }}</span><span class="m-key">Email</span></td>
       {% else %}
-      <tr><td>Email</td><td>{{ person.email }}</td></tr>
+      <td><span class="m-key">{{ person.email }}</span><span class="m-key">Email</span></td>
       {% endif %}
       {% if person.type_of_appointment %}
-      <tr><td>Appointment</td><td>{{ person.type_of_appointment }}</td></tr>
+      <td><span class="m-key">{{ person.type_of_appointment }}</span><span class="m-key">Appointment</span></td>
       {% endif %}
       {% if person.qualification %}
-      <tr><td>Qualification</td><td>{{ person.qualification }}</td></tr>
+      <td><span class="m-key">{{ person.qualification }}</span><span class="m-key">Qualification</span></td>
       {% endif %}
       {% if person.iitb_joining_date and person.iitb_joining_date not in ['0000-00-00','None',''] %}
-      <tr><td>Joined</td><td>{{ person.iitb_joining_date }}</td></tr>
+      <td><span class="m-key">{{ person.iitb_joining_date }}</span><span class="m-key">Joined</span></td>
       {% elif person.joining_date and person.joining_date not in ['0000-00-00','None',''] %}
-      <tr><td>Joined</td><td>{{ person.joining_date }}</td></tr>
+      <td><span class="m-key">{{ person.joining_date }}</span><span class="m-key">Joined</span></td>
       {% endif %}
-      {% if person.p_project_code %}
-      <tr><td>Project Code</td><td>{{ person.p_project_code }}</td></tr>
-      {% endif %}
+      </tr>
     </table>
-  </div>
   <div class="clearfix"></div>
 </div>
 
@@ -331,24 +276,22 @@
       </td>
     </tr>
   </table>
-  <!-- {% if att.leave_summary %}
+  {% if att.leave_summary %}
   <div class="sub-title">Leave Breakdown</div>
   <table>
     <thead>
-      <tr><th>Leave Type</th><th>Days Taken</th><th>Max Allowed</th><th>Utilisation</th></tr>
+      <tr><th>Leave Type</th><th>Days Taken</th></tr>
     </thead>
     <tbody>
       {% for l in att.leave_summary %}
       <tr>
         <td>{{ l.type_of_leave }}</td>
         <td>{{ l.days_taken }}</td>
-        <td>{{ l.max_allowed or '—' }}</td>
-        <td>{{ (l.util_pct | string + '%') if l.util_pct is not none else '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  {% endif %} -->
+  {% endif %}
 </div>
 {% endif %}
 
@@ -373,21 +316,16 @@
 {% if tool_perms_rich %}
 <div class="section">
   <div class="section-hdr">Authorized Tool Permissions ({{ tool_perms_rich | length }})</div>
-  <table class="perm-grid">
-    {% for t in tool_perms_rich %}
-      {% if loop.index0 % 4 == 0 %}<tr>{% endif %}
-      <td>
-        <span class="perm-name">{{ t.tool_name }}</span>
-        <span class="perm-date">{{ t.permission_date or '—' }}</span>
-      </td>
-      {% if loop.index0 % 4 == 3 or loop.last %}
-        {% set remainder = tool_perms_rich | length % 4 %}
-        {% if loop.last and remainder != 0 %}
-          {% for _ in range(4 - remainder) %}<td class="perm-empty"></td>{% endfor %}
-        {% endif %}
-        </tr>
-      {% endif %}
-    {% endfor %}
+  <table>
+    <thead><tr><th>Tool</th><th>Granted</th></tr></thead>
+    <tbody>
+      {% for t in tool_perms_rich %}
+      <tr>
+        <td>{{ t.tool_name }}</td>
+        <td>{{ t.permission_date or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
   </table>
 </div>
 {% endif %}

@@ -29,14 +29,11 @@ Performance fixes applied
 """
 import threading
 from datetime import date, timedelta
-from collections import defaultdict
-
 from db import hr_query, slots_query
-from utils import get_display_name, clean_role, get_holidays
+from utils import bulk_display_names, get_display_name, clean_role, get_holidays
 from cache import cached
 
-from collections import defaultdict
-from datetime import datetime
+from time import perf_counter
 # ── UID resolution cache ──────────────────────────────────────────────────────
 _uid_cache: dict[int, int | None] = {}
 _uid_cache_ts: dict[int, float]   = {}
@@ -48,6 +45,7 @@ _UID_CACHE_TTL                    = 1800  # 30 minutes
 
 @cached(ttl_seconds=3600)  # Increased TTL (1 hour)
 def get_all_members():
+    start = perf_counter()
     rows = hr_query("""
         SELECT 
             p.member_id,
@@ -63,15 +61,15 @@ def get_all_members():
             OR (p.designation IS NOT NULL AND p.designation != '')
             OR (p.team IS NOT NULL AND p.team != '')
         )
-        AND COALESCE(p.leaving_date, '9999-12-31') >= '2025-01-01'
+        AND (p.leaving_date IS NULL OR p.leaving_date = '0000-00-00' OR p.leaving_date >= '2026-01-01')
         AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         ORDER BY p.member_id
     """)
+    elapsed = (perf_counter() - start) * 1000
 
+    print(f"get_all_members SQL: {elapsed:.1f} ms")
     if not rows:
         return []
-
-    from utils import bulk_display_names, clean_role
 
     # Fetch all names in one efficient query (no cross-DB join)
     member_ids = [m["member_id"] for m in rows]
@@ -91,6 +89,7 @@ def get_all_members():
 @cached(ttl_seconds=300)
 def get_person(member_id):
     # Step 1: fetch HR profile only — no cross-DB join, fast PK lookup.
+    start = perf_counter()
     rows = hr_query("""
         SELECT p.*,
                COALESCE(rm.role_name, 'Staff') AS raw_role
@@ -101,6 +100,8 @@ def get_person(member_id):
           AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         LIMIT 1
     """, (member_id,))
+    elapsed = (perf_counter() - start) * 1000
+    print(f"get_person SQL: {elapsed:.1f} ms for member_id={member_id}")
     if not rows:
         return None
 
@@ -150,14 +151,15 @@ def get_attendance_rows(member_id, month=None, year=None):
         end   = f"{year}-12-31"
         date_filter += " AND date BETWEEN %s AND %s"
         params.extend([start, end])
-
+    start = perf_counter()
     rows = hr_query(f"""
         SELECT date, time AS entry_time, exit_time
         FROM user_attendance
         WHERE memberid=%s {date_filter}
         ORDER BY date DESC
     """, tuple(params))
-
+    elapsed = (perf_counter() - start) * 1000
+    print(f"get_attendance_rows SQL: {elapsed:.1f} ms for member_id={member_id}, month={month}, year={year}")
     return rows or []
 
 def get_working_days(from_d, to_d):
@@ -177,14 +179,46 @@ def get_attendance_stats(member_id, year=None):
     year  = int(year or today.year)   # always int, never None stored in key
     try:
         # Single query: count present days only — no ORDER BY, no row fetch
+        start = perf_counter()
         count_rows = hr_query(
             "SELECT COUNT(*) AS cnt FROM user_attendance "
             "WHERE memberid=%s AND date BETWEEN %s AND %s",
             (member_id, f"{year}-01-01", f"{year}-12-31"),
         )
+        elapsed = (perf_counter() - start) * 1000
+        print(f"get_attendance_stats SQL: {elapsed:.1f} ms for member_id={member_id}, year={year}")
         days_present = int(count_rows[0]["cnt"]) if count_rows else 0
 
-        mandatory = calc_mandatory_days(year)
+        # Use joining date as start if it falls within this year
+        from db import hr_query as _hrq
+        joining_rows = _hrq(
+            "SELECT iitb_joining_date, joining_date FROM profile WHERE member_id = %s LIMIT 1",
+            (member_id,)
+        )
+        joining_date = None
+        if joining_rows:
+            joining_date = joining_rows[0].get("iitb_joining_date") or joining_rows[0].get("joining_date")
+
+        if joining_date:
+            try:
+                if isinstance(joining_date, str):
+                    from datetime import datetime as _dt
+                    joining_date = _dt.strptime(joining_date[:10], "%Y-%m-%d").date()
+                if joining_date.year == year:
+                    # Only count from joining month onwards
+                    from calendar import monthrange
+                    holidays = get_holidays_for_year(year)
+                    today = date.today()
+                    effective_end = min(date(year, 12, 31), today)
+                    mandatory = 0
+                    for m in range(joining_date.month, (today.month if year == today.year else 12) + 1):
+                        mandatory += calc_mandatory_days(year, month=m, holidays=holidays)
+                else:
+                    mandatory = calc_mandatory_days(year)
+            except Exception:
+                mandatory = calc_mandatory_days(year)
+        else:
+            mandatory = calc_mandatory_days(year)
         att_pct   = calculate_attendance(days_present, mandatory)
 
         return {
@@ -203,7 +237,6 @@ def get_attendance_stats(member_id, year=None):
             "recent_log":     [],
             "trend":          [],
         }
-
 
 def _get_years_raw(member_id=None, memberid=None):
     years = set()
@@ -434,6 +467,7 @@ def _resolve_uid_uncached(member_id: int) -> int | None:
 def _get_equipment_rows(uid, year=None):
     date_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
     params      = (uid, int(year)) if year else (uid,)
+    start = perf_counter()
     rows = slots_query(f"""
         SELECT r.name AS tool_name,
                COUNT(e.request_id) AS times_booked,
@@ -448,6 +482,8 @@ def _get_equipment_rows(uid, year=None):
         ORDER BY times_booked DESC
         LIMIT 50
     """, params)
+    elapsed = (perf_counter() - start) * 1000
+    print(f"_get_equipment_rows SQL: {elapsed:.1f} ms for uid={uid}, year={year}")
     return rows or []
 def _get_lab_access_rows(uid, year=None):
     if uid is None:
@@ -468,7 +504,6 @@ def _get_lab_access_rows(uid, year=None):
         ORDER BY date_request DESC LIMIT 20
     """, (uid,)) or []
 
-from collections import defaultdict
 
 @cached(ttl_seconds=120)   # 2-minute cache — prevents re-running the correlated subquery on every dropdown
 def get_equipment_stats(member_id, year=None):
@@ -507,6 +542,7 @@ def get_equipment_stats(member_id, year=None):
 # ── Projects & publications ───────────────────────────────────────────────────
 
 def _get_lab_projects(uid):
+    start = perf_counter()
     projects = slots_query("""
         SELECT fp.project, pc.project_category AS category_name,
                fp.project_end_date, fp.active
@@ -514,16 +550,26 @@ def _get_lab_projects(uid):
         LEFT JOIN project_category pc ON pc.id=fp.project_category
         WHERE fp.memberid=%s ORDER BY fp.active DESC, fp.project_end_date DESC
     """, (uid,))
+    elapsed = (perf_counter() - start) * 1000
+    print(f"_get_lab_projects SQL: {elapsed:.1f} ms for uid={uid}")
+    # Check time-consuming balance_sheet and paper_publish queries — if uid is invalid, they return empty immediately without heavy joins
+    start = perf_counter()
     balance = slots_query("""
         SELECT SUM(CASE WHEN transaction_type='credit' THEN amount ELSE 0 END) AS total_credit,
                SUM(CASE WHEN transaction_type='debit'  THEN amount ELSE 0 END) AS total_debit,
                COUNT(*) AS total_transactions
         FROM balance_sheet WHERE memberid=%s
     """, (uid,))
+    elapsed = (perf_counter() - start) * 1000
+    print(f"_get_lab_balance SQL: {elapsed:.1f} ms for uid={uid}")
+    # Check time
+    start = perf_counter()
     papers = slots_query("""
         SELECT title, year, type, conf_name, author
         FROM paper_publish WHERE memberid=%s AND approve=1 ORDER BY year DESC
     """, (uid,))
+    elapsed = (perf_counter() - start) * 1000
+    print(f"_get_lab_papers SQL: {elapsed:.1f} ms for uid={uid}")
     return {"available": True, "projects": projects,
             "balance": balance[0] if balance else None, "papers": papers}
 
@@ -538,7 +584,7 @@ def get_project_data(member_id):
 def get_profile_tracking(member_id, year=None):
     year_filter = "AND YEAR(pt.timestamp) = %s" if year else ""
     params      = (member_id, year) if year else (member_id,)
-
+    start = perf_counter()
     rows = hr_query(f"""
         SELECT pt.column_name, pt.old_value, pt.new_value, pt.timestamp,
         TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS updated_by_name
@@ -547,7 +593,8 @@ def get_profile_tracking(member_id, year=None):
         WHERE pt.memberid = %s {year_filter}
         ORDER BY pt.timestamp DESC LIMIT 100
     """, params) or []
-
+    elapsed = (perf_counter() - start) * 1000
+    print(f"get_profile_tracking SQL: {elapsed:.1f} ms for member_id={member_id}, year={year}")
     for r in rows:
         if r.get("timestamp"):
             r["timestamp"] = r["timestamp"].isoformat()
@@ -587,29 +634,43 @@ def get_attendance_trend(member_id, year=None):
     Monthly attendance trend — resolved in ONE query instead of 12.
     Cached to prevent re-computation on every dropdown AJAX call.
     """
-    year = int(year or date.today().year)   # normalise: None and int produce same key
+    today = date.today()
+    year = int(year or today.year)
 
-    rows = get_attendance_rows(member_id, year= year)  # ✅ only once
-    holidays = get_holidays_for_year(year)  # ✅ only once
+    rows = get_attendance_rows(member_id, year=year)
+    holidays = get_holidays_for_year(year)
+
+    from db import hr_query as _hrq
+    joining_rows = _hrq(
+        "SELECT iitb_joining_date, joining_date FROM profile WHERE member_id = %s LIMIT 1",
+        (member_id,)
+    )
+    joining_date = None
+    if joining_rows:
+        joining_date = joining_rows[0].get("iitb_joining_date") or joining_rows[0].get("joining_date")
+
+    start_month = 1
+    if joining_date:
+        try:
+            if isinstance(joining_date, str):
+                from datetime import datetime as _dt
+                joining_date = _dt.strptime(joining_date[:10], "%Y-%m-%d").date()
+            if joining_date.year == year:
+                start_month = joining_date.month
+        except Exception:
+            start_month = 1
+
+    end_month = today.month if year == today.year else 12
 
     monthly_data = []
-
-    for month in range(1, 13):
-        month_rows = []
-        for r in rows:
-            d = r["date"]
-            if isinstance(d, str):
-                from datetime import datetime
-                d = datetime.fromisoformat(d)
-
-            if d.month == month:
-                month_rows.append(r)
-
+    for month in range(start_month, end_month + 1):
+        month_rows = [
+            r for r in rows
+            if (r["date"] if not isinstance(r["date"], str) else __import__('datetime').datetime.fromisoformat(r["date"])).month == month
+        ]
         days_present = len(month_rows)
         mandatory = calc_mandatory_days(year, month=month, holidays=holidays)
-
         pct = round(days_present / mandatory * 100, 1) if mandatory else 0
-
         monthly_data.append({
             "month": month,
             "attendance_pct": pct
@@ -647,8 +708,18 @@ def _get_slot_rows(member_id: int, year=None) -> list:
     uid = _get_uid_from_member(member_id)
     if uid is None:
         return []
-    year_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
-    params      = (uid, int(year)) if year else (uid,)
+    # year_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
+    # params      = (uid, int(year)) if year else (uid,)
+    year_filter = """
+    AND e.date_of_request >= %s
+    AND e.date_of_request < %s
+    """
+    extended_year = int(year) + 1 if year else None
+    start_date = f"{year}-01-01"
+    end_date   = f"{extended_year}-01-01"
+
+    params = (uid, start_date, end_date)
+    start = perf_counter()
     rows = slots_query(f"""
         SELECT
             e.request_id                                        AS request_id,
@@ -664,6 +735,8 @@ def _get_slot_rows(member_id: int, year=None) -> list:
         WHERE e.requestedby = %s {year_filter} AND e.status IN (0, 1, 2, 3)
         ORDER BY e.date_of_request DESC LIMIT 300
     """, params) or []
+    elapsed = (perf_counter() - start) * 1000
+    print(f"_get_slot_rows SQL: {elapsed:.1f} ms for member_id={member_id}, year={year}")
     return rows
 
 
@@ -725,4 +798,161 @@ def get_slot_activity(member_id: int, year=None) -> dict:
         "total":       len(processed),
         **counts,
         "rows":        processed,
+    }
+
+# ── Logbook stats ─────────────────────────────────────────────────────────────
+# ── Module-level cache for t_ table names ─────────────────────────────────────
+# Shared across all members — the set of t_ tables only changes when a new
+# instrument is added to the facility, which is rare. Refreshed every 10 min.
+ 
+import time as _time_mod
+ 
+_logbook_tables_cache: set        = set()
+_logbook_tables_ts:    float      = 0.0
+_logbook_tables_lock               = threading.Lock()
+_LOGBOOK_TABLES_TTL                = 600   # 10 minutes
+ 
+ 
+def _get_logbook_tables() -> set:
+    """
+    Return the set of t_<machid> table names that exist in slotbooking.
+    Cached 10 minutes — shared across all member requests.
+    """
+    global _logbook_tables_cache, _logbook_tables_ts
+    now = _time_mod.monotonic()
+    with _logbook_tables_lock:
+        if _logbook_tables_cache and (now - _logbook_tables_ts) < _LOGBOOK_TABLES_TTL:
+            return _logbook_tables_cache
+ 
+    t0 = perf_counter()
+    rows = slots_query(
+        """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'slotbooking'
+          AND table_name REGEXP '^t_[0-9]+$'
+        """,
+    ) or []
+    elapsed = (perf_counter() - t0) * 1000
+    fresh = {r["table_name"] for r in rows}
+    print(f"_get_logbook_tables: {elapsed:.1f} ms, found {len(fresh)} t_ tables")
+ 
+    with _logbook_tables_lock:
+        _logbook_tables_cache = fresh
+        _logbook_tables_ts    = _time_mod.monotonic()
+ 
+    return fresh
+ 
+ 
+@cached(ttl_seconds=300)
+def get_staff_logbook_stats(member_id: int) -> dict:
+    """
+    Count logbook entries made by this staff member across all t_<machid> tables.
+ 
+    Strategy
+    ────────
+    Avoids both the N-query-per-table and the giant IN(6900 resids) patterns.
+ 
+    Instead, for each relevant t_<machid> table we emit one sub-select that
+    joins the logbook table against reservations filtered by memberid.
+    All sub-selects are combined with UNION ALL and executed in a single
+    round-trip — regardless of how many tools or how many reservations the
+    member has.
+ 
+        SELECT <machid> AS machid, COUNT(*) AS cnt
+        FROM `t_<machid>` lg
+        JOIN reservations res ON res.resid = lg.reservation_id
+        WHERE res.memberid = <uid>
+        UNION ALL
+        SELECT <machid2> AS machid, COUNT(*) AS cnt
+        FROM `t_<machid2>` lg
+        ...
+ 
+    The join uses the reservations.resid PK (indexed) and
+    reservations.memberid (should have an index) — no large IN() lists.
+ 
+    Returns:
+        {
+            "total_entries":  int,
+            "tools_with_logs": int,
+            "breakdown": [{"tool_name": str, "machid": int, "entries": int}, ...]
+        }
+ 
+    Cached 5 minutes.
+    """
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return {"total_entries": 0, "tools_with_logs": 0, "breakdown": []}
+ 
+    # Step 1: which machids does this member have any reservations for?
+    # One small, indexed query — returns distinct machids only, not all resids.
+    t0 = perf_counter()
+    machid_rows = slots_query(
+        "SELECT DISTINCT machid FROM reservations WHERE memberid = %s AND machid IS NOT NULL",
+        (uid,)
+    ) or []
+    elapsed = (perf_counter() - t0) * 1000
+    print(f"get_staff_logbook_stats distinct machids: {elapsed:.1f} ms, "
+          f"{len(machid_rows)} tools for uid={uid}")
+ 
+    if not machid_rows:
+        return {"total_entries": 0, "tools_with_logs": 0, "breakdown": []}
+ 
+    member_machids = {int(r["machid"]) for r in machid_rows}
+ 
+    # Step 2: intersect with tables that actually exist (shared 10-min cache, 0 ms)
+    logbook_tables  = _get_logbook_tables()
+    relevant_machids = sorted(m for m in member_machids if f"t_{m}" in logbook_tables)
+ 
+    if not relevant_machids:
+        return {"total_entries": 0, "tools_with_logs": 0, "breakdown": []}
+ 
+    # Step 3: fetch tool names in one query
+    ph = ",".join(["%s"] * len(relevant_machids))
+    name_rows = slots_query(
+        f"SELECT machid, name FROM resources WHERE machid IN ({ph})",
+        tuple(relevant_machids)
+    ) or []
+    name_map = {r["machid"]: r["name"] for r in name_rows}
+ 
+    # Step 4: single UNION ALL query — one round-trip for all tools.
+    # Each branch does: logbook JOIN reservations WHERE memberid = uid
+    # No IN(thousands_of_resids) — the join is fully indexed on both sides.
+    union_parts = []
+    for machid in relevant_machids:
+        union_parts.append(
+            f"SELECT {machid} AS machid, COUNT(*) AS cnt "
+            f"FROM `t_{machid}` lg "
+            f"JOIN reservations res ON res.resid = lg.reservation_id "
+            f"WHERE res.memberid = %s"
+        )
+ 
+    union_sql = "\nUNION ALL\n".join(union_parts)
+    params    = tuple([uid] * len(relevant_machids))
+ 
+    t0 = perf_counter()
+    count_rows = slots_query(union_sql, params) or []
+    elapsed = (perf_counter() - t0) * 1000
+    print(f"get_staff_logbook_stats UNION ALL ({len(relevant_machids)} tables): "
+          f"{elapsed:.1f} ms")
+ 
+    breakdown    = []
+    total_entries = 0
+    for row in count_rows:
+        cnt    = int(row["cnt"] or 0)
+        machid = int(row["machid"])
+        if cnt > 0:
+            breakdown.append({
+                "machid":    machid,
+                "tool_name": name_map.get(machid, f"Tool {machid}"),
+                "entries":   cnt,
+            })
+            total_entries += cnt
+ 
+    breakdown.sort(key=lambda x: x["entries"], reverse=True)
+ 
+    return {
+        "total_entries":   total_entries,
+        "tools_with_logs": len(breakdown),
+        "breakdown":       breakdown,
     }

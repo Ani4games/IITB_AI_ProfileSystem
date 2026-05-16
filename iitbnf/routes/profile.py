@@ -47,29 +47,33 @@ PDF_PREFETCH: dict = {}
 # Lock for PDF_PREFETCH to avoid duplicate concurrent pre-gen for same profile
 _prefetch_lock = threading.Lock()
 
-
 def _html_to_pdf(html_string: str) -> bytes:
-    """
-    Convert an HTML string to PDF bytes using xhtml2pdf (pisa).
-
-    xhtml2pdf is 5-10x faster than WeasyPrint for these document-style
-    templates because it uses ReportLab directly instead of a full browser
-    layout engine. All four PDF templates use only CSS that xhtml2pdf
-    supports: tables, floats, borders, colours, page-break-inside.
-    """
     import io
     from xhtml2pdf import pisa
+    print("[PDF] _html_to_pdf called — link_callback version")  # ← add this
+
+    def link_callback(uri, rel):
+        """
+        Block ALL external resource fetching.
+        xhtml2pdf calls this for every src/href it encounters.
+        Returning None tells it to skip the resource entirely.
+        """
+        # Allow local file:// paths only
+        if uri.startswith("file://"):
+            return uri
+        # Block everything else (http, https, data URIs with external refs)
+        return None
 
     buf = io.BytesIO()
     result = pisa.CreatePDF(
-        src=html_string,
-        dest=buf,
-        encoding="utf-8",
+        src            = html_string,
+        dest           = buf,
+        encoding       = "utf-8",
+        link_callback  = link_callback,   # ← blocks external fetches
     )
     if result.err:
         raise ValueError(f"xhtml2pdf error: {result.err}")
     return buf.getvalue()
-
 
 from models.staff import (
     get_person, get_attendance_stats, get_slot_activity,
@@ -101,12 +105,19 @@ def sanitize_list(data, limit: int | None = None):
     rows = data or []
     if limit:
         rows = rows[:limit]
+    INT_FIELDS = {"status", "approval", "is_admin", "isworking", "is_active",
+                  "activation_status", "isblackout"}
     out = []
     for row in rows:
         clean = {}
         for k, v in row.items():
             if isinstance(v, (datetime, date)):
                 clean[k] = v.strftime("%Y-%m-%d")
+            elif k in INT_FIELDS:
+                try:
+                    clean[k] = int(v) if v is not None else 0
+                except (TypeError, ValueError):
+                    clean[k] = 0
             else:
                 clean[k] = v
         out.append(clean)
@@ -159,56 +170,108 @@ def profile(member_id):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _generate_pdf_job(app, job_id: str, member_id: int, year: int):
-    """
-    Background thread: renders the staff PDF and stores the result in PDF_JOBS.
-    Called by both the prefetch endpoint and the on-demand start endpoint.
-    """
     with app.app_context():
         try:
+            # Small delay — let the page load queries finish first
+            # so we don't compete for DB connections
+            import time
+            time.sleep(2)
+
             _warmup_uid(member_id)
+            from db import slots_query as _sq
+            from models.staff import _get_uid_from_member
 
-            data = run_parallel({
-                "person":          lambda: get_person(member_id),
-                "attendance":      lambda: get_attendance_stats(member_id, year),
-                "slot_activity":   lambda: get_slot_activity(member_id, year),
-                "projects":        lambda: get_project_data(member_id),
-                "permissions":     lambda: get_permissions(member_id),
-                "system_owned":    lambda: get_staff_system_owned(member_id),
-                "owner_track":     lambda: get_staff_owner_track(member_id),
-                "tool_perms_rich": lambda: get_staff_tool_perms_rich(member_id),
-            })
+            uid = _get_uid_from_member(member_id)
 
-            if not data.get("person"):
+            def _owned_counts():
+                if not uid:
+                    return {"total": 0, "working": 0}
+                rows = _sq(
+                    "SELECT machid FROM system_owner WHERE memberid=%s", (uid,)
+                ) or []
+                all_ids = []
+                for r in rows:
+                    raw = str(r.get("machid") or "")
+                    all_ids += [x for x in raw.split(",") if x.strip().isdigit()]
+                if not all_ids:
+                    return {"total": 0, "working": 0}
+                ph = ",".join(["%s"] * len(all_ids))
+                working = _sq(
+                    f"SELECT COUNT(*) AS cnt FROM resources "
+                    f"WHERE machid IN ({ph}) AND isworking=1", tuple(all_ids)
+                )
+                return {
+                    "total":   len(all_ids),
+                    "working": int((working or [{}])[0].get("cnt") or 0),
+                }
+
+            def _track_counts():
+                if not uid:
+                    return {"total": 0, "active": 0}
+                rows = _sq("""
+                    SELECT
+                        COUNT(*) AS total,
+                        SUM(CASE WHEN action='create' THEN 1 ELSE 0 END) -
+                        SUM(CASE WHEN action='delete' THEN 1 ELSE 0 END) AS active
+                    FROM system_owner_track WHERE memberid=%s
+                """, (uid,)) or [{}]
+                total  = int(rows[0].get("total") or 0)
+                active = max(0, int(rows[0].get("active") or 0))
+                return {"total": total, "active": active}
+
+            # Run sequentially, not in parallel — avoids saturating
+            # the DB pool while page queries are still running
+            print(f"[PDF] Starting DB queries for member {member_id}")
+            t0 = time.perf_counter()
+
+            person     = get_person(member_id)
+            attendance = get_attendance_stats(member_id, year)
+            slot_act   = get_slot_activity(member_id, year)
+            perms      = get_permissions(member_id)
+            tool_perms = get_staff_tool_perms_rich(member_id)
+            owned_c    = _owned_counts()
+            track_c    = _track_counts()
+
+            print(f"[PDF] DB queries done in {round((time.perf_counter()-t0)*1000)}ms")
+
+            if not person:
                 PDF_JOBS[job_id] = {"status": "error", "error": "Member not found"}
                 return
 
-            owner_track  = sanitize_list(data.get("owner_track")     or [])
-            tool_perms   = sanitize_list(data.get("tool_perms_rich") or [])
-            system_owned = sanitize_list(data.get("system_owned")    or [])
+            tool_perms_list = sanitize_list(tool_perms or [])
 
-            for row in owner_track:
-                row["ownership_date"] = safe_date(row.get("owned_since"))
-                row["removal_date"]   = safe_date(row.get("removed_on"))
+            raw_slot = slot_act or {}
+            slot_activity = {k: v for k, v in raw_slot.items() if k != "rows"}
+            slot_activity["rows"] = []
 
-            slot_activity = data.get("slot_activity") or {}
-            if slot_activity.get("rows"):
-                slot_activity["rows"] = sanitize_list(slot_activity["rows"], limit=300)
+            system_owned = (
+                [{"isworking": 1}] * owned_c["working"] +
+                [{"isworking": 0}] * (owned_c["total"] - owned_c["working"])
+            )
+            system_owner_track = (
+                [{"is_active": True}]  * track_c["active"] +
+                [{"is_active": False}] * (track_c["total"] - track_c["active"])
+            )
 
             html = render_template(
                 "profile_pdf.html",
-                person             = safe_dict(data["person"]),
-                att                = safe_json(data.get("attendance", {})),
+                person             = safe_dict(person),
+                att                = safe_json(attendance or {}),
                 slot_activity      = slot_activity,
-                projects           = data.get("projects", {}),
-                permissions        = data.get("permissions", []),
+                projects           = {},
+                permissions        = perms or [],
                 system_owned       = system_owned,
-                system_owner_track = owner_track,
-                tool_perms_rich    = tool_perms,
+                system_owner_track = system_owner_track,
+                tool_perms_rich    = tool_perms_list,
                 member_id          = member_id,
                 now                = datetime.now().strftime("%d %b %Y, %I:%M %p"),
                 selected_year      = year,
             )
+
+            print(f"[PDF] Calling _html_to_pdf...")
+            t0  = time.perf_counter()
             pdf = _html_to_pdf(html)
+            print(f"[PDF] _html_to_pdf done in {round((time.perf_counter()-t0)*1000)}ms")
 
             tmp_dir  = os.path.join(os.getcwd(), "tmp")
             os.makedirs(tmp_dir, exist_ok=True)
@@ -217,12 +280,11 @@ def _generate_pdf_job(app, job_id: str, member_id: int, year: int):
                 f.write(pdf)
 
             PDF_JOBS[job_id] = {"status": "done", "file": filepath}
+            print(f"[PDF] Job {job_id[:8]} complete")
 
         except Exception as e:
             traceback.print_exc()
             PDF_JOBS[job_id] = {"status": "error", "error": str(e)}
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # PDF PRE-GENERATION (fired silently on page load)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -274,57 +336,46 @@ def prefetch_pdf(member_id):
 @staff_required
 def prefetch_pdf_all_years(member_id):
     """
-    Bulk prefetch — starts background PDF jobs for every available year.
+    Prefetch — starts a background PDF job for the default year only.
+    Other years render on-demand when the user selects them.
+    This avoids launching N simultaneous jobs that saturate the DB pool
+    and cause the default year to take 1.5+ minutes on members with many years.
 
-    Accepts JSON body: {"years": [2021, 2022, 2023, 2024, 2025]}
-    Returns: {"jobs": {"2021": "<job_id>", "2022": "<job_id>", ...}}
-
-    Jobs are staggered 200 ms apart so we don't spike WeasyPrint/DB load
-    for members with many years of data.  The default year job fires
-    immediately (index 0); all other years are delayed.
+    Accepts JSON body: {"years": [2021, 2022, 2023, 2024, 2025], "default_year": 2025}
+    Returns: {"jobs": {"2025": "<job_id>"}}
     """
-    body     = request.get_json(silent=True) or {}
-    years    = body.get("years", [])
-    default  = body.get("default_year", date.today().year)
+    body    = request.get_json(silent=True) or {}
+    years   = body.get("years", [])
+    default = body.get("default_year", date.today().year)
 
     if not years:
         return jsonify({"jobs": {}}), 200
 
-    # Sort so the default year is first (rendered immediately, no delay)
-    years = sorted(set(int(y) for y in years if y),
-                   key=lambda y: (0 if y == default else 1, -y))
+    # Only prefetch the default year — on-demand for others
+    result  = {}
+    app_obj = current_app._get_current_object()
 
-    result   = {}
-    app_obj  = current_app._get_current_object()
+    try:
+        default = int(default)
+    except (TypeError, ValueError):
+        default = date.today().year
 
-    for idx, year in enumerate(years):
-        key = (member_id, year)
+    key = (member_id, default)
+    with _prefetch_lock:
+        existing_id = PDF_PREFETCH.get(key)
+        if existing_id and PDF_JOBS.get(existing_id, {}).get("status") in ("processing", "done"):
+            return jsonify({"jobs": {str(default): existing_id}})
 
-        with _prefetch_lock:
-            existing_id = PDF_PREFETCH.get(key)
-            if existing_id and PDF_JOBS.get(existing_id, {}).get("status") in ("processing", "done"):
-                result[str(year)] = existing_id
-                continue
+        job_id = str(uuid.uuid4())
+        PDF_JOBS[job_id]    = {"status": "processing"}
+        PDF_PREFETCH[key]   = job_id
+        result[str(default)] = job_id
 
-            job_id = str(uuid.uuid4())
-            PDF_JOBS[job_id]  = {"status": "processing"}
-            PDF_PREFETCH[key] = job_id
-            result[str(year)] = job_id
-
-        # Stagger: default year fires immediately, others are delayed 250 ms apart
-        delay = idx * 0.25  # seconds
-        if delay == 0:
-            threading.Thread(
-                target=_generate_pdf_job,
-                args=(app_obj, job_id, member_id, year),
-                daemon=True,
-            ).start()
-        else:
-            def _start_delayed(jid=job_id, yr=year, dl=delay):
-                import time as _t
-                _t.sleep(dl)
-                _generate_pdf_job(app_obj, jid, member_id, yr)
-            threading.Thread(target=_start_delayed, daemon=True).start()
+    threading.Thread(
+        target=_generate_pdf_job,
+        args=(app_obj, job_id, member_id, default),
+        daemon=True,
+    ).start()
 
     return jsonify({"jobs": result})
 

@@ -1,14 +1,15 @@
 """
 models/lab.py — All data queries for lab users (slotbooking) profiles.
 """
-from datetime import datetime
 import time
+from collections import defaultdict
+from datetime import datetime, timedelta, date
 from db import slots_query
 from utils import run_parallel
 from cache import cached
-def safe_json(obj):
-    from datetime import timedelta, datetime, date
 
+
+def safe_json(obj):
     if isinstance(obj, dict):
         return {k: safe_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -18,6 +19,8 @@ def safe_json(obj):
     elif isinstance(obj, (datetime, date)):
         return obj.isoformat()
     return obj
+
+
 @cached(ttl_seconds=300)
 def get_lab_user(memberid):
     """
@@ -28,6 +31,7 @@ def get_lab_user(memberid):
     Expiry filtering is done in SQL using CURDATE() so the query is always
     correct regardless of when the server process was started.
     """
+    start = time.perf_counter()
     rows = slots_query("""
         SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.is_admin,
                l.rollno, l.department, l.supervisor, l.research_area,
@@ -47,9 +51,10 @@ def get_lab_user(memberid):
                OR STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') >= CURDATE())
         LIMIT 1
     """, (memberid,))
-    print(f"get_lab_user: fetched {len(rows)} records for memberid={memberid}")
-    print(f"Sample record: {rows[0] if rows else 'N/A'}")
+    elapsed = (time.perf_counter() - start) * 1000
+    print(f"get_lab_user SQL: {elapsed:.1f} ms for memberid={memberid}")
     return rows[0] if rows else None
+
 
 @cached(ttl_seconds=3600)
 def get_all_lab_users():
@@ -59,61 +64,25 @@ def get_all_lab_users():
 
     Active = not expired per slotbooking.login.expiry_date.
     We do NOT cross-reference hr_portal departed staff because memberids
-    are not guaranteed unique across both databases — a departed staff ID
-    could falsely match an active PhD/MTech/BTech/INUP lab user.
+    are not guaranteed unique across both databases.
     """
-    # Step 1: fetch only non-expired slotbooking users directly in SQL.
-    # STR_TO_DATE on expiry_date is unavoidable (stored as MM/DD/YYYY text)
-    # but we scope it to rows where expiry_date is non-null/non-empty first,
-    # which lets the engine skip the conversion for the majority of rows.
+    start = time.perf_counter()
     rows = slots_query("""
         SELECT memberid, email, fname, lname, position, department,
                expiry_date, is_admin
         FROM login
-        WHERE expiry_date IS NULL
-           OR expiry_date = ''
-           OR expiry_date = '0000-00-00'
-           OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE()
+        WHERE (
+            expiry_date IS NULL
+            OR expiry_date = ''
+            OR expiry_date = '0000-00-00'
+            OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE()
+        )
         ORDER BY fname, lname
     """) or []
-
-    # The SQL query above already filters out expired lab users via expiry_date.
-    # We do NOT cross-reference hr_portal.departed members here because:
-    #   1. Lab users (Ph.D, M.Tech, B.Tech, INUP, etc.) are managed solely
-    #      by slotbooking.login — their expiry_date is the authoritative signal.
-    #   2. Numeric memberids are not guaranteed to be unique across both DBs,
-    #      so a departed HR staff member's member_id could falsely match an
-    #      active lab user's memberid, causing them to disappear from search.
-    # print("DEBUG START")
-
-    # print(slots_query("SELECT DATABASE()"))
-    # print(slots_query("SELECT COUNT(*) FROM login"))
-
-    # rows = slots_query("""
-    #     SELECT memberid FROM login LIMIT 5
-    # """)
-    # print("Sample rows:", rows)
-
-    # rows = slots_query("""SELECT memberid, email, fname, lname, position, department,
-    #            expiry_date, is_admin
-    #     FROM login
-    #     WHERE expiry_date IS NULL
-    #        OR expiry_date = ''
-    #        OR expiry_date = '0000-00-00'
-    #        OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE()
-    #     ORDER BY fname, lname  """)
-    # print("Final rows:", len(rows) if rows else rows)
-
-    # print("DEBUG END")
+    elapsed = (time.perf_counter() - start) * 1000
+    print(f"get_all_lab_users SQL: {elapsed:.1f} ms — {len(rows)} active users")
     return rows
 
-@cached(ttl_seconds=300)
-def _get_lab_projects(memberid):
-    return slots_query("""
-        SELECT projectid, project_code, project_title, funding_agency,
-               start_date, end_date, status
-        FROM faculty_projects WHERE memberid = %s ORDER BY start_date DESC
-    """, (memberid,)) or []
 
 def get_lab_reservations(memberid, year=None):
     year_filter = "AND YEAR(FROM_UNIXTIME(res.startdate)) = %s" if year else ""
@@ -137,6 +106,7 @@ def get_lab_reservations(memberid, year=None):
         ORDER BY res.startdate DESC LIMIT 200
     """, params)
 
+
 def get_lab_equipment_requests(memberid, year=None):
     year_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
     params = (memberid, year) if year else (memberid,)
@@ -151,6 +121,7 @@ def get_lab_equipment_requests(memberid, year=None):
         LIMIT 300
     """, params)
 
+
 def get_lab_access_log(memberid, year=None):
     year_filter = "AND YEAR(date_request) = %s" if year else ""
     params = (memberid, year) if year else (memberid,)
@@ -160,7 +131,7 @@ def get_lab_access_log(memberid, year=None):
         ORDER BY date_request DESC LIMIT 100
     """, params)
 
-#(ttl_seconds=1800)
+
 @cached(ttl_seconds=300)
 def get_lab_stats(memberid):
     def cnt(q, p):
@@ -174,6 +145,7 @@ def get_lab_stats(memberid):
         "projects":     lambda: cnt("SELECT COUNT(*) AS cnt FROM faculty_projects WHERE memberid=%s", (memberid,)),
     })
 
+
 def get_announcements():
     import time as _time
     now = int(_time.time())
@@ -183,11 +155,14 @@ def get_announcements():
         ORDER BY announcementid DESC
     """, (now, now)) or []
 
+@cached(ttl_seconds=60)
 def get_announcements_all():
     return slots_query("""
         SELECT announcementid, announcement, start_datetime, end_datetime
         FROM announcements ORDER BY announcementid DESC
     """) or []
+
+
 @cached(ttl_seconds=300)
 def get_lab_cancellations(memberid):
     return slots_query("""
@@ -202,6 +177,7 @@ def get_lab_cancellations(memberid):
         WHERE c.memberid = %s
         ORDER BY c.cancel_time DESC
     """, (memberid,))
+
 
 def get_lab_errors(memberid):
     return slots_query("""
@@ -219,8 +195,10 @@ def get_lab_errors(memberid):
         ORDER BY e.status ASC, e.timestamp DESC
     """, (memberid,))
 
+
 def get_lab_registration(memberid):
     """Registration details with cosupervisor name resolution."""
+    start = time.perf_counter()
     rows = slots_query("""
         SELECT r.course, r.project_first, r.project_second,
                r.status, r.date as reg_date,
@@ -230,7 +208,10 @@ def get_lab_registration(memberid):
         LEFT JOIN login co ON co.memberid = CAST(r.cosupervisor AS UNSIGNED)
         WHERE r.memberid = %s LIMIT 1
     """, (memberid,))
+    elapsed = (time.perf_counter() - start) * 1000
+    print(f"get_lab_registration SQL: {elapsed:.1f} ms for memberid={memberid}")
     return rows[0] if rows else None
+
 
 def get_session_reports(memberid):
     """Equipment session reports submitted by a lab user after usage."""
@@ -246,11 +227,14 @@ def get_session_reports(memberid):
         LIMIT 100
     """, (memberid,)) or []
 
+
 # ── Faculty position constant ─────────────────────────────────────────────────
+
 FACULTY_POSITIONS = (
     'Faculty', 'IITBNF Staff', 'Institute Facility',
     'NCPRE Academic', 'Project Staff'
 )
+
 
 def is_faculty(memberid) -> bool:
     """Returns True if this member holds a faculty-type position."""
@@ -262,6 +246,7 @@ def is_faculty(memberid) -> bool:
         return False
     return (row[0].get("position") or "") in FACULTY_POSITIONS
 
+
 # ── Resources / Equipment detail ──────────────────────────────────────────────
 
 def get_member_tool_permissions(memberid: int) -> list:
@@ -270,52 +255,101 @@ def get_member_tool_permissions(memberid: int) -> list:
     including operator names and faculty incharge.
     """
     return slots_query("""
-        SELECT r.machid, r.name AS tool_name, 
-       r.operator_name1,
-       r.operator_name2,
-       TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS faculty_name,
-       DATE_FORMAT(STR_TO_DATE(p.date, '%%m/%%d/%%Y'), '%%d-%%m-%%Y') AS permission_date
-FROM permissions p
-JOIN resources r    ON r.machid = p.machid
-LEFT JOIN login l   ON l.memberid = r.faculty_incharge
-WHERE p.memberid = %s
-ORDER BY r.name
+        SELECT r.machid, r.name AS tool_name,
+               r.operator_name1,
+               r.operator_name2,
+               TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS faculty_name,
+               DATE_FORMAT(STR_TO_DATE(p.date, '%%m/%%d/%%Y'), '%%d-%%m-%%Y') AS permission_date
+        FROM permissions p
+        JOIN resources r    ON r.machid = p.machid
+        LEFT JOIN login l   ON l.memberid = r.faculty_incharge
+        WHERE p.memberid = %s
+        ORDER BY r.name
     """, (memberid,)) or []
 
+
+# ── Projects & publications ───────────────────────────────────────────────────
+
+def _get_lab_projects(memberid):
+    """
+    Returns a dict with keys: available, projects, papers, balance.
+
+    This mirrors the shape returned by staff.py's _get_lab_projects so that
+    lab_profile.html, lab_profile_pdf.html, and section_routes.py can all
+    use the same template variables (projects.projects, projects.papers,
+    projects.balance) without branching on profile type.
+    """
+    projects = slots_query("""
+        SELECT fp.project, fp.project AS project_title,
+               pc.project_category AS category_name,
+                           fp.timestamp as start_date_and_time,
+               fp.project_end_date, fp.active
+        FROM faculty_projects fp
+        LEFT JOIN project_category pc ON pc.id = fp.project_category
+        WHERE fp.memberid = %s
+        ORDER BY fp.active DESC, fp.project_end_date DESC
+    """, (memberid,)) or []
+
+    balance = slots_query("""
+        SELECT
+            SUM(CASE WHEN transaction_type='credit' THEN amount ELSE 0 END) AS total_credit,
+            SUM(CASE WHEN transaction_type='debit'  THEN amount ELSE 0 END) AS total_debit,
+            COUNT(*) AS total_transactions
+        FROM balance_sheet WHERE memberid = %s
+    """, (memberid,))
+
+    papers = slots_query("""
+        SELECT title, year, type, conf_name, author
+        FROM paper_publish
+        WHERE memberid = %s AND approve = 1
+        ORDER BY year DESC
+    """, (memberid,)) or []
+
+    return {
+        "available": True,
+        "projects":  projects,
+        "balance":   balance[0] if balance else None,
+        "papers":    papers,
+    }
+
+
 # ── System owner ──────────────────────────────────────────────────────────────
-
-from datetime import datetime
-
+@cached(ttl_seconds=300)
 def get_system_owner_tools(memberid: int) -> list:
     """
     Tools for which this member is listed as system owner.
     system_owner.machid is a comma-separated string of machids.
     """
+    start = time.perf_counter()
     rows = slots_query(
         "SELECT machid, date FROM system_owner WHERE memberid = %s",
         (memberid,)
     ) or []
+    elapsed = (time.perf_counter() - start) * 1000
+    print(f"get_system_owner_tools SQL: {elapsed:.1f} ms for memberid={memberid}")
 
     # Collect ALL machids from comma-separated strings in one pass
-    all_ids = []
+    all_ids  = []
     date_map = {}
     for row in rows:
         raw = str(row.get("machid") or "")
         ids = [i.strip() for i in raw.split(",") if i.strip().isdigit()]
         for mid in ids:
             all_ids.append(int(mid))
-            date_map[int(mid)] = row.get("date")  # store date per machid
+            date_map[int(mid)] = row.get("date")
 
     if not all_ids:
         return []
 
-    # ONE query instead of N queries
     placeholders = ",".join(["%s"] * len(all_ids))
+    start = time.perf_counter()
     tools = slots_query(f"""
         SELECT machid, name, category, location, type_of_tool,
                operator_name, isworking
         FROM resources WHERE machid IN ({placeholders})
     """, tuple(all_ids)) or []
+    elapsed = (time.perf_counter() - start) * 1000
+    print(f"get_system_owner_tools resources SQL: {elapsed:.1f} ms")
 
     results = []
     for t in tools:
@@ -329,21 +363,22 @@ def get_system_owner_tools(memberid: int) -> list:
                         str(raw_date).strip(), fmt
                     ).strftime("%d-%m-%Y")
                     break
-                except:
+                except Exception:
                     continue
         results.append(t)
     return results
 
-# This is the detailed tool usage history for system owner tracking, showing create/delete events with dates and durations.
-import time
-from collections import defaultdict
-from datetime import datetime
 
-# This is the detailed tool usage history for system owner tracking, showing create/delete events with dates and durations.
 @cached(ttl_seconds=300)
 def get_system_owner_track(memberid: int) -> list:
+    """
+    Full create/delete ownership timeline for a member.
+    Pairs each 'create' event with its matching 'delete' to produce
+    ownership spans with duration_days.  Active tools have no 'delete'
+    and are marked is_active=True.
+    """
     t0 = time.time()
-    
+
     rows = slots_query("""
         SELECT
             t.deviceid,
@@ -356,91 +391,62 @@ def get_system_owner_track(memberid: int) -> list:
         WHERE t.memberid = %s
         ORDER BY t.deviceid, t.date ASC
     """, (memberid,)) or []
-    
-    t1 = time.time()
-    print(f"[TIMING] SQL query: {(t1-t0)*1000:.2f}ms, rows={len(rows)}")
-    
-    # Step 1: Parse timestamps to date objects
-    t2 = time.time()
+
+    print(f"[TIMING] get_system_owner_track SQL: {(time.time()-t0)*1000:.2f}ms, rows={len(rows)}")
+
     def to_date(ts):
         return datetime.fromtimestamp(ts).date() if ts else None
-    
+
     tool_map = defaultdict(list)
-    parsed_count = 0
-    skipped_count = 0
-    
     for r in rows:
         date_obj = to_date(r.get("date"))
         if not date_obj:
-            skipped_count += 1
             continue
-        parsed_count += 1
         r["_date_obj"] = date_obj
         tool_map[r["deviceid"]].append(r)
-    
-    t3 = time.time()
-    print(f"[TIMING] Parse dates + group by tool: {(t3-t2)*1000:.2f}ms")
-    print(f"        - Parsed: {parsed_count} rows, Skipped: {skipped_count} rows")
-    print(f"        - Unique tools: {len(tool_map)}")
-    
-    # Step 2: Process timeline for each tool
-    t4 = time.time()
+
     result = []
-    
     for deviceid, events in tool_map.items():
         current = None
-        
         for e in events:
-            action = (e.get("action") or "").lower().strip()
+            action   = (e.get("action") or "").lower().strip()
             date_obj = e["_date_obj"]
-            
+
             if action == "create":
                 current = {
-                    "tool_name": e.get("tool_name"),
-                    "category": e.get("category"),
+                    "tool_name":   e.get("tool_name"),
+                    "category":    e.get("category"),
                     "owned_since": date_obj,
-                    "removed_on": None,
-                    "is_active": True
+                    "removed_on":  None,
+                    "is_active":   True,
                 }
-            
             elif action == "delete":
                 if current:
-                    current["removed_on"] = date_obj
-                    current["is_active"] = False
+                    current["removed_on"]   = date_obj
+                    current["is_active"]    = False
                     current["duration_days"] = (date_obj - current["owned_since"]).days
                     result.append(current)
                     current = None
                 else:
                     result.append({
-                        "tool_name": e.get("tool_name"),
-                        "category": e.get("category"),
-                        "owned_since": None,
-                        "removed_on": date_obj,
-                        "is_active": False,
+                        "tool_name":    e.get("tool_name"),
+                        "category":     e.get("category"),
+                        "owned_since":  None,
+                        "removed_on":   date_obj,
+                        "is_active":    False,
                         "duration_days": "—",
                     })
-        
+
         if current:
-            current["duration_days"] = "—"  # Still active
+            current["duration_days"] = "—"
             result.append(current)
-    
-    t5 = time.time()
-    print(f"[TIMING] Process timeline logic: {(t5-t4)*1000:.2f}ms")
-    print(f"        - Result entries before formatting: {len(result)}")
-    
-    # Step 3: Convert dates to strings
-    t6 = time.time()
+
+    # Convert date objects to display strings
     for item in result:
         if item.get("owned_since"):
-            item["owned_since"] = item["owned_since"].strftime('%d-%m-%Y')
+            item["owned_since"] = item["owned_since"].strftime("%d-%m-%Y")
         if item.get("removed_on"):
-            item["removed_on"] = item["removed_on"].strftime('%d-%m-%Y')
-    
-    t7 = time.time()
-    print(f"[TIMING] Format dates to strings: {(t7-t6)*1000:.2f}ms")
-    
-    # Total time
-    print(f"[TIMING] TOTAL function time: {(t7-t0)*1000:.2f}ms")
-    print("-" * 50)
-    
+            item["removed_on"] = item["removed_on"].strftime("%d-%m-%Y")
+
+    print(f"[TIMING] get_system_owner_track total: {(time.time()-t0)*1000:.2f}ms, entries={len(result)}")
     return result

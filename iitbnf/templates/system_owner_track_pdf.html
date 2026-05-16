@@ -7,7 +7,6 @@
   * { margin: 0; padding: 0; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #1a1a1a; padding: 30px; }
 
-  /* ── HEADER — table layout (flex not supported by xhtml2pdf) ── */
   .doc-header {
     display: table;
     width: 100%;
@@ -19,163 +18,90 @@
   .doc-header-right { display: table-cell; vertical-align: bottom; text-align: right; }
 
   .doc-logo {
-    font-size: 18px;
-    font-weight: 700;
-    color: #d97706;
-    font-family: 'Courier New', monospace;
-    letter-spacing: 0.12em;
+    font-size: 18px; font-weight: 700; color: #d97706;
+    font-family: 'Courier New', monospace; letter-spacing: 2px;
   }
   .doc-logo-sub {
-    font-size: 9px;
-    color: #666;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-top: 2px;
+    font-size: 9px; color: #666; letter-spacing: 1px;
+    text-transform: uppercase; margin-top: 2px;
   }
-  .doc-meta {
-    font-size: 9px;
-    color: #777;
-    text-align: right;
-    line-height: 1.6;
-  }
+  .doc-meta { font-size: 9px; color: #777; text-align: right; line-height: 1.6; }
   .doc-meta strong { color: #111; font-weight: 700; }
 
-  /* ── IDENTITY BLOCK ── */
   .id-block {
-    display: table;
-    width: 100%;
-    background: #f9f9f9;
-    border: 1px solid #e5e5e5;
-    padding: 12px;
-    margin-bottom: 20px;
+    display: table; width: 100%;
+    background: #f9f9f9; border: 1px solid #e5e5e5;
+    padding: 12px; margin-bottom: 20px;
   }
-  .id-col {
-    display: table-cell;
-    vertical-align: top;
-    width: 33%;
-    padding-right: 12px;
-  }
+  .id-col { display: table-cell; vertical-align: top; width: 33%; padding-right: 12px; }
   .id-col:last-child { padding-right: 0; }
-  .id-label {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #999;
-    display: block;
-    margin-bottom: 2px;
-  }
-  .id-value {
-    font-size: 11px;
-    font-weight: 600;
-    color: #1a1a1a;
-  }
+  .id-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.8px; color: #999; display: block; margin-bottom: 2px; }
+  .id-value { font-size: 11px; font-weight: 600; color: #1a1a1a; }
 
-  /* ── METRICS STRIP ── */
   .metrics-strip {
-    display: table;
-    width: 100%;
-    border: 1px solid #e0e0e0;
-    border-collapse: collapse;
-    margin-bottom: 10px;
+    width: 100%; border: 1px solid #e0e0e0;
+    border-collapse: collapse; margin-bottom: 10px;
   }
   .metrics-strip td {
-    display: table-cell;
-    text-align: center;
-    padding: 8px 6px;
-    border-right: 1px solid #e0e0e0;
-    width: 1%;
-    white-space: nowrap;
+    text-align: center; padding: 8px 6px;
+    border-right: 1px solid #e0e0e0; white-space: nowrap;
   }
   .metrics-strip td:last-child { border-right: none; }
-  .m-val {
-    font-size: 16px;
-    font-weight: 700;
-    color: #111;
-    line-height: 1;
-    display: block;
-  }
+  .m-val { font-size: 16px; font-weight: 700; color: #111; line-height: 1; display: block; }
   .m-val.good { color: #166534; }
-  .m-key {
-    font-size: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #888;
-    display: block;
-    margin-top: 3px;
-  }
+  .m-key { font-size: 8px; text-transform: uppercase; letter-spacing: 0.8px; color: #888; display: block; margin-top: 3px; }
 
-  /* ── SECTION ── */
   .section { margin-bottom: 20px; }
   .section-hdr {
-    background: #d97706;
-    color: #fff;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 6px 10px;
-    margin-bottom: 0;
+    background: #d97706; color: #fff;
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    padding: 6px 10px; margin-bottom: 0;
   }
 
-  /* ── TABLE ── */
-  table { width: 100%; border-collapse: collapse; }
+  /* ── CRITICAL: explicit column widths prevent negative-width crash ── */
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   thead { display: table-header-group; }
   tr    { page-break-inside: avoid; }
 
+  /* col widths: Tool 55%, Duration 25%, Status 20% */
+  col.col-tool     { width: 55%; }
+  col.col-duration { width: 25%; }
+  col.col-status   { width: 20%; }
+
   table th {
-    background: #f5f5f5;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 6px 10px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-    color: #555;
+    background: #f5f5f5; font-size: 9px;
+    text-transform: uppercase; letter-spacing: 1px;
+    padding: 6px 8px; text-align: left;
+    border-bottom: 1px solid #ddd; color: #555;
+    overflow: hidden; word-wrap: break-word;
   }
   table td {
-    padding: 6px 10px;
-    border-bottom: 1px solid #eee;
-    font-size: 10px;
-    vertical-align: middle;
-    color: #111;
+    padding: 6px 8px; border-bottom: 1px solid #eee;
+    font-size: 10px; vertical-align: middle; color: #111;
+    overflow: hidden; word-wrap: break-word;
   }
   table tr:last-child td { border-bottom: none; }
   table tr:nth-child(even) td { background: #fafafa; }
 
-  /* ── BADGES ── */
   .badge {
-    display: inline-block;
-    padding: 2px 7px;
-    border-radius: 3px;
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border: 1px solid transparent;
+    display: inline-block; padding: 2px 7px; border-radius: 3px;
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.7px; border: 1px solid transparent;
   }
   .badge-green { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
-  .badge-red   { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
   .badge-muted { background: #f3f4f6; color: #6b7280; border-color: #e5e7eb; }
 
   .empty {
-    padding: 16px;
-    text-align: center;
-    color: #999;
-    font-style: italic;
-    background: #fafafa;
-    border: 1px dashed #ddd;
-    font-size: 10px;
+    padding: 16px; text-align: center; color: #999;
+    font-style: italic; background: #fafafa;
+    border: 1px dashed #ddd; font-size: 10px;
   }
 
-  /* ── FOOTER — table layout ── */
   .doc-footer {
-    display: table;
-    width: 100%;
-    margin-top: 24px;
-    padding-top: 8px;
-    border-top: 1px solid #ddd;
-    font-size: 8px;
-    color: #aaa;
+    display: table; width: 100%; margin-top: 24px;
+    padding-top: 8px; border-top: 1px solid #ddd;
+    font-size: 8px; color: #aaa;
   }
   .doc-footer-left  { display: table-cell; }
   .doc-footer-right { display: table-cell; text-align: right; }
@@ -184,7 +110,7 @@
 
 <body>
 
-<!-- ══ HEADER ════════════════════════════════════════════════════════ -->
+<!-- HEADER -->
 <div class="doc-header">
   <div class="doc-header-left">
     <div class="doc-logo">IITBNF</div>
@@ -199,7 +125,7 @@
   </div>
 </div>
 
-<!-- ══ IDENTITY ══════════════════════════════════════════════════════ -->
+<!-- IDENTITY -->
 <div class="id-block">
   <div class="id-col">
     <span class="id-label">Name</span>
@@ -225,7 +151,7 @@
   {% endif %}
 </div>
 
-<!-- ══ SUMMARY METRICS ════════════════════════════════════════════════ -->
+<!-- SUMMARY METRICS -->
 {% if owner_track %}
 {% set active_own = owner_track | selectattr('is_active') | list | length %}
 <table class="metrics-strip">
@@ -237,11 +163,16 @@
 </table>
 {% endif %}
 
-<!-- ══ OWNERSHIP TIMELINE ═════════════════════════════════════════════ -->
+<!-- OWNERSHIP TIMELINE -->
 <div class="section">
   <div class="section-hdr">Ownership Timeline ({{ owner_track | length }})</div>
   {% if owner_track %}
   <table>
+    <colgroup>
+      <col class="col-tool">
+      <col class="col-duration">
+      <col class="col-status">
+    </colgroup>
     <thead>
       <tr>
         <th>Tool</th>
@@ -254,20 +185,9 @@
     <tr>
       <td><strong>{{ t.tool_name or '—' }}</strong></td>
       <td>
-        {#
-          duration_days comes from the Python model as an int or '—'.
-          For active tools, the model sets duration_days = None / '—' because
-          removed_on is null. We compute an approximate duration from owned_since
-          using only string/int arithmetic — no date object calls, because
-          `now` is passed as a plain string by the route and calling .date()
-          on it would crash Jinja2 (that was the original bug).
-
-          owned_since format: DD-MM-YYYY (set by get_system_owner_track in lab.py)
-          Today: 2026-04-24
-        #}
+        {# Compute display duration using only string/int ops (no date objects) #}
         {% set dur = '—' %}
-        {% if t.is_active and t.owned_since and t.owned_since != '—' %}
-          {# Active tool: compute approximate years from owned_since to today #}
+        {% if t.is_active and t.owned_since and t.owned_since not in ('—', '', 'None') %}
           {% set parts = t.owned_since.split('-') %}
           {% if parts | length == 3 %}
             {% set o_day   = parts[0] | int %}
@@ -283,9 +203,8 @@
               {% set dur = yrs ~ ' year' ~ ('s' if yrs != 1 else '') %}
             {% endif %}
           {% endif %}
-        {% elif t.duration_days is not none and t.duration_days != '—' %}
-          {# Closed cycle: use stored duration_days int #}
-          {% set days = t.duration_days | int %}
+        {% elif t.duration_days is not none and t.duration_days not in ('—', '', 'None') %}
+          {% set days = t.duration_days | int(default=0) %}
           {% if days < 365 %}
             {% set dur = '< 1 year' %}
           {% else %}
@@ -311,10 +230,9 @@
   {% endif %}
 </div>
 
-<!-- ══ FOOTER ════════════════════════════════════════════════════════ -->
+<!-- FOOTER -->
 <div class="doc-footer">
   <div class="doc-footer-left">IIT Bombay Nanofabrication Facility</div>
-  <div class="doc-footer-right">Member #{{ '%04d' % member_id }}</div>
 </div>
 
 </body>

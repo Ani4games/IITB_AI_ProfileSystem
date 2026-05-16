@@ -118,3 +118,69 @@ def timings():
         "member_id": member_id,
         "timings": sorted_results,
     })
+@bp.route("/debug/db-connection-info")
+@staff_required
+def db_connection_info():
+    import time
+    from db import hr_pool, slots_pool
+    
+    results = {}
+    
+    # Get a connection and inspect it
+    conn = hr_pool.get_connection()
+    try:
+        with conn.cursor() as cur:
+            # This tells you exactly what host/socket MySQL thinks you're on
+            cur.execute("SELECT @@hostname, @@port, @@socket, @@datadir")
+            server_info_row = cur.fetchone()
+            server_info = {}
+            if server_info_row is not None:
+                server_info = dict(zip([d[0] for d in cur.description], server_info_row))
+            
+            # This shows YOUR connection details
+            cur.execute("SHOW STATUS LIKE 'Threads_connected'")
+            threads = cur.fetchone()
+            
+            cur.execute("SELECT USER(), CONNECTION_ID(), @@version")
+            conn_info_row = cur.fetchone()
+            conn_info = {}
+            if conn_info_row is not None:
+                conn_info = dict(zip([d[0] for d in cur.description], conn_info_row))
+            
+        # pymysql connection object itself
+        results["hr"] = {
+            "server_hostname": server_info.get("@@hostname"),
+            "server_port": server_info.get("@@port"),
+            "server_socket": server_info.get("@@socket"),
+            "connected_as": conn_info.get("USER()"),
+            "connection_id": conn_info.get("CONNECTION_ID()"),
+            "mariadb_version": conn_info.get("@@version"),
+            # What pymysql is using on the client side
+            "client_host": conn.host,
+            "client_port": conn.port,
+            "client_unix_socket": getattr(conn, 'unix_socket', None),
+            "using_tcp": conn.host is not None and conn.host != '',
+        }
+    finally:
+        hr_pool.return_connection(conn)
+    
+    # Latency test - 10 rapid queries
+    latencies = []
+    for _ in range(10):
+        t0 = time.perf_counter()
+        hr_pool.get_connection()  # just get and return
+        conn = hr_pool.get_connection()
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            cur.fetchone()
+        hr_pool.return_connection(conn)
+        latencies.append(round((time.perf_counter() - t0) * 1000, 2))
+    
+    results["latency_ms"] = {
+        "samples": latencies,
+        "min": min(latencies),
+        "max": max(latencies),
+        "avg": round(sum(latencies) / len(latencies), 2),
+    }
+    
+    return jsonify(results)

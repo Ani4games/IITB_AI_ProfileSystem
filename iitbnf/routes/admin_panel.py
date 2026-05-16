@@ -4,9 +4,8 @@ routes/admin_panel.py — /admin-panel
 Cleaned + scalable admin panel blueprint
 """
 
-import json
+
 import traceback
-from datetime import date
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
 from auth import staff_required
 from cache import cache
@@ -71,8 +70,6 @@ bp = Blueprint("admin_panel", __name__, url_prefix="/admin-panel")
 @bp.route("/", endpoint="index")
 @staff_required
 def admin_panel_page():
-    import traceback
-    import json
 
     try:
         results = run_parallel({
@@ -80,8 +77,6 @@ def admin_panel_page():
             "lab_users":     get_all_lab_users,
             "announcements": get_announcements_all,
         })
-
-        from collections import defaultdict
 
         members   = results.get("members", [])
         lab_users = results.get("lab_users", [])
@@ -146,6 +141,17 @@ def api_get_lab(memberid):
         else:
             safe[k] = v
     return jsonify(safe)
+
+
+@bp.route("/api/field-options")
+@staff_required
+def api_field_options():
+    """Return field options for the edit modals."""
+    return jsonify({
+        "positions": [""],
+        "departments": [""]
+    })
+
 
 # ── Announcement CRUD (aliased under /admin-panel prefix) ─────────────────────
 
