@@ -19,7 +19,8 @@ Just import and use this in your routes or chat handler.
 import re
 import logging
 from rag.pipeline import rag_stream, rag_generate, rag_chat
-
+from rag.tier0 import lookup as tier0_lookup
+from rag.query_router import route as structured_route
 logger = logging.getLogger(__name__)
 
 # ── Intent config ─────────────────────────────────────────────────────────────
@@ -56,6 +57,8 @@ def normalize_question(question: str) -> str:
     question = re.sub(r"#\s*(\d+)", r"#\1", question)
     question = re.sub(r"\s+", " ", question).strip()
     return question
+
+
 # ── Intent detection ──────────────────────────────────────────────────────────
 
 def detect_intent(user_message: str) -> dict:
@@ -132,10 +135,30 @@ def agent_stream(user_message: str, ctx: dict):
     ) or user_message.strip().endswith("?")
 
     if is_question:
-        # For questions, use rag_chat (non-streaming) and yield the answer
         clean_message = normalize_question(user_message)
+        fast_answer = structured_route(clean_message, ctx)
+        if fast_answer:
+            yield f"[MODE: Direct Lookup]\n\n"
+            yield fast_answer
+            return
+         # NEW: Year-comparison check (before Tier 0)
+        year_answer = _answer_year_comparison(clean_message, ctx)
+        if year_answer:
+            yield year_answer  # for agent_stream
+            return
+        # ── Tier 0: answer directly from ctx dict, no model call ──────────
+        fast = tier0_lookup(clean_message, ctx)
+        if fast:
+            yield f"[MODE: Direct Lookup]\n\n"
+            yield fast["answer"]
+            return
+
+        # ── Tier 2: fall through to model ─────────────────────────────────
         result = rag_chat(clean_message, ctx)
-        yield result.get("answer", "[No answer generated]")
+        answer =  result.get("answer", "[No answer generated]")
+        words = answer.split(" ")
+        for word in words:
+            yield word + " "
     else:
         # For report-style requests, stream as before
         yield from rag_stream(ctx, mode=intent["mode"])
@@ -175,6 +198,42 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
 
     if is_question:
         clean_message = normalize_question(user_message)
+        fast_answer = structured_route(clean_message, ctx)
+        if fast_answer:
+            return {
+                "answer": fast_answer,
+                "mode": "structured",
+                "label": "Direct Lookup",
+                "confidence": "high",
+                "success": True,
+                "tier": 1,
+            }
+            # NEW: Year-comparison check (before Tier 0)
+        year_answer = _answer_year_comparison(clean_message, ctx)
+        if year_answer:
+            return {
+                "answer": year_answer,
+                "mode": "year_comparison",
+                "label": "Year Comparison",
+                "confidence": "high",
+                "success": True,
+                "tier": 1.5,
+            }
+        # ── Tier 0: answer directly from ctx dict, no model call ──────────
+        fast = tier0_lookup(clean_message, ctx)
+        if fast:
+            return {
+                "answer":     fast["answer"],
+                "mode":       "factual",
+                "label":      "Direct Lookup",
+                "confidence": "high",
+                "success":    True,
+                "tier":       0,
+                "intent":     fast.get("intent"),
+                "latency_ms": fast.get("latency_ms"),
+            }
+
+        # ── Tier 2: fall through to model ─────────────────────────────────
         result = rag_chat(clean_message, ctx)
         return {
             "answer":     result.get("answer", ""),
@@ -182,6 +241,7 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
             "label":      intent["label"],
             "confidence": intent["confidence"],
             "success":    result.get("success", False),
+            "tier":       2,
         }
     else:
         answer = rag_generate(ctx, audience=(
@@ -196,3 +256,46 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
             "confidence": intent["confidence"],
             "success":    bool(answer),
         }
+# Add this function:
+def _extract_years(question: str) -> list[int]:
+    return [int(y) for y in re.findall(r'\b(20\d{2})\b', question)]
+
+def _answer_year_comparison(question: str, ctx: dict) -> str | None:
+    years = _extract_years(question)
+    if len(years) < 2:
+        return None
+    q_lower = question.lower()
+    # Detect what they're comparing
+    if any(kw in q_lower for kw in ['slot', 'equipment', 'booking', 'request', 'reservation']):
+        return _fetch_slot_comparison(ctx, years)
+    return None
+
+def _fetch_slot_comparison(ctx: dict, years: list[int]) -> str:
+    from db import slots_query
+    memberid = ctx.get("slot_uid") or ctx.get("memberid")
+    # You'll need to resolve the memberid — see Fix 3
+    
+    results = []
+    for year in sorted(years):
+        rows = slots_query("""
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status=3 THEN 1 ELSE 0 END) AS slot_booked,
+                SUM(CASE WHEN status=0 THEN 1 ELSE 0 END) AS pending,
+                SUM(CASE WHEN status=2 THEN 1 ELSE 0 END) AS rejected
+            FROM equipment_usage_approval
+            WHERE requestedby=%s AND YEAR(date_of_request)=%s
+        """, (memberid, year))
+        
+        if rows and rows[0]:
+            r = rows[0]
+            results.append(
+                f"{year}: {r['total'] or 0} requests, "
+                f"{r['slot_booked'] or 0} slot-booked, "
+                f"{r['pending'] or 0} pending, "
+                f"{r['rejected'] or 0} rejected."
+            )
+        else:
+            results.append(f"{year}: No equipment request data found.")
+    
+    return " | ".join(results)

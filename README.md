@@ -95,10 +95,10 @@ pip install gensim
 
 ### LLM model (optional but needed for AI summaries)
 
-Download `qwen2.5-1.5b-instruct-q4_k_m.gguf` from HuggingFace and place it at:
+Download `qwen2.5-0.5b-instruct-q4_0.gguf` from HuggingFace and place it at:
 
 ```
-models/qwen2.5-1.5b-instruct-q4_k_m.gguf
+models/qwen2.5-0.5b-instruct-q4_0.gguf
 ```
 
 The app runs without the model — profile pages and PDFs work fully; only the streaming AI summary panel will show an error.

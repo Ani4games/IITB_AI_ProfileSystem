@@ -37,7 +37,8 @@ from flask import (
 from auth import staff_required, is_full_access
 from models.lab import safe_json
 from utils import run_parallel, safe_dict
-
+import threading
+_xhtml2pdf_ready = threading.Event()
 # ── Job stores ────────────────────────────────────────────────────────────────
 # PDF_JOBS  : {job_id: {"status": "processing"|"done"|"error", "file": path}}
 # PDF_PREFETCH: {(member_id, year): job_id}  — maps a profile+year → prefetch job
@@ -47,34 +48,31 @@ PDF_PREFETCH: dict = {}
 # Lock for PDF_PREFETCH to avoid duplicate concurrent pre-gen for same profile
 _prefetch_lock = threading.Lock()
 
+# In profile.py — ADD at module level:
+_xhtml2pdf_init_lock = threading.Lock()
+_xhtml2pdf_initialized = False
+
+# CHANGE _html_to_pdf:
+# REPLACE the entire _html_to_pdf function with:
 def _html_to_pdf(html_string: str) -> bytes:
     import io
     from xhtml2pdf import pisa
-    print("[PDF] _html_to_pdf called — link_callback version")  # ← add this
-
+    _xhtml2pdf_ready.wait(timeout=120)
     def link_callback(uri, rel):
-        """
-        Block ALL external resource fetching.
-        xhtml2pdf calls this for every src/href it encounters.
-        Returning None tells it to skip the resource entirely.
-        """
-        # Allow local file:// paths only
         if uri.startswith("file://"):
             return uri
-        # Block everything else (http, https, data URIs with external refs)
         return None
 
     buf = io.BytesIO()
     result = pisa.CreatePDF(
-        src            = html_string,
-        dest           = buf,
-        encoding       = "utf-8",
-        link_callback  = link_callback,   # ← blocks external fetches
+        src=html_string,
+        dest=buf,
+        encoding="utf-8",
+        link_callback=link_callback,
     )
     if result.err:
         raise ValueError(f"xhtml2pdf error: {result.err}")
     return buf.getvalue()
-
 from models.staff import (
     get_person, get_attendance_stats, get_slot_activity,
     get_project_data,
@@ -140,8 +138,6 @@ def profile(member_id):
     data = run_parallel({
         "person":      lambda: get_person(member_id),
         "avail_years": lambda: get_available_years(member_id=member_id),
-        "attendance":  lambda: get_attendance_stats(member_id, year_req or date.today().year),
-        "trend":       lambda: get_attendance_trend(member_id, year_req or date.today().year),
     })
 
     if not data.get("person"):
@@ -150,10 +146,10 @@ def profile(member_id):
     avail_years, best_year = data.get("avail_years") or ([date.today().year], date.today().year)
 
     html = render_template(
-        "profile.html",
+        "staff_sections.html",
         person        = safe_dict(data["person"]),
-        att           = safe_json(data.get("attendance", {})),
-        trend         = data.get("trend", []),
+        att           = {},
+        trend         = [],
         full_access   = full_access,
         selected_year = best_year,
         avail_years   = avail_years,
@@ -238,7 +234,7 @@ def _generate_pdf_job(app, job_id: str, member_id: int, year: int):
                 PDF_JOBS[job_id] = {"status": "error", "error": "Member not found"}
                 return
 
-            tool_perms_list = sanitize_list(tool_perms or [])
+            tool_perms_list = sanitize_list(tool_perms or [], limit=30)  # limit for PDF readability
 
             raw_slot = slot_act or {}
             slot_activity = {k: v for k, v in raw_slot.items() if k != "rows"}
@@ -455,6 +451,7 @@ _owner_prefetch_lock   = threading.Lock()
 
 def _generate_owner_pdf_job(app, job_id: str, member_id: int):
     with app.app_context():
+        time.sleep(4)   # stagger after main profile PDF (which sleeps 2s)
         try:
             _warmup_uid(member_id)
             results = run_parallel({
@@ -493,6 +490,7 @@ def _generate_owner_pdf_job(app, job_id: str, member_id: int):
 
 def _generate_owner_track_pdf_job(app, job_id: str, member_id: int):
     with app.app_context():
+        time.sleep(6)   # stagger further after main profile PDF + owner PDF
         try:
             _warmup_uid(member_id)
             results = run_parallel({

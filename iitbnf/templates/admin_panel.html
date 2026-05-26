@@ -738,6 +738,42 @@
         </div>
 
       </div>
+      <!-- AI Admin Chat Bubble -->
+<button id="admin-ai-bubble" onclick="toggleAdminAI()"
+  style="position:fixed;bottom:1.75rem;right:1.75rem;z-index:300;
+         background:var(--arc);color:#000;font-family:var(--font-mono);
+         font-size:.68rem;font-weight:700;padding:.55rem 1rem;
+         border-radius:999px;border:none;cursor:pointer;
+         box-shadow:0 4px 20px rgba(99,179,237,.4);">
+  ✦ Ask AI
+</button>
+
+<div id="admin-ai-panel" style="display:none;position:fixed;bottom:5rem;right:1.75rem;
+  z-index:301;background:var(--panel);border:1px solid var(--rim2);
+  border-radius:16px;width:360px;max-height:420px;display:flex;
+  flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.6);">
+  <div style="padding:.7rem 1rem;border-bottom:1px solid var(--rim);
+              font-family:var(--font-mono);font-size:.6rem;color:var(--arc);
+              letter-spacing:.1em;">◈ IITBNF AI Assistant</div>
+  <div id="admin-ai-output" style="flex:1;overflow-y:auto;padding:.85rem 1rem;
+       font-size:.82rem;line-height:1.7;color:var(--fg);min-height:120px;
+       font-family:var(--font-body);">
+    <span style="color:var(--fg3);font-style:italic;">Ask me anything about the facility…</span>
+  </div>
+  <div style="display:flex;gap:.4rem;padding:.65rem .85rem;
+              border-top:1px solid var(--rim);background:rgba(0,0,0,.15);">
+    <input id="admin-ai-input" type="text"
+      placeholder="e.g. Who manages PECVD?"
+      style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--rim2);
+             border-radius:8px;color:var(--fg);font-family:var(--font-mono);
+             font-size:.68rem;padding:.4rem .7rem;outline:none;"
+      onkeydown="if(event.key==='Enter') sendAdminAI()" />
+    <button onclick="sendAdminAI()"
+      style="background:var(--arc);color:#000;border:none;border-radius:8px;
+             padding:.4rem .75rem;cursor:pointer;font-weight:700;font-size:.8rem;">↑</button>
+  </div>
+</div>
+
     </div><!-- end hub pane -->
 
     <!-- ══ ANNOUNCEMENTS PANE ══ -->
@@ -1022,5 +1058,38 @@ setTimeout(() => { document.querySelectorAll('.j-flash').forEach(f => f.remove()
 })();
 </script>
 
+
+<script>
+let _adminAIOpen = false;
+function toggleAdminAI() {
+  _adminAIOpen = !_adminAIOpen;
+  const panel = document.getElementById('admin-ai-panel');
+  panel.style.display = _adminAIOpen ? 'flex' : 'none';
+  if (_adminAIOpen) setTimeout(() => document.getElementById('admin-ai-input')?.focus(), 100);
+}
+function sendAdminAI() {
+  const inp = document.getElementById('admin-ai-input');
+  const out = document.getElementById('admin-ai-output');
+  if (!inp || !out) return;
+  const q = inp.value.trim(); if (!q) return;
+  inp.value = '';
+  out.innerHTML = '<span style="color:var(--fg3);font-style:italic;">Thinking…</span>';
+  let full = '';
+  const es = new EventSource(`/api/ai/admin-chat?message=${encodeURIComponent(q)}`);
+  es.onmessage = event => {
+    const raw = event.data;
+    if (raw === '[DONE]') { es.close(); return; }
+    if (raw.startsWith('[ERROR]')) { es.close(); out.textContent = raw; return; }
+    try {
+      const token = JSON.parse(raw);
+      if (typeof token === 'string' && !token.startsWith('[MODE:')) {
+        if (!full) out.innerHTML = '';
+        full += token; out.textContent = full;
+      }
+    } catch(_) {}
+  };
+  es.onerror = () => { es.close(); if (!full) out.textContent = 'Connection error.'; };
+}
+</script>
 </body>
 </html>

@@ -1,0 +1,720 @@
+{#
+  staff_sections.html  (replaces profile.html)
+  ═══════════════════════════════════════════════════════════════
+  Extends base_profile.html.
+  Contains ONLY what is staff-specific:
+    - Card grid (attendance, slot activity, system owner, perms, logbook)
+    - Staff-specific modals
+    - Staff section-loader JS (AJAX, chart, PDF prefetch)
+
+  Route context variables (from profile.py → get_person etc.):
+    person, att, trend, avail_years, selected_year, member_id,
+    full_access
+═══════════════════════════════════════════════════════════════
+#}
+{% extends "base_profile.html" %}
+
+{# ── Computed hero variables ─────────────────────────────────── #}
+{% set display_name   = person.display_name %}
+{% set initials       = person.display_name[:2].upper() if person.display_name else '%04d' % member_id %}
+{% set role_label     = person.role_name %}
+{% set profile_type   = "staff" %}
+{% set show_tabs      = false %}
+
+{# Build meta_items list #}
+{% set meta_items = [] %}
+{% set jdate = person.iitb_joining_date or person.joining_date %}
+{% if jdate and jdate not in ('0000-00-00','None','') %}
+  {% set _ = meta_items.append({'icon': '⊕', 'text': 'Joined ' ~ jdate}) %}
+{% endif %}
+{% set email = person.slot_email or person.email %}
+{% if email %}
+  {% set _ = meta_items.append({'icon': '✉', 'text': email}) %}
+{% endif %}
+
+{# Build about_html — server-side prose (no LLM needed) #}
+{% set desig    = person.designation or '' %}
+{% set team     = person.team or '' %}
+{% set qual     = person.qualification or '' %}
+{% set position = person.slot_position or '' %}
+{% set dept     = person.slot_department or '' %}
+{% if desig %}
+  {% set about_html %}
+    <strong>{{ person.display_name }}</strong> works as
+    <strong>{{ desig }}</strong>
+    {%- if team %} in the <strong>{{ team }}</strong> team{%- endif -%}
+    {%- if dept and dept != team %}, within the <strong>{{ dept }}</strong> department{%- endif -%}.
+    {% if qual and qual not in ('', 'NA', 'N/A') %}
+      Holds a qualification in <strong>{{ qual }}</strong>.
+    {% endif %}
+  {% endset %}
+{% else %}
+  {% set about_html %}
+    <strong>{{ person.display_name }}</strong>
+    {%- if position %} is a <strong>{{ position }}</strong>{%- endif -%}
+    {%- if dept %} in the <strong>{{ dept }}</strong> department{%- endif -%}.
+    {% if qual and qual not in ('', 'NA', 'N/A') %}
+      Holds a qualification in <strong>{{ qual }}</strong>.
+    {% endif %}
+  {% endset %}
+{% endif %}
+
+{# PDF URL bases for shared JS #}
+{% set pdf_status_base   = '/profile/pdf/status/' %}
+{% set pdf_download_base = '/profile/pdf/download/' %}
+{% set pdf_start_url     = '/profile/' ~ member_id ~ '/pdf/start?year=' %}
+
+{# ── Page title ──────────────────────────────────────────────── #}
+{% block page_title %}{{ person.display_name }} — IITBNF{% endblock %}
+
+{# ── Topbar extra: system owner PDF buttons ─────────────────── #}
+{% block topbar_actions %}
+{# These are populated/enabled after the prefetch JS fires #}
+{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   CARD GRID — staff cards
+════════════════════════════════════════════════════════════════ #}
+{% block sections %}
+
+  {# Attendance #}
+  <div class="prf-card accent-amber" onclick="openModal('att-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon">◉</span>
+      <span class="card-title">Attendance</span>
+      <select class="card-year-sel" onclick="event.stopPropagation()"
+              onchange="loadCardData('attendance', this.value)">
+        {% for y in avail_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="card-big warn" id="c-att-pct">-<span class="unit">%</span></div>
+      <div class="card-sub" id="c-att-days">Loading…</div>
+    <div class="card-footer">
+      <span class="card-cta">View trend <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Slot Activity #}
+  <div class="prf-card accent-amber" onclick="openModal('eq-activity-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon">⬡</span>
+      <span class="card-title">Slot Activity</span>
+      <select class="card-year-sel" onclick="event.stopPropagation()"
+              onchange="loadSlotActivity(this.value)">
+        {% for y in avail_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" id="c-eq-total">-</div>
+      <div class="card-sub">Equipment requests this year</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View full log <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# System Owner #}
+  <div class="prf-card accent-amber" onclick="openModal('ownership-current-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon">◐</span>
+      <span class="card-title">Sys Owner</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" id="c-sys-owned">-<span class="unit"> tools</span></div>
+      <div class="card-sub">Currently assigned</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View assignments <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Authorised Tools #}
+  <div class="prf-card accent-blue" onclick="openModal('perms-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--blue);">⊞</span>
+      <span class="card-title">Authorised</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" id="c-tool-perms">-<span class="unit"> tools</span></div>
+      <div class="card-sub">Equipment access granted</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View permissions <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Sys Owner Track #}
+  <div class="prf-card accent-blue" onclick="openModal('ownership-history-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--blue);">↻</span>
+      <span class="card-title">Sys Own Track</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" id="c-owner-track">-<span class="unit"> records</span></div>
+      <div class="card-sub">Ownership history</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View history <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Logbook Entries #}
+  <div class="prf-card accent-green" onclick="openModal('logbook-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--green);">▤</span>
+      <span class="card-title">Logbook Entries</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big good" id="c-logbook-total">-<span class="unit"> entries</span></div>
+      <div class="card-sub" id="c-logbook-sub">Session logs</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View breakdown <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   STAFF-SPECIFIC MODALS
+════════════════════════════════════════════════════════════════ #}
+{% block modals %}
+
+  {# ATTENDANCE MODAL #}
+  <div class="modal-backdrop" id="att-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">◉</span>
+        <span class="modal-title" id="att-modal-title">Attendance — {{ selected_year }}</span>
+        <button class="modal-close-btn" onclick="closeModal('att-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-metrics">
+          <div class="mm-box">
+            <div class="mm-val warn" id="m-att-pct">—%</div>
+            <div class="mm-key">Compliance</div>
+          </div>
+          <div class="mm-box">
+            <div class="mm-val" id="m-att-present">—</div>
+            <div class="mm-key">Days Present</div>
+          </div>
+          <div class="mm-box">
+            <div class="mm-val" id="m-att-mandatory">—</div>
+            <div class="mm-key">Working Days</div>
+          </div>
+        </div>
+        <div class="modal-section" id="att-trend-section">
+          <div class="modal-section-title">Monthly Trend</div>
+          <div class="chart-wrap"><canvas id="att-trend-chart"></canvas></div>
+        </div>
+        <tbody id="att-leave-tbody"></tbody>
+      </div>
+    </div>
+  </div>
+
+  {# SLOT ACTIVITY MODAL #}
+  <div class="modal-backdrop" id="eq-activity-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">⬡</span>
+        <span class="modal-title" id="slot-modal-title">Slot Activity — {{ selected_year }}</span>
+        <button class="modal-close-btn" onclick="closeModal('eq-activity-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="eq-activity-modal-body">
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val" id="m-eq-total">-</div><div class="mm-key">Total</div></div>
+          <div class="mm-box"><div class="mm-val booked" id="m-eq-slot_booked">-</div><div class="mm-key">Slot Booked</div></div>
+          <div class="mm-box"><div class="mm-val cancelled" id="m-eq-slot_cancelled">-</div><div class="mm-key">Cancelled</div></div>
+          <div class="mm-box"><div class="mm-val approved" id="m-eq-approved">-</div><div class="mm-key">Approved</div></div>
+          <div class="mm-box"><div class="mm-val pending" id="m-eq-pending">-</div><div class="mm-key">Pending</div></div>
+          <div class="mm-box"><div class="mm-val rejected" id="m-eq-rejected">-</div><div class="mm-key">Rejected</div></div>
+        </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Request &amp; Slot Log</div>
+          <div class="table-scroll" style="height:75%;overflow-y:auto;">
+            <table class="modal-table" id="eq-activity-table">
+              <thead>
+                <tr>
+                  <th>Request ID</th><th>Equipment</th><th>Status</th>
+                  <th>Slot Start</th><th>Slot End</th><th>Requested On</th>
+                </tr>
+              </thead>
+              <tbody id="eq-activity-tbody">
+                <tr><td colspan="6" style="text-align:center;padding:1.5rem;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# SYSTEM OWNER MODAL #}
+  <div class="modal-backdrop" id="ownership-current-modal" role="dialog" aria-modal="true">
+    <div class="modal-box-min">
+      <div class="modal-head">
+        <span class="modal-icon">◐</span>
+        <span class="modal-title">System Owner</span>
+        <button class="util-btn amber"
+                style="margin-left:auto;margin-right:.6rem;"
+                onclick="downloadOwnerPDF()">⬇ PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('ownership-current-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="sys-owned-modal-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  {# OWNER TRACK MODAL #}
+  <div class="modal-backdrop" id="ownership-history-modal" role="dialog" aria-modal="true">
+    <div class="modal-box-min">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--blue);">↻</span>
+        <span class="modal-title">System Owner Track</span>
+        <button class="util-btn"
+                style="margin-left:auto;margin-right:.6rem;"
+                onclick="downloadOwnerTrackPDF()">⬇ PDF</button>
+        <button class="modal-close-btn" onclick="closeModal('ownership-history-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="owner-track-modal-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  {# PERMISSIONS MODAL #}
+  <div class="modal-backdrop" id="perms-modal" role="dialog" aria-modal="true">
+    <div class="modal-box-min">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--blue);">⊞</span>
+        <span class="modal-title" id="perms-modal-title">Authorized Users</span>
+        <button class="modal-close-btn" onclick="closeModal('perms-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="perms-modal-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  {# LOGBOOK MODAL #}
+  <div class="modal-backdrop" id="logbook-modal" role="dialog" aria-modal="true">
+    <div class="modal-box-min">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">▤</span>
+        <span class="modal-title" id="logbook-modal-title">Logbook Entries</span>
+        <button class="modal-close-btn" onclick="closeModal('logbook-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="logbook-modal-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+      </div>
+    </div>
+
+    {# Nested session-log detail modal inside logbook #}
+    <div class="modal-backdrop" id="logbook-entries-modal" role="dialog" aria-modal="true">
+      <div class="modal-box">
+        <div class="modal-head">
+          <span class="modal-icon" style="color:var(--green);">▤</span>
+          <span class="modal-title" id="logbook-entries-title">Session Log</span>
+          <button class="modal-close-btn" onclick="closeModal('logbook-entries-modal')">✕</button>
+        </div>
+        <div class="modal-body" id="logbook-entries-body">
+          <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   PAGE DATA (injected before profile_shared.js)
+════════════════════════════════════════════════════════════════ #}
+{% block page_data %}
+  let _currentAttTrend = {{ trend | tojson | safe if trend else '[]' }};
+  const PROFILE_TYPE = 'staff';
+  const PROFILE_ID = String(MEMBER_ID);
+  // staff_sections.html page_data:
+  document.querySelectorAll('[data-name]').forEach(el => el.textContent = '{{ person.display_name }}');
+{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   STAFF-SPECIFIC JAVASCRIPT
+   Everything here was previously in profile.html's inline <script>.
+   profile_shared.js has already loaded by this point, providing:
+     toggleTheme, openModal, closeModal, escapeHtml, _statusTag,
+     _humanCol, _loadSessionLog, _writeRecentProfile,
+     handlePDFClick, togglePDFPicker, pickPDFYear, _waitAndDownload,
+     _setPDFBtnState, _startBtnPoll, _prefetchJobs
+════════════════════════════════════════════════════════════════ #}
+{% block page_js %}
+
+  // ── Register chart init hook (shared modal system calls this) ────
+  const _chartInits = {};
+  _modalOpenHooks['att-modal'] = function() {
+    if (!_chartInits['att-modal']) {
+      _chartInits['att-modal'] = true;
+      setTimeout(initAttChart, 60);
+    }
+  };
+
+  // ── Attendance chart ──────────────────────────────────────────────
+  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let _attChart;
+
+  function initAttChart() {
+    if (!window.Chart) return;
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+    s.onload = _buildAttChart;
+    document.head.appendChild(s);
+  }
+  function _buildAttChart()
+  {
+    const ctx = document.getElementById('att-trend-chart');
+    if (!ctx) return;
+    const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    const grid = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+    const tick = dark ? '#7c859e' : '#556074';
+    const grad = ctx.getContext('2d').createLinearGradient(0, 0, 0, 220);
+    grad.addColorStop(0, 'rgba(245,166,35,0.45)');
+    grad.addColorStop(1, 'rgba(245,166,35,0.04)');
+    const pctData = Array(12).fill(null);
+    _currentAttTrend.forEach(d => {
+      const idx = (d.month || 0) - 1;
+      if (idx >= 0 && idx < 12) pctData[idx] = d.attendance_pct ?? null;
+    });
+    if (_attChart) _attChart.destroy();
+    _attChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: MONTH_LABELS,
+        datasets: [
+          { label:'Attendance %', data:pctData,
+            backgroundColor: pctData.map(v => v===null?'transparent':v>=75?grad:'rgba(244,63,94,0.4)'),
+            borderColor:      pctData.map(v => v===null?'transparent':v>=75?'rgba(245,166,35,0.8)':'rgba(244,63,94,0.8)'),
+            borderWidth:1, borderRadius:{topLeft:4,topRight:4}, barPercentage:0.6 },
+          { label:'75% Threshold', data:Array(12).fill(75), type:'line',
+            borderColor:'rgba(100,116,139,0.5)', backgroundColor:'transparent',
+            pointRadius:0, borderDash:[4,3], borderWidth:1.5, tension:0 }
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false},
+          tooltip:{ mode:'index', intersect:false,
+            callbacks:{ label: ctx => ctx.datasetIndex===0?`${ctx.parsed.y??0}%`:`${ctx.parsed.y}% threshold` }}},
+        scales:{
+          x:{ ticks:{color:tick,font:{size:10}}, grid:{color:grid} },
+          y:{ min:0, max:100, ticks:{color:tick,font:{size:10},callback:v=>v+'%'}, grid:{color:grid} }
+        }
+      }
+    });
+  }
+
+  function _refreshAttChart(trend) {
+    if (!trend?.length || !_attChart) return;
+    _currentAttTrend = trend;
+    const pctData = Array(12).fill(null);
+    trend.forEach(d => { const i=(d.month||0)-1; if(i>=0&&i<12) pctData[i]=d.attendance_pct??null; });
+    const grad = _attChart.ctx.createLinearGradient(0,0,0,220);
+    grad.addColorStop(0,'rgba(245,166,35,0.45)'); grad.addColorStop(1,'rgba(245,166,35,0.04)');
+    _attChart.data.datasets[0].data = pctData;
+    _attChart.data.datasets[0].backgroundColor = pctData.map(v=>v===null?'transparent':v>=75?grad:'rgba(244,63,94,0.4)');
+    _attChart.data.datasets[0].borderColor      = pctData.map(v=>v===null?'transparent':v>=75?'rgba(245,166,35,0.8)':'rgba(244,63,94,0.8)');
+    _attChart.update();
+  }
+
+  // ── Attendance card + modal AJAX ──────────────────────────────────
+  function loadCardData(section, year) {
+    if (section !== 'attendance') return;
+    const cardPct  = document.getElementById('c-att-pct');
+    const cardDays = document.getElementById('c-att-days');
+    if (cardPct)  { cardPct.style.opacity = '0.4'; cardPct.innerHTML = '...<span class="unit">%</span>'; }
+    if (cardDays)   cardDays.textContent = 'Loading...';
+    fetch(`/api/section/staff/${MEMBER_ID}/attendance?year=${year}`)
+      .then(r => r.json()).then(data => {
+        if (cardPct) cardPct.style.opacity = '';
+        if (!data.success) return;
+        _updateAttCard(data.data); _updateAttModal(data.data);
+        if (data.data?.trend)        _refreshAttChart(data.data.trend);
+        if (data.data?.leave_summary) _updateLeaveTable(data.data.leave_summary);
+      }).catch(e => { if (cardPct) cardPct.style.opacity = ''; console.error(e); });
+  }
+
+  function _updateAttCard(d) {
+    if (!d) return;
+    const p  = d.attendance_pct || 0;
+    const el = document.getElementById('c-att-pct');
+    if (el) { el.innerHTML = p+'<span class="unit">%</span>'; el.className='card-big '+(p>=90?'good':p<75?'bad':'warn'); }
+    const ds = document.getElementById('c-att-days');
+    if (ds) ds.textContent = `${d.days_present||0} of ${d.mandatory_days||0} days`;
+  }
+
+  function _updateAttModal(d) {
+    if (!d) return;
+    const p = d.attendance_pct || 0;
+    const setEl = (id,v,cls) => { const el=document.getElementById(id); if(!el) return; el.textContent=v; if(cls) el.className='mm-val '+cls; };
+    setEl('m-att-pct',       p+'%', p>=90?'good':p<75?'bad':'warn');
+    setEl('m-att-present',   d.days_present||0);
+    setEl('m-att-mandatory', d.mandatory_days||0);
+  }
+
+  function _updateLeaveTable(leaveSummary) {
+    const tbody = document.getElementById('att-leave-tbody');
+    if (!tbody) return;
+    if (!leaveSummary?.length) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);">No leave data</td></tr>';
+      return;
+    }
+    tbody.innerHTML = leaveSummary.map(l =>
+      `<tr><td>${l.type_of_leave||'—'}</td><td>${l.days_taken||0}</td><td>${l.max_allowed||'—'}</td><td>${l.util_pct?l.util_pct+'%':'—'}</td></tr>`
+    ).join('');
+  }
+
+  // ── Slot activity ─────────────────────────────────────────────────
+  function _applySlotData(d) {
+    if (!d) return;
+    const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+    const cardEl = document.getElementById('c-eq-total');
+    if (cardEl) cardEl.innerHTML = (d.total||0)+'<span class="unit"> Requests</span>';
+    setEl('m-eq-total',d.total||0); setEl('m-eq-slot_booked',d.slot_booked||0);
+    setEl('m-eq-slot_cancelled',d.slot_cancelled||0); setEl('m-eq-approved',d.approved||0);
+    setEl('m-eq-pending',d.pending||0); setEl('m-eq-rejected',d.rejected||0);
+    const table = document.getElementById('eq-activity-table');
+    if (!table) return;
+    let tbody = table.querySelector('tbody');
+    if (!tbody) { tbody=document.createElement('tbody'); table.appendChild(tbody); }
+    const rows = Array.isArray(d.rows) ? d.rows : [];
+    tbody.innerHTML = rows.length===0
+      ? '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem;">No data for this year.</td></tr>'
+      : rows.map(r=>`<tr>
+          <td><strong>${r.request_id||'—'}</strong></td>
+          <td><strong>${escapeHtml(r.tool_name||'—')}</strong></td>
+          <td>${_statusTag(r)}</td>
+          <td class="cell-mono">${r.start_dt||'—'}</td>
+          <td class="cell-mono">${r.end_dt||'—'}</td>
+          <td class="cell-muted">${r.date_requested||'—'}</td>
+        </tr>`).join('');
+  }
+
+  function loadSlotActivity(year) {
+    const title = document.getElementById('slot-modal-title');
+    if (title) title.textContent = `Slot Activity — ${year}`;
+    const cardEl = document.getElementById('c-eq-total');
+    if (cardEl) cardEl.innerHTML = '…<span class="unit"> loading</span>';
+    fetch(`/api/section/staff/${MEMBER_ID}/slot_activity?year=${year}`)
+      .then(r=>r.json()).then(data=>{
+        _applySlotData(data.success ? data.data : {total:0,slot_booked:0,slot_cancelled:0,approved:0,pending:0,rejected:0,rows:[]});
+      }).catch(console.error);
+  }
+
+  // ── System owned + track modals ───────────────────────────────────
+  function _renderSysOwnedModal(owned) {
+    const body = document.getElementById('sys-owned-modal-body');
+    if (!body) return;
+    if (!owned.length) { body.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem;">No systems currently assigned.</p>'; return; }
+    const working = owned.filter(t=>t.isworking).length;
+    body.innerHTML = `
+      <div class="modal-metrics" style="margin-bottom:.85rem;">
+        <div class="mm-box"><div class="mm-val">${owned.length}</div><div class="mm-key">Total</div></div>
+        <div class="mm-box"><div class="mm-val good">${working}</div><div class="mm-key">Working</div></div>
+        <div class="mm-box"><div class="mm-val ${owned.length-working>0?'bad':'good'}">${owned.length-working}</div><div class="mm-key">Down</div></div>
+      </div>`;
+    const el = document.getElementById('c-sys-owned');
+    if (el) el.innerHTML = owned.length+'<span class="unit"> Tools</span>';
+  }
+
+  function _renderOwnerTrackModal(track) {
+    const body = document.getElementById('owner-track-modal-body');
+    if (!body) return;
+    if (!track.length) { body.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem;">No ownership history on record.</p>'; return; }
+    const active = track.filter(t=>t.is_active).length;
+    body.innerHTML = `<div class="modal-metrics">
+      <div class="mm-box"><div class="mm-val">${track.length}</div><div class="mm-key">Total</div></div>
+      <div class="mm-box"><div class="mm-val good">${active}</div><div class="mm-key">Active</div></div>
+      <div class="mm-box"><div class="mm-val">${track.length-active}</div><div class="mm-key">Removed</div></div>
+    </div>`;
+    const el = document.getElementById('c-owner-track');
+    if (el) el.innerHTML = track.length+'<span class="unit"> records</span>';
+  }
+
+  // ── Secondary sections parallel load ─────────────────────────────
+  async function loadSecondarySections() {
+    const id=MEMBER_ID, year=_initialYear;
+    const [attRes,slotRes,sysRes,trackRes,permsRes] = await Promise.all([
+      fetch(`/api/section/staff/${id}/attendance?year=${year}`),
+      fetch(`/api/section/staff/${id}/slot_activity?year=${year}`),
+      fetch(`/api/section/staff/${id}/system_owned`),
+      fetch(`/api/section/staff/${id}/owner_track`),
+      fetch(`/api/section/staff/${id}/tool_perms`),
+    ]);
+    const [attData,slotData,sysData,trackData,permsData] = await Promise.all([
+      attRes.json(),slotRes.json(),sysRes.json(),trackRes.json(),permsRes.json()
+    ]);
+
+    if (attData.success&&attData.data) {
+      _updateAttCard(attData.data); _updateAttModal(attData.data);
+      if (attData.data.trend)        { _currentAttTrend=attData.data.trend; if(_attChart) _refreshAttChart(attData.data.trend); }
+      if (attData.data.leave_summary) _updateLeaveTable(attData.data.leave_summary);
+    }
+    if (slotData.success&&slotData.data)  _applySlotData(slotData.data);
+    if (sysData.success)   { const owned=sysData.data||[]; _renderSysOwnedModal(owned); }
+    if (trackData.success) { const track=trackData.data||[]; _renderOwnerTrackModal(track); }
+    if (permsData.success) {
+      const perms=permsData.data||[];
+      const el=document.getElementById('c-tool-perms'); if(el) el.innerHTML=perms.length+'<span class="unit"> tools</span>';
+      const title=document.getElementById('perms-modal-title'); if(title) title.textContent=`Authorized Users (${perms.length})`;
+      const body=document.getElementById('perms-modal-body');
+      if(body) body.innerHTML=perms.length
+        ? `<div class="table-scroll"><table class="modal-table"><thead><tr><th>Tool</th><th>Granted</th></tr></thead><tbody>${perms.map(t=>`<tr><td><strong>${escapeHtml(t.tool_name)}</strong></td><td class="cell-mono">${t.permission_date||'—'}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p style="color:var(--muted);text-align:center;padding:2rem;">No tool permissions on record.</p>';
+    }
+  }
+
+  // ── Logbook (deferred 2s after page load) ─────────────────────────
+  function _loadLogbookDeferred(id) {
+    fetch(`/api/section/staff/${id}/logbook`).then(r=>r.json()).then(data=>{
+      if(!data.success||!data.data) return;
+      const lb=data.data;
+      const cardEl=document.getElementById('c-logbook-total'), subEl=document.getElementById('c-logbook-sub');
+      if(cardEl) cardEl.innerHTML=lb.total_entries+'<span class="unit"> entries</span>';
+      if(subEl)  subEl.textContent=lb.tools_with_logs+' tool'+(lb.tools_with_logs!==1?'s':'')+' with session logs';
+      const title=document.getElementById('logbook-modal-title'); if(title) title.textContent=`Logbook Entries (${lb.total_entries})`;
+      const body=document.getElementById('logbook-modal-body');
+      if(body) {
+        if(!lb.breakdown?.length) { body.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem;">No logbook entries found.</p>'; }
+        else body.innerHTML=`
+          <div class="modal-metrics">
+            <div class="mm-box"><div class="mm-val good">${lb.total_entries}</div><div class="mm-key">Total Entries</div></div>
+            <div class="mm-box"><div class="mm-val">${lb.tools_with_logs}</div><div class="mm-key">Tools Used</div></div>
+          </div>
+          <div class="table-scroll"><table class="modal-table">
+            <thead><tr><th>Tool</th><th>Entries</th></tr></thead>
+            <tbody>${lb.breakdown.map(t=>`<tr>
+              <td><strong>${escapeHtml(t.tool_name)}</strong>
+                <a href="#" onclick="event.preventDefault();openLogbookEntries(${t.machid},'${escapeHtml(t.tool_name)}')"
+                   style="font-family:var(--font-mono);font-size:.6rem;color:var(--blue);margin-left:.5rem;text-decoration:none;">View entries →</a>
+              </td>
+              <td class="cell-mono">${t.entries}</td></tr>`).join('')}
+            </tbody>
+          </table></div>`;
+      }
+    }).catch(e=>console.warn('Logbook load failed:',e));
+  }
+
+// Replace the existing openLogbookEntries function:
+async function openLogbookEntries(machid, toolName) {
+  document.getElementById('logbook-entries-title').textContent = `Session Log — ${toolName}`;
+  const body = document.getElementById('logbook-entries-body');
+  body.innerHTML = `
+    <div style="display:flex;gap:.5rem;margin-bottom:.85rem;">
+      <button onclick="loadRawLogbook(${machid},'${escapeHtml(toolName)}')"
+        style="font-family:var(--font-mono);font-size:.62rem;padding:.3rem .7rem;
+               border:1px solid var(--border2);border-radius:5px;
+               background:var(--surface2);color:var(--muted);cursor:pointer;">
+        ⊞ Raw Data
+      </button>
+      <button onclick="loadAILogbook(${machid},'${escapeHtml(toolName)}')"
+        style="font-family:var(--font-mono);font-size:.62rem;padding:.3rem .7rem;
+               border:1px solid rgba(245,166,35,.3);border-radius:5px;
+               background:var(--amber-dim);color:var(--amber);cursor:pointer;">
+        ✦ AI Explanation
+      </button>
+    </div>
+    <div id="logbook-entries-content">
+      <p style="color:var(--muted);text-align:center;padding:2rem;">
+        Choose Raw Data or AI Explanation above.
+      </p>
+    </div>`;
+  openModal('logbook-entries-modal');
+}
+
+function loadRawLogbook(machid, toolName) {
+  const content = document.getElementById('logbook-entries-content');
+  content.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>';
+  _loadSessionLog(machid, toolName, content, 30);
+}
+
+function loadAILogbook(machid, toolName) {
+  const content = document.getElementById('logbook-entries-content');
+  content.innerHTML = '<div style="display:flex;align-items:center;gap:.5rem;color:var(--muted);font-family:var(--font-mono);font-size:.7rem;padding:.5rem 0;"><div style="width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;"></div>Analysing entries…</div>';
+  let full = '';
+  const es = new EventSource(
+    `/api/ai/logbook-explain?member_id=${MEMBER_ID}&machid=${machid}&tool_name=${encodeURIComponent(toolName)}`
+  );
+  es.onmessage = event => {
+    const raw = event.data;
+    if (raw === '[DONE]') { es.close(); return; }
+    if (raw.startsWith('[ERROR]')) { es.close(); content.textContent = raw; return; }
+    try {
+      const token = JSON.parse(raw);
+      if (typeof token === 'string') {
+        if (!full) content.innerHTML = '<div style="font-size:.85rem;line-height:1.8;color:var(--fg);white-space:pre-wrap;" id="ai-logbook-text"></div>';
+        full += token;
+        const el = document.getElementById('ai-logbook-text');
+        if (el) el.textContent = full;
+      }
+    } catch(_) {}
+  };
+  es.onerror = () => { es.close(); if (!full) content.textContent = 'Connection error.'; };
+}
+
+  // ── Kick off loads ────────────────────────────────────────────────
+  requestAnimationFrame(() => { setTimeout(loadSecondarySections, 0); });
+  requestAnimationFrame(() => { setTimeout(() => _loadLogbookDeferred(MEMBER_ID), 2000); });
+
+  // ── Staff PDF prefetch (profile + owner PDFs) ─────────────────────
+  const _ownerPdfJob  = { job_id: null };
+  const _otrackPdfJob = { job_id: null };
+
+  function _prefetchAllPDFs() {
+    // Main profile PDF (prefetch-all endpoint handles all years)
+    fetch(`/profile/${MEMBER_ID}/pdf/prefetch-all`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ years: _availYears, default_year: _initialYear })
+    }).then(r=>r.json()).then(d=>{
+      const jobs = d.jobs || {};
+      for (const [yr, jid] of Object.entries(jobs)) _prefetchJobs.set(parseInt(yr, 10), jid);
+      const defaultJob = _prefetchJobs.get(_initialYear);
+      if (defaultJob) _startBtnPoll(defaultJob);
+    }).catch(e => console.warn('[PDF prefetch]', e));
+
+    // System-owner PDFs
+    fetch(`/api/profile/${MEMBER_ID}/system-owner-pdf/prefetch`)
+      .then(r=>r.json()).then(d=>{ _ownerPdfJob.job_id = d.job_id; }).catch(()=>{});
+    fetch(`/api/profile/${MEMBER_ID}/system-owner-track-pdf/prefetch`)
+      .then(r=>r.json()).then(d=>{ _otrackPdfJob.job_id = d.job_id; }).catch(()=>{});
+  }
+
+  requestAnimationFrame(() => setTimeout(_prefetchAllPDFs, 0));
+
+  function downloadOwnerPDF() {
+    _downloadWithPrefetch(
+      _ownerPdfJob.job_id,
+      `/api/profile/${MEMBER_ID}/system-owner-pdf/start`,
+      id => { _ownerPdfJob.job_id = id; }
+    );
+  }
+  function downloadOwnerTrackPDF() {
+    _downloadWithPrefetch(
+      _otrackPdfJob.job_id,
+      `/api/profile/${MEMBER_ID}/system-owner-track-pdf/start`,
+      id => { _otrackPdfJob.job_id = id; }
+    );
+  }
+
+  // ── Recent profile localStorage write ────────────────────────────
+  _writeRecentProfile(
+    '{{ "%04d" % member_id }}',
+    '{{ person.display_name }}',
+    '/profile/{{ member_id }}',
+    'staff'
+  );
+
+{% endblock %}

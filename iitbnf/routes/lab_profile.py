@@ -38,42 +38,38 @@ from models.lab import (
     get_system_owner_tools, get_system_owner_track,
 )
 from models.staff import get_available_years
-
+import threading
+_xhtml2pdf_ready = threading.Event()
 # ── PDF job stores ────────────────────────────────────────────────────────────
 LAB_PDF_JOBS: dict     = {}
 LAB_PDF_PREFETCH: dict = {}   # {(memberid, year): job_id}
 _lab_prefetch_lock     = threading.Lock()
 
+# In profile.py — ADD at module level:
+_xhtml2pdf_init_lock = threading.Lock()
+_xhtml2pdf_initialized = False
 
 # ── PDF renderer ──────────────────────────────────────────────────────────────
+# REPLACE the entire _html_to_pdf function with:
 def _html_to_pdf(html_string: str) -> bytes:
     import io
     from xhtml2pdf import pisa
-    print("[PDF] _html_to_pdf called — link_callback version")  # ← add this
-
+    _xhtml2pdf_ready.wait(timeout=120)
     def link_callback(uri, rel):
-        """
-        Block ALL external resource fetching.
-        xhtml2pdf calls this for every src/href it encounters.
-        Returning None tells it to skip the resource entirely.
-        """
-        # Allow local file:// paths only
         if uri.startswith("file://"):
             return uri
-        # Block everything else (http, https, data URIs with external refs)
         return None
 
     buf = io.BytesIO()
     result = pisa.CreatePDF(
-        src            = html_string,
-        dest           = buf,
-        encoding       = "utf-8",
-        link_callback  = link_callback,   # ← blocks external fetches
+        src=html_string,
+        dest=buf,
+        encoding="utf-8",
+        link_callback=link_callback,
     )
     if result.err:
         raise ValueError(f"xhtml2pdf error: {result.err}")
     return buf.getvalue()
-
 
 bp = Blueprint("lab_profile", __name__)
 
@@ -145,7 +141,7 @@ def lab_profile(memberid):
     user_safe = safe_dict(data["user"])
 
     return render_template(
-        "lab_profile.html",
+        "lab_sections.html",
         user             = user_safe,
         stats            = data.get("stats", {}),
         reservations     = data.get("reservations", []),

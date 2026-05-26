@@ -58,13 +58,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 logger = logging.getLogger(__name__)
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
-_BASE       = Path(__file__).parent.parent
-_MODEL_PATH = _BASE / "models" / "composer_model.pkl"
+_BASE       = Path(__file__).parent
+_MODEL_PATH = _BASE / "composer_model.pkl"
 
 # ── Module-level singletons ────────────────────────────────────────────────────
 _composer: Optional["NarrativeComposer"] = None
 _composer_lock                           = threading.Lock()
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # HELPER FUNCTIONS  (defined before templates so lambdas can reference them)

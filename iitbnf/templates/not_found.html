@@ -104,7 +104,7 @@
   <div class="grain"></div>
 
   <nav class="topnav" role="navigation" aria-label="Main navigation">
-    <a href="/dashboard" class="back-btn">← Dashboard</a>
+    <a href="{{ url_for('admin_panel.index') }}#hub" class="back-btn">← Hub</a>
     <span class="nav-brand">IITBNF <span class="nav-divider">|</span> <span class="nav-sub">Not Found</span></span>
     <span></span>
     <button class="theme-toggle" onclick="toggleTheme()" id="theme-btn" aria-label="Toggle light and dark mode">Light Mode</button>
@@ -126,13 +126,13 @@
       </div>
 
       <div class="notfound-actions">
-        <a href="/dashboard" class="btn-home" aria-label="Return to dashboard">← Back to Dashboard</a>
+        <a href="{{ url_for('admin_panel.index') }}#hub" class="btn-home" aria-label="Return to hub">← Back to Hub</a>
         <a href="javascript:history.back()" class="btn-back" aria-label="Go back to previous page">Go Back</a>
       </div>
 
       <div class="notfound-hint">
         Looking for someone? Try searching on the
-        <a href="/dashboard">dashboard</a>.
+        <a href="{{ url_for('admin_panel.index') }}#hub">hub</a>.
       </div>
     </div>
   </main>

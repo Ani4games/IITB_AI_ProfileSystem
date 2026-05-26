@@ -122,65 +122,279 @@ def timings():
 @staff_required
 def db_connection_info():
     import time
-    from db import hr_pool, slots_pool
-    
+    from db import hr_pool
+
     results = {}
-    
-    # Get a connection and inspect it
+
     conn = hr_pool.get_connection()
     try:
+        # Use simple queries that return single values — no description needed
         with conn.cursor() as cur:
-            # This tells you exactly what host/socket MySQL thinks you're on
-            cur.execute("SELECT @@hostname, @@port, @@socket, @@datadir")
-            server_info_row = cur.fetchone()
-            server_info = {}
-            if server_info_row is not None:
-                server_info = dict(zip([d[0] for d in cur.description], server_info_row))
-            
-            # This shows YOUR connection details
-            cur.execute("SHOW STATUS LIKE 'Threads_connected'")
-            threads = cur.fetchone()
-            
-            cur.execute("SELECT USER(), CONNECTION_ID(), @@version")
-            conn_info_row = cur.fetchone()
-            conn_info = {}
-            if conn_info_row is not None:
-                conn_info = dict(zip([d[0] for d in cur.description], conn_info_row))
-            
-        # pymysql connection object itself
-        results["hr"] = {
-            "server_hostname": server_info.get("@@hostname"),
-            "server_port": server_info.get("@@port"),
-            "server_socket": server_info.get("@@socket"),
-            "connected_as": conn_info.get("USER()"),
-            "connection_id": conn_info.get("CONNECTION_ID()"),
-            "mariadb_version": conn_info.get("@@version"),
-            # What pymysql is using on the client side
-            "client_host": conn.host,
-            "client_port": conn.port,
-            "client_unix_socket": getattr(conn, 'unix_socket', None),
-            "using_tcp": conn.host is not None and conn.host != '',
+            cur.execute("SELECT @@hostname AS hostname")
+            row = cur.fetchone()
+            hostname = row.get("hostname") if row else "unknown"
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT @@port AS port")
+            row = cur.fetchone()
+            port = row.get("port") if row else "unknown"
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT @@socket AS socket")
+            row = cur.fetchone()
+            socket_path = row.get("socket") if row else "unknown"
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT @@version AS version")
+            row = cur.fetchone()
+            version = row.get("version") if row else "unknown"
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT USER() AS user")
+            row = cur.fetchone()
+            user = row.get("user") if row else "unknown"
+
+        with conn.cursor() as cur:
+            cur.execute("SELECT CONNECTION_ID() AS conn_id")
+            row = cur.fetchone()
+            conn_id = row.get("conn_id") if row else "unknown"
+
+        results["server"] = {
+            "hostname":      hostname,
+            "port":          port,
+            "socket":        socket_path,
+            "version":       version,
+            "connected_as":  user,
+            "connection_id": conn_id,
         }
+
+        # Connection type detection
+        results["connection"] = {
+            "kind":          conn._kind,   # "connector" or "pymysql"
+            "using_pipe":    conn._kind == "connector",
+            "client_host":   conn.host,
+            "client_port":   conn.port,
+        }
+
     finally:
         hr_pool.return_connection(conn)
-    
-    # Latency test - 10 rapid queries
+
+    # Latency test — 10 queries
     latencies = []
     for _ in range(10):
         t0 = time.perf_counter()
-        hr_pool.get_connection()  # just get and return
-        conn = hr_pool.get_connection()
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
+        c = hr_pool.get_connection()
+        with c.cursor() as cur:
+            cur.execute("SELECT 1 AS val")
             cur.fetchone()
-        hr_pool.return_connection(conn)
+        hr_pool.return_connection(c)
         latencies.append(round((time.perf_counter() - t0) * 1000, 2))
-    
+
     results["latency_ms"] = {
         "samples": latencies,
-        "min": min(latencies),
-        "max": max(latencies),
-        "avg": round(sum(latencies) / len(latencies), 2),
+        "min":     min(latencies),
+        "max":     max(latencies),
+        "avg":     round(sum(latencies) / len(latencies), 2),
     }
-    
+
     return jsonify(results)
+# In debug.py
+@bp.route("/debug/reconnect-pool")
+@staff_required
+def reconnect_pool():
+    from db import hr_pool, slots_pool, _drain_and_refill_pool_local
+
+    _drain_and_refill_pool_local(hr_pool)
+    _drain_and_refill_pool_local(slots_pool)
+    return jsonify({"status": "pools drained and refilled (best-effort)"})
+@bp.route("/debug/connector-compare")
+@staff_required
+def connector_compare():
+    import time
+    import mysql.connector
+
+    results = {}
+
+    # Test 1: pure Python (current)
+    try:
+        latencies = []
+        for _ in range(10):
+            t0 = time.perf_counter()
+            conn = mysql.connector.connect(
+                unix_socket = "\\\\.\\pipe\\MySQL",
+                user        = "root",
+                password    = "Ani4MariaDB",
+                database    = "hr_portal",
+                use_pure    = True,
+            )
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT 1 AS val")
+            cur.fetchone()
+            cur.close()
+            conn.close()
+            latencies.append(round((time.perf_counter() - t0) * 1000, 2))
+        results["pure_python"] = {
+            "avg": round(sum(latencies)/len(latencies), 2),
+            "min": min(latencies),
+            "max": max(latencies),
+            "samples": latencies,
+        }
+    except Exception as e:
+        results["pure_python"] = {"error": str(e)}
+
+    # Test 2: C extension
+    try:
+        latencies = []
+        for _ in range(10):
+            t0 = time.perf_counter()
+            conn = mysql.connector.connect(
+                unix_socket = "\\\\.\\pipe\\MySQL",
+                user        = "root",
+                password    = "Ani4MariaDB",
+                database    = "hr_portal",
+                use_pure    = False,
+            )
+            cur = conn.cursor(dictionary=True)
+            cur.execute("SELECT 1 AS val")
+            cur.fetchone()
+            cur.close()
+            conn.close()
+            latencies.append(round((time.perf_counter() - t0) * 1000, 2))
+        results["c_extension"] = {
+            "avg": round(sum(latencies)/len(latencies), 2),
+            "min": min(latencies),
+            "max": max(latencies),
+            "samples": latencies,
+        }
+    except Exception as e:
+        results["c_extension"] = {"error": str(e)}
+
+    # Test 3: pymysql TCP for baseline comparison
+    try:
+        import pymysql
+        import socket as _socket
+        latencies = []
+        for _ in range(10):
+            t0 = time.perf_counter()
+            conn = pymysql.connect(
+                host     = "localhost",
+                port     = 3306,
+                user     = "root",
+                password = "Ani4MariaDB",
+                database = "hr_portal",
+                cursorclass = pymysql.cursors.DictCursor,
+            )
+            sock = getattr(conn, '_sock', None)
+            if sock:
+                sock.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+            conn.close()
+            latencies.append(round((time.perf_counter() - t0) * 1000, 2))
+        results["pymysql_tcp"] = {
+            "avg": round(sum(latencies)/len(latencies), 2),
+            "min": min(latencies),
+            "max": max(latencies),
+            "samples": latencies,
+        }
+    except Exception as e:
+        results["pymysql_tcp"] = {"error": str(e)}
+
+    # Test 4: pooled connection reuse (what the app actually does)
+    try:
+        from db import hr_pool
+        latencies = []
+        for _ in range(10):
+            t0 = time.perf_counter()
+            c = hr_pool.get_connection()
+            with c.cursor() as cur:
+                cur.execute("SELECT 1 AS val")
+                cur.fetchone()
+            hr_pool.return_connection(c)
+            latencies.append(round((time.perf_counter() - t0) * 1000, 2))
+        results["pooled_reuse"] = {
+            "avg": round(sum(latencies)/len(latencies), 2),
+            "min": min(latencies),
+            "max": max(latencies),
+            "samples": latencies,
+            "note": "This is what the app uses — get from pool, query, return"
+        }
+    except Exception as e:
+        results["pooled_reuse"] = {"error": str(e)}
+
+    return jsonify(results)
+@bp.route("/debug/ping-analysis")
+@staff_required
+def ping_analysis():
+    import time
+    from db import hr_pool
+
+    results = []
+    for i in range(20):
+        # Check idle time before getting connection
+        # Get connection and measure just the get_connection overhead
+        t0 = time.perf_counter()
+        c = hr_pool.get_connection()
+        get_ms = round((time.perf_counter() - t0) * 1000, 2)
+
+        # Measure just the query
+        t1 = time.perf_counter()
+        with c.cursor() as cur:
+            cur.execute("SELECT 1 AS val")
+            cur.fetchone()
+        query_ms = round((time.perf_counter() - t1) * 1000, 2)
+
+        # Check last_used on the connection
+        idle_before = round(
+            time.monotonic() - getattr(c, '_last_used', time.monotonic()), 2
+        )
+
+        hr_pool.return_connection(c)
+        total_ms = round((time.perf_counter() - t0) * 1000, 2)
+
+        results.append({
+            "iteration":   i + 1,
+            "get_conn_ms": get_ms,
+            "query_ms":    query_ms,
+            "total_ms":    total_ms,
+            "pinged":      get_ms > 20,  # if get_conn took >20ms, ping fired
+        })
+
+        time.sleep(0.1)  # small gap between iterations
+
+    pinged_count = sum(1 for r in results if r["pinged"])
+    avg_total = round(sum(r["total_ms"] for r in results) / len(results), 2)
+    avg_query = round(sum(r["query_ms"] for r in results) / len(results), 2)
+    avg_get   = round(sum(r["get_conn_ms"] for r in results) / len(results), 2)
+
+    t_raw = []
+    for _ in range(10):
+        t0 = time.perf_counter()
+        c = hr_pool.get_connection()
+        with c.cursor() as cur:
+            cur.execute("DO 1")   # MariaDB no-op, returns nothing, no InnoDB touch
+            cur.fetchall()
+        hr_pool.return_connection(c)
+        t_raw.append(round((time.perf_counter() - t0) * 1000, 2))
+
+    # Add to return dict:
+    
+    return jsonify({
+        "summary": {
+            "avg_total_ms":    avg_total,
+            "avg_get_conn_ms": avg_get,
+            "avg_query_ms":    avg_query,
+            "ping_fired_count": pinged_count,
+            "out_of":          len(results),
+            "do1_latency": {
+        "avg": round(sum(t_raw)/len(t_raw), 2),
+        "min": min(t_raw),
+        "max": max(t_raw),
+        "samples": t_raw,
+        "note": "DO 1 = pure protocol round-trip, no InnoDB, no table access"
+    }
+        },
+        "iterations": results,
+    })
+

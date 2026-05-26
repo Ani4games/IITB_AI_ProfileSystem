@@ -17,7 +17,7 @@ Install:
     pip install spacy && python -m spacy download en_core_web_md  # for spacy
 
 Usage:
-    from rag.retrieve import retrieve
+    from retrieve import retrieve
 
     chunks = retrieve("attendance percentage this year", k=5)
     # Returns: [{"text": str, "source": str, "score": float, "tfidf": float, "wv": float}]
@@ -33,7 +33,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Import get_index from ingest — single source of truth for the index.
 # collection_size() is also imported from ingest so both pipeline and retrieve
 # share the same, correctly-implemented version.
-from rag.ingest import get_index, collection_size  # noqa: F401  (re-exported)
+from rag.ingest import get_index, collection_size # noqa: F401  (re-exported)
 
 logger = logging.getLogger(__name__)
 

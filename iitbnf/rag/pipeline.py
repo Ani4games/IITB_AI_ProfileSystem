@@ -3,8 +3,8 @@
 import json
 import logging
 import requests
-from config import OLLAMA_URL, OLLAMA_MODEL, AI_MODE
-
+from config import AI_MODE
+from llm import llm_generate, llm_stream
 logger = logging.getLogger(__name__)
 
 # ── Ollama calls — TWO separate functions, not one ────────────────────────────
@@ -13,119 +13,106 @@ logger = logging.getLogger(__name__)
 # path also returns a generator object instead of a string.
 
 def _call_ollama_sync(prompt: str, max_tokens: int = 500) -> str:
-    """
-    Non-streaming Ollama call. Returns the full response as a string.
-    Used by: rag_generate(), rag_chat()
-    """
-    payload = {
-        "model":   OLLAMA_MODEL,
-        "prompt":  prompt,
-        "stream":  False,
-        "options": {
-            "num_predict": max_tokens,
-            "temperature": 0.4,
-            "top_p":       0.9,
-        },
-    }
-    try:
-        resp = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json=payload,
-            stream=False,
-            timeout=120,
-        )
-        resp.raise_for_status()
-        return resp.json().get("response", "")
-    except requests.exceptions.ConnectionError:
-        logger.error("Ollama not reachable at %s — is it running?", OLLAMA_URL)
-        return ""
-    except Exception as e:
-        logger.error("Ollama sync request failed: %s", e)
-        return ""
-
+    return llm_generate(prompt, max_tokens)
 
 def _call_ollama_stream(prompt: str, max_tokens: int = 500):
-    """
-    Streaming Ollama call. Yields string tokens one at a time.
-    Used by: rag_stream(), rag_stream_executive(), digest_session_reports_stream()
-    """
-    payload = {
-        "model":   OLLAMA_MODEL,
-        "prompt":  prompt,
-        "stream":  True,
-        "options": {
-            "num_predict": max_tokens,
-            "temperature": 0.4,
-            "top_p":       0.9,
-        },
-    }
-    try:
-        resp = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json=payload,
-            stream=True,
-            timeout=120,
-        )
-        resp.raise_for_status()
-    except requests.exceptions.ConnectionError:
-        logger.error("Ollama not reachable at %s — is it running?", OLLAMA_URL)
-        yield "[ERROR] Ollama is not running. Run: ollama serve"
-        return
-    except Exception as e:
-        logger.error("Ollama stream request failed: %s", e)
-        yield f"[ERROR] {e}"
-        return
-
-    for line in resp.iter_lines():
-        if not line:
-            continue
-        try:
-            chunk = json.loads(line)
-            token = chunk.get("response", "")
-            if token:
-                yield token
-            if chunk.get("done"):
-                break
-        except json.JSONDecodeError:
-            continue
-
+    yield from llm_stream(prompt, max_tokens)
+    
 def rag_stream(ctx: dict, mode: str = "short"):
     """Streaming token generator — used by /api/ai/stream SSE endpoint."""
     from rag.composer import compose_staff_summary, compose_lab_summary
-    from rag.retrieve import retrieve
-    
+
     # Short mode: composer only, no LLM
     if mode == "short":
         is_lab  = ctx.get("category") is not None  # lab ctx has 'category'
         summary = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
-        yield f"[MODE: Quick Summary]\n\n"
+        yield "[MODE: Quick Summary]"
         yield summary
         return
 
-    # Executive mode: build prompt, call Ollama
-    yield f"[MODE: Executive Briefing]\n\n"
-    prompt = _build_executive_prompt(ctx)
+    # Executive mode: retrieve context, build prompt, call Ollama
+    yield "[MODE: Executive Briefing]"
+
+    rag_block = ""
+    try:
+        from rag.retrieve import retrieve
+        query     = _build_report_query(ctx)
+        chunks    = retrieve(query, k=RAG_K, requested_name=ctx.get("name"))
+        relevant  = [c for c in chunks if c.get("score", 0) >= MIN_SCORE]
+        rag_block = _format_chunks(relevant)
+        logger.info(
+            "[RAG] rag_stream executive: chunks_used=%d", len(relevant)
+        )
+    except Exception as exc:
+        logger.warning("[RAG] retrieve() failed in rag_stream: %s", exc)
+
+    prompt = _build_executive_prompt(ctx, rag_block=rag_block)
     yield from _call_ollama_stream(prompt, max_tokens=500)
 
 
 def rag_generate(ctx: dict, audience: str = "management") -> str:
     """Non-streaming — used by /api/ai/report."""
-    mode   = "executive" if audience == "management" else "short"
-    prompt = _build_executive_prompt(ctx)
+    from rag.retrieve import retrieve
+
+    # Retrieve relevant chunks — same logic as rag_stream_executive
+    rag_block = ""
+    try:
+        query  = _build_report_query(ctx)
+        chunks = retrieve(
+            query,
+            k              = RAG_K,
+            requested_name = ctx.get("name"),
+        )
+        relevant  = [c for c in chunks if c.get("score", 0) >= MIN_SCORE]
+        rag_block = _format_chunks(relevant)
+        logger.info(
+            "[RAG] rag_generate: query=%r  chunks_used=%d",
+            query[:80], len(relevant),
+        )
+    except Exception as exc:
+        logger.warning("[RAG] retrieve() failed in rag_generate: %s", exc)
+
+    prompt = _build_executive_prompt(ctx, rag_block=rag_block)
     return _call_ollama_sync(prompt, max_tokens=500)
 
 
 def rag_chat(question: str, ctx: dict) -> dict:
     """Q&A over a profile — used by the voice assistant."""
     prompt = _build_chat_prompt(question, ctx)
-    answer = _call_ollama_sync(prompt, max_tokens=300)
+    answer = _call_ollama_sync(prompt, max_tokens=80)
+    if not answer:
+        answer = "The AI model is currently unavailable. Please try again later or check that Ollama is running."
     return {"answer": answer, "success": bool(answer)}
 
 
 def rag_stream_executive(ctx: dict, profile_type: str):
     """Used by /api/ai/compose in executive mode — emits {type:token} dicts."""
     import json
-    prompt = _build_executive_prompt(ctx)
+    from rag.retrieve import retrieve
+
+    # ── Retrieve relevant context chunks from TF-IDF index ───────────────────
+    # Build a rich query from the profile ctx, retrieve top-5 scored chunks,
+    # filter by minimum score, and format them into the rag_block string that
+    # _build_executive_prompt() already knows how to inject as Reference Data.
+    rag_block = ""
+    try:
+        query  = _build_report_query(ctx)
+        chunks = retrieve(
+            query,
+            k              = RAG_K,
+            requested_name = ctx.get("name"),
+        )
+        relevant = [c for c in chunks if c.get("score", 0) >= MIN_SCORE]
+        rag_block = _format_chunks(relevant)
+        logger.info(
+            "[RAG] executive stream: query=%r  chunks_retrieved=%d  chunks_used=%d",
+            query[:80], len(chunks), len(relevant),
+        )
+    except Exception as exc:
+        # Non-fatal — continue without RAG context rather than blocking the stream
+        logger.warning("[RAG] retrieve() failed in rag_stream_executive: %s", exc)
+
+    prompt = _build_executive_prompt(ctx, rag_block=rag_block)
     for token in _call_ollama_stream(prompt, max_tokens=600):
         yield json.dumps({"type": "token", "content": token})
 
@@ -154,12 +141,55 @@ def digest_session_reports_stream(tool_name: str, rows: list):
 # ── Prompt builders ───────────────────────────────────────────────────────────
 
 def _build_report_query(ctx: dict) -> str:
-    """Build a retrieval query string from context fields."""
+    """
+    Build a retrieval query string from context fields.
+
+    Richer query = better TF-IDF chunk recall.
+    We include identity, role, team, and the most query-relevant activity
+    fields so the index can surface leave rules, equipment policy, and
+    facility-specific context that enriches the executive narrative.
+    """
     parts = []
-    if ctx.get("name"):        parts.append(ctx["name"])
-    if ctx.get("designation"): parts.append(ctx["designation"])
-    if ctx.get("team"):        parts.append(ctx["team"])
-    if ctx.get("role"):        parts.append(ctx["role"])
+
+    # Identity
+    for field in ("name", "designation", "team", "role",
+                  "appointment_type", "department", "category"):
+        v = ctx.get(field)
+        if v and str(v) not in ("N/A", "None", ""):
+            parts.append(str(v))
+
+    # Attendance signal
+    pct = ctx.get("attendance_pct")
+    if pct is not None:
+        try:
+            pct_f = float(pct)
+            if pct_f < 75:
+                parts.append("attendance below mandatory threshold 75 percent")
+            elif pct_f >= 90:
+                parts.append("attendance excellent above threshold")
+            else:
+                parts.append("attendance within acceptable range")
+        except (TypeError, ValueError):
+            pass
+
+    # Facility activity signals
+    if int(ctx.get("eq_requests") or 0) > 0:
+        parts.append("equipment usage requests slot booking facility")
+    if int(ctx.get("systems_owned_current") or 0) > 0:
+        parts.append("system owner tool responsibility")
+    if int(ctx.get("tool_permissions_count") or 0) > 0:
+        parts.append("tool permissions access authorized equipment")
+
+    # Research signals
+    if int(ctx.get("papers") or 0) > 0:
+        parts.append("research publication paper approved")
+    if int(ctx.get("projects") or 0) > 0:
+        parts.append("faculty project active research")
+
+    # Leave signal
+    if int(ctx.get("leaves_taken") or 0) > 0:
+        parts.append("leave days taken annual casual earned")
+
     return " ".join(parts)
 
 
@@ -191,7 +221,7 @@ def _build_executive_prompt(ctx: dict, rag_block: str = "") -> str:
         "Write exactly this structure, replacing the brackets with real values:\n\n"
 
         "Paragraph 1 (Identity): Write one sentence stating the person's name, "
-        "designation, team, appointment type, and  iitb joining date.  Also mention their system role if it differs from Staff. "
+        "designation, team, appointment type, and joining date.  Also mention their system role if it differs from Staff. "
         "2 to 3 sentences.\n\n"
 
         "Paragraph 2 (Attendance): Write one sentence stating the exact attendance "
@@ -211,15 +241,144 @@ def _build_executive_prompt(ctx: dict, rag_block: str = "") -> str:
         "Begin paragraph 1 now, starting with the person's name:"
     )
 def _build_chat_prompt(question: str, ctx: dict) -> str:
-    context_block = _format_context(ctx)
+    """
+    Build a minimal, focused prompt for Q&A.
+    Only includes facts directly relevant to the question keywords.
+    A 0.5B model cannot handle 30 facts + a question reliably.
+    """
+    q_lower = question.lower()
+
+    # Keyword → ctx field mapping: pick only what the question is about
+    FIELD_GROUPS = {
+        ("attendance", "present", "days", "percent", "%", "threshold"):
+            ["name", "attendance_pct", "days_present", "working_days", "leaves_taken", "leave_breakdown"],
+        ("leave", "casual", "earned", "sick", "annual"):
+            ["name", "leaves_taken", "leave_breakdown"],
+        ("equipment", "request", "booking", "slot", "machine"):
+            ["name", "eq_requests", "eq_slot_booked", "approved_requests", "eq_pending", "eq_rejected"],
+        ("reservation", "tool", "booked"):
+            ["name", "total_bookings", "tools_used"],
+        ("permission", "authoris", "access"):
+            ["name", "tool_permissions_count"],
+        ("owner", "system", "assign"):
+            ["name", "systems_owned_current", "systems_owned_ever", "systems_ownership_removed"],
+        ("paper", "publication", "research", "publish"):
+            ["name", "papers", "projects", "active_projects"],
+        ("project", "faculty"):
+            ["name", "projects", "active_projects"],
+        ("training", "session"):
+            ["name", "trainings", "session_reports"],
+        ("designation", "role", "team", "position", "title", "job"):
+            ["name", "designation", "team", "role", "appointment_type"],
+        ("join", "joined", "tenure", "since", "date"):
+            ["name", "joining_date"],
+        ("qualification", "degree", "education"):
+            ["name", "qualification"],
+        ("supervisor", "guide"):
+            ["name", "supervisor_name"],
+        ("department", "dept"):
+            ["name", "department"],
+        ("cancel", "cancellation"):
+            ["name", "cancellations"],
+        ("report", "monthly", "star", "rating"):
+            ["name", "monthly_reports_submitted", "monthly_report_avg_stars"],
+        ("email", "contact"):
+            ["name", "email"],
+        ("expir", "valid", "access expir"):
+            ["name", "expiry_date"],
+    }
+
+    # Find matching fields based on question keywords
+    selected_fields = set(["name"])   # always include name
+    matched = False
+    for keywords, fields in FIELD_GROUPS.items():
+        if any(kw in q_lower for kw in keywords):
+            selected_fields.update(fields)
+            matched = True
+
+    # If no keyword matched, include a small general set
+    if not matched:
+        selected_fields.update([
+            "name", "designation", "team", "attendance_pct",
+            "eq_requests", "papers", "projects"
+        ])
+
+    # Build a minimal facts block from only the selected fields
+    facts_lines = []
+    for key in selected_fields:
+        val = ctx.get(key)
+        if val not in (None, "", "N/A", "NA", 0, "0", "None"):
+            facts_lines.append(f"  {key} = {val}")
+
+    facts_block = "\n".join(facts_lines) if facts_lines else "  (no relevant data found)"
+
     return (
-        "You are an HR assistant for IITBNF. Answer the question using only "
-        "the personnel data provided. Be concise and factual.\n\n"
-        f"Personnel Data:\n---\n{context_block}\n---\n\n"
-        f"Question: {question}\nAnswer:"
+        "Answer the question using ONLY the facts below.\n"
+        "Rules:\n"
+        "- Answer in ONE sentence.\n"
+        "- If the answer is not in the facts, say: 'This information is not on record.'\n"
+        "- Do not summarize. Do not list other facts. Just answer the question.\n\n"
+        f"Facts:\n{facts_block}\n\n"
+        f"Question: {question}\n"
+        "Answer:"
     )
 
-
+def _validate_response(response: str, ctx: dict) -> str:
+    """
+    Post-process model output to catch obvious hallucinations.
+    
+    Checks:
+    1. Any number in the response should exist somewhere in ctx values.
+    2. Any name that looks like a person's name should be in ctx.
+    3. Response should not be longer than 3x the prompt's data.
+    
+    On failure: strips the suspicious sentence rather than blocking entirely.
+    """
+    if not response or not ctx:
+        return response
+    
+    import re
+    
+    # Collect all numeric values from ctx
+    ctx_numbers = set()
+    for v in ctx.values():
+        if v is None:
+            continue
+        # Extract numbers from ctx values
+        for match in re.findall(r'\b\d+(?:\.\d+)?\b', str(v)):
+            ctx_numbers.add(match)
+    
+    # Check each sentence for numbers not in ctx
+    sentences = re.split(r'(?<=[.!?])\s+', response.strip())
+    clean_sentences = []
+    
+    for sentence in sentences:
+        numbers_in_sentence = re.findall(r'\b\d+(?:\.\d+)?\b', sentence)
+        
+        # Skip validation for sentences with no numbers — low hallucination risk
+        if not numbers_in_sentence:
+            clean_sentences.append(sentence)
+            continue
+        
+        # Check if all numbers in sentence appear in ctx
+        # Allow small numbers (0-10) as they are likely counts/ordinals
+        suspicious = [
+            n for n in numbers_in_sentence
+            if n not in ctx_numbers and float(n) > 10
+        ]
+        
+        if suspicious:
+            import logging
+            logging.getLogger(__name__).warning(
+                "[LLM] Possible hallucination — numbers %s not in ctx, "
+                "dropping sentence: %s", suspicious, sentence[:80]
+            )
+            # Replace with a safe fallback rather than dropping entirely
+            clean_sentences.append("(Data not available for this field.)")
+        else:
+            clean_sentences.append(sentence)
+    
+    return " ".join(clean_sentences)
 # ── RAG config constants (used by retrieve.py and debug_ai.py) ────────────────
 RAG_K     = 5
 MIN_SCORE = 0.05

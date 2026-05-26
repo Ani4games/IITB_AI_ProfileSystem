@@ -216,6 +216,7 @@ def _build_staff_context(member_id: int) -> dict | None:
 
     # ── Slotbooking resolution ────────────────────────────────────────────────
     slot_uid = _resolve_slot_uid(member_id, email)
+    ctx["slot_uid"] = slot_uid
 
     if slot_uid:
         # ── Reservations ──────────────────────────────────────────────────
@@ -342,7 +343,7 @@ def _build_lab_context(memberid: int) -> dict | None:
             cancellations, trainings, publications, projects.
     """
     ctx: dict = {}
-
+    ctx["slot_uid"] = memberid  # Default to memberid for any slotbooking queries if resolution fails   
     rows = slots_query("""
         SELECT
             l.fname, l.lname, l.email,

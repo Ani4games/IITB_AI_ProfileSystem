@@ -6,27 +6,31 @@ from datetime import timedelta
 
 # ── Database ──────────────────────────────────────────────────────────────────
 DB_HR = {
-    "host":     ".",
+    "host":     os.getenv("DB_HOST", "localhost"),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "hr_portal",
     "charset":  "utf8mb4",
+    "use_named_pipe": True,
+    "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
 }
 DB_SLOTS = {
-    "host":    ".",
+    "host":     os.getenv("DB_HOST", "localhost"),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "slotbooking",
     "charset":  "utf8mb4",
+    "use_named_pipe": True,
+    "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
 }
 
 # ── AI ────────────────────────────────────────────────────────────────────────
-AI_MODE      = os.getenv("AI_MODE", "ollama")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
-OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL   = os.getenv("GROQ_MODEL", "llama3-8b-8192")
-
+AI_MODE      = "llamacpp"  # "ollama", "local", or "mock"
+# OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+# OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
+LOCAL_MODEL_NAME   = os.getenv("LOCAL_MODEL_NAME",   "Qwen/Qwen2.5-0.5B-Instruct")
+LOCAL_MODEL_DEVICE = os.getenv("LOCAL_MODEL_DEVICE",  "cpu")
+LOCAL_MODEL_TEMP   = float(os.getenv("LOCAL_MODEL_TEMP", "0.15"))
 # ── Flask ─────────────────────────────────────────────────────────────────────
 SECRET_KEY              = os.getenv("SECRET_KEY", "iitbnf-dev-secret-change-in-prod")
 SESSION_COOKIE_SECURE   = False

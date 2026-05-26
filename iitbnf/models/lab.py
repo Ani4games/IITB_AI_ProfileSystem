@@ -8,7 +8,6 @@ from db import slots_query
 from utils import run_parallel
 from cache import cached
 
-
 def safe_json(obj):
     if isinstance(obj, dict):
         return {k: safe_json(v) for k, v in obj.items()}
@@ -19,7 +18,6 @@ def safe_json(obj):
     elif isinstance(obj, (datetime, date)):
         return obj.isoformat()
     return obj
-
 
 @cached(ttl_seconds=300)
 def get_lab_user(memberid):
@@ -43,18 +41,14 @@ def get_lab_user(memberid):
         WHERE l.memberid = %s
           AND (p.member_id IS NULL
                OR p.leaving_date IS NULL
-               OR p.leaving_date = '0000-00-00'
+               OR p.leaving_date = '00-00-0000'
                OR p.leaving_date >= CURDATE())
-          AND (l.expiry_date IS NULL
-               OR l.expiry_date = ''
-               OR l.expiry_date = '0000-00-00'
-               OR STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y') >= CURDATE())
+          AND STR_TO_DATE(l.expiry_date, '%m/%d/%Y') >= CURDATE()
         LIMIT 1
     """, (memberid,))
     elapsed = (time.perf_counter() - start) * 1000
     print(f"get_lab_user SQL: {elapsed:.1f} ms for memberid={memberid}")
     return rows[0] if rows else None
-
 
 @cached(ttl_seconds=3600)
 def get_all_lab_users():
@@ -71,18 +65,14 @@ def get_all_lab_users():
         SELECT memberid, email, fname, lname, position, department,
                expiry_date, is_admin
         FROM login
-        WHERE (
-            expiry_date IS NULL
-            OR expiry_date = ''
-            OR expiry_date = '0000-00-00'
-            OR STR_TO_DATE(expiry_date, '%%m/%%d/%%Y') >= CURDATE()
-        )
+        WHERE STR_TO_DATE(expiry_date, '%m/%d/%Y') >= CURDATE()
         ORDER BY fname, lname
     """) or []
+
     elapsed = (time.perf_counter() - start) * 1000
     print(f"get_all_lab_users SQL: {elapsed:.1f} ms — {len(rows)} active users")
+    print(f"Sample user: {rows[0] if rows else 'None'}")
     return rows
-
 
 def get_lab_reservations(memberid, year=None):
     year_filter = "AND YEAR(FROM_UNIXTIME(res.startdate)) = %s" if year else ""
@@ -105,7 +95,6 @@ def get_lab_reservations(memberid, year=None):
           {year_filter}
         ORDER BY res.startdate DESC LIMIT 200
     """, params)
-
 
 def get_lab_equipment_requests(memberid, year=None):
     year_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
@@ -248,7 +237,7 @@ def is_faculty(memberid) -> bool:
 
 
 # ── Resources / Equipment detail ──────────────────────────────────────────────
-
+@cached(ttl_seconds=300)
 def get_member_tool_permissions(memberid: int) -> list:
     """
     Tool permissions for a member — enriched with resource details

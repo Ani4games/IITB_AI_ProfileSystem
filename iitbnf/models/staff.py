@@ -628,6 +628,10 @@ def calc_mandatory_days(year, month=None, holidays=None):
         and h <= today  # don't count future holidays either
     )
     return max(working_days - holiday_count, 0)
+
+@cached(ttl_seconds=120)
+def _get_attendance_rows_for_year(member_id, year):
+    return get_attendance_rows(member_id, year=year)
 @cached(ttl_seconds=120)
 def get_attendance_trend(member_id, year=None):
     """
@@ -637,7 +641,7 @@ def get_attendance_trend(member_id, year=None):
     today = date.today()
     year = int(year or today.year)
 
-    rows = get_attendance_rows(member_id, year=year)
+    rows = _get_attendance_rows_for_year(member_id, year)
     holidays = get_holidays_for_year(year)
 
     from db import hr_query as _hrq

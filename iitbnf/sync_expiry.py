@@ -15,7 +15,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from db import hr_query, slots_query
+from db import hr_query, slots_execute, slots_query
 from datetime import date
 
 DRY_RUN = "--dry-run" in sys.argv   # pass --dry-run to preview without writing
@@ -85,11 +85,13 @@ def main():
         print(f"  [UPDATE] {name} (ID {member_id}) — expiry_date: '{current_expiry}' → '{target_expiry}'")
 
         if not DRY_RUN:
-            slots_query(
+            result = slots_execute(
                 "UPDATE login SET expiry_date = %s WHERE memberid = %s",
                 (target_expiry, member_id)
             )
-        updated += 1
+            if not result.get("ok"):
+                print(f"  [ERROR] {name} (ID {member_id}) — {result.get('error')}")
+                updated += 1
 
     print(f"\n{'─' * 60}")
     print(f"  Updated  : {updated}")

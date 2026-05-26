@@ -29,6 +29,11 @@ from models.staff import (
         get_staff_system_owned, get_staff_owner_track,
         get_staff_tool_perms_rich
     )
+from rag.retrieve import retrieve, collection_size, WORD_VEC_BACKEND, DEFAULT_K
+from rag.pipeline import (
+        _build_report_query, _format_context, _format_chunks,
+        RAG_K, MIN_SCORE, N_CTX
+    )
 bp = Blueprint("debug_ai", __name__)
 
 
@@ -86,8 +91,6 @@ def debug_query(profile_type, profile_id):
     if not ctx:
         return jsonify({"step": "2 — RAG Query", "status": "FAILED", "reason": "Context build failed."}), 404
 
-    from rag.pipeline import _build_report_query, RAG_K, MIN_SCORE
-    from rag.retrieve import retrieve, collection_size
 
     query      = _build_report_query(ctx)
     index_size = collection_size()
@@ -140,12 +143,6 @@ def debug_prompt(profile_type, profile_id):
     ctx  = _get_ctx(profile_type, profile_id)
     if not ctx:
         return jsonify({"step": "3 — Prompt Build", "status": "FAILED", "reason": "Context build failed."}), 404
-
-    from rag.pipeline import (
-        _build_report_query, _format_context, _format_chunks,
-        RAG_K, MIN_SCORE, N_CTX
-    )
-    from rag.retrieve import retrieve, collection_size
 
     query  = _build_report_query(ctx)
     raw    = retrieve(
@@ -249,7 +246,7 @@ def debug_full(profile_type, profile_id):
 
     # ── Step 2: RAG query ─────────────────────────────────────────
     from rag.pipeline import _build_report_query, RAG_K, MIN_SCORE, N_CTX
-    from rag.retrieve import retrieve, collection_size
+    
 
     query      = _build_report_query(ctx)
     index_size = collection_size()
@@ -296,17 +293,6 @@ def debug_full(profile_type, profile_id):
         "rag_block_chars": len(rag_block),
     })
 
-    # ── Step 4: LLM ───────────────────────────────────────────────
-    from rag.pipeline import _get_llm
-    llm = _get_llm()
-
-    if llm is None:
-        report["steps"].append({
-            "step": "4 — LLM Inference", "status": "FAILED",
-            "reason": "Model not loaded. Check MODEL_PATH in pipeline.py and that the GGUF file exists."
-        })
-        report["verdict"] = "FAILED at Step 4 — model not loaded"
-        return jsonify(report), 500
 
     t0 = time.perf_counter()
     try:

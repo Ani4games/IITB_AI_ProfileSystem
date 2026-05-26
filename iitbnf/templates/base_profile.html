@@ -1,0 +1,263 @@
+<!-- {#
+  base_profile.html
+  ═══════════════════════════════════════════════════════════════
+  Shared shell for staff profile (profile.html) and lab profile
+  (lab_profile.html).  Provides:
+
+    - <head> with fonts, Chart.js, shared CSS, theme init snippet
+    - Topbar with PDF split button (year list injected per page)
+    - Optional page-tab nav (lab uses tabs; staff has none)
+    - Hero card (name, role, avatar, meta, about bio)
+    - card-grid slot  → {% block sections %}
+    - Shared modals: PDF progress
+    - AI panel include
+    - Shared <script> constants + profile_shared.js load
+    - Page-specific JS slot → {% block page_js %}
+
+  Variables every extending template MUST set:
+    profile_type      "staff" | "lab"
+    display_name      person's full name (string)
+    initials          2-char string for avatar
+    role_label        displayed inside .hero-role badge
+    meta_items        list of {icon, text} for .hero-meta row
+    about_html        safe HTML string for .hero-about-text
+    avail_years       list[int]
+    selected_year     int
+    pdf_status_base   e.g. '/profile/pdf/status/'
+    pdf_download_base e.g. '/profile/pdf/download/'
+    pdf_start_url     e.g. '/profile/189/pdf/start?year='  (no year value)
+
+  Optional:
+    page_title        <title> text (defaults to display_name)
+    show_tabs         bool — renders .page-tab-nav if True (lab only)
+    tab_panels        list of {id, label, icon} rendered as tabs
+═══════════════════════════════════════════════════════════════
+#} -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+
+  <title>{% block page_title %}{{ display_name }} — IITBNF{% endblock %}</title>
+
+  {# ── Fonts ─────────────────────────────────────────────────── #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+  {# ── Theme init — must run before first paint to avoid flash ── #}
+  <script>
+    (function(){
+      const t = localStorage.getItem('iitbnf_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+
+  {# ── Shared CSS ────────────────────────────────────────────── #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='style_profile_shared.css') }}">
+
+  {# ── Page-specific extra CSS (optional) ───────────────────── #}
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body data-member-id="{{ member_id }}" data-profile-type="{{ profile_type }}">
+
+  {# ── Atmosphere layers ─────────────────────────────────────── #}
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+
+  {# ══════════════════════════════════════════════════════════════
+     TOPBAR
+  ══════════════════════════════════════════════════════════════ #}
+  <nav class="topbar">
+    <div class="topbar-left">
+      <a href="{{ url_for('admin_panel.index') }}#hub" class="back-link">← Hub</a>
+      <div class="topbar-divider"></div>
+    </div>
+    <div class="topbar-right">
+      <button class="util-btn" onclick="toggleTheme()" id="theme-btn">☀ Light</button>
+      <button class="util-btn" onclick="window.print()">⎙ Print</button>
+
+      {# PDF split button — year list populated by each page #}
+      <div class="pdf-split-btn" id="pdf-split-wrap">
+        <button class="pdf-split-main" id="pdf-download-btn"
+                onclick="handlePDFClick()" title="Download PDF report">
+          <span id="pdf-btn-dot"></span>
+          <span id="pdf-btn-label">⬇ PDF</span>
+        </button>
+        <button class="pdf-split-caret" id="pdf-caret-btn"
+                onclick="togglePDFPicker(event)"
+                title="Choose report year" aria-label="Choose report year">▾</button>
+        <div class="pdf-year-picker" id="pdf-year-picker"
+             role="listbox" aria-label="Select report year">
+          {% for y in avail_years %}
+          <button class="pdf-year-opt {% if y == selected_year %}active{% endif %}"
+                  data-year="{{ y }}" onclick="pickPDFYear({{ y }})">
+            {{ y }}
+            <span class="pdf-year-status" id="pdf-year-status-{{ y }}"></span>
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Extra topbar actions injected by each page (e.g. Owner PDF buttons) #}
+      {% block topbar_actions %}{% endblock %}
+
+      <a href="/logout" class="util-btn danger">⏻ Out</a>
+    </div>
+  </nav>
+
+  {# ══════════════════════════════════════════════════════════════
+     OPTIONAL PAGE TABS  (lab_profile uses; staff does not)
+  ══════════════════════════════════════════════════════════════ #}
+  {% if show_tabs %}
+  <div class="page-tab-nav" role="tablist" aria-label="Profile sections">
+    {% for tab in tab_panels %}
+    <button class="page-tab {% if loop.first %}active{% endif %}"
+            id="tab-{{ tab.id }}"
+            role="tab"
+            aria-selected="{{ 'true' if loop.first else 'false' }}"
+            aria-controls="panel-{{ tab.id }}"
+            onclick="switchTab('{{ tab.id }}')">
+      <span class="page-tab-icon">{{ tab.icon }}</span> {{ tab.label }}
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ══════════════════════════════════════════════════════════════
+     MAIN DASHBOARD PANEL
+     (For tabbed pages this wraps in a .page-panel; for staff it
+     renders directly — both look identical in the browser.)
+  ══════════════════════════════════════════════════════════════ #}
+  {% if show_tabs %}
+  <div id="panel-dashboard" class="page-panel active"
+       role="tabpanel" aria-labelledby="tab-dashboard">
+  {% endif %}
+
+  <div class="profile-root">
+
+    {# ══════════════════════════════════════════════════════════
+       HERO CARD
+    ══════════════════════════════════════════════════════════ #}
+    <div class="hero-card">
+      <div class="hero-banner"></div>
+      <div class="hero-body">
+
+        <div class="hero-avatar-wrap">
+          <div class="hero-avatar {% if profile_type == 'lab' %}lab-avatar{% endif %}">
+            {{ initials }}
+          </div>
+          {# Slot for topbar-style action buttons inside the avatar row #}
+          {% block hero_actions %}{% endblock %}
+        </div>
+
+        <div class="hero-name">{{ display_name }}</div>
+        <span class="hero-role {% if profile_type == 'lab' %}lab-role{% endif %}">
+          {{ role_label }}
+        </span>
+
+        {# Meta row: email, joining date, department, etc. #}
+        {% if meta_items %}
+        <div class="hero-meta">
+          {% for item in meta_items %}
+          <span class="hero-meta-item">
+            <span class="hero-meta-icon">{{ item.icon }}</span>{{ item.text }}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# About / bio paragraph — each page builds this in its route or block #}
+        <div class="hero-about">
+          <p class="hero-about-text">
+            {% block hero_about %}{{ about_html | safe }}{% endblock %}
+          </p>
+        </div>
+
+      </div>{# end .hero-body #}
+    </div>{# end .hero-card #}
+
+    {# ══════════════════════════════════════════════════════════
+       CARD GRID — each page fills this block with its own cards
+    ══════════════════════════════════════════════════════════ #}
+    <div class="card-grid">
+      {% block sections %}{% endblock %}
+    </div>
+
+  </div>{# end .profile-root #}
+
+  {% if show_tabs %}
+  </div>{# end #panel-dashboard #}
+  {% endif %}
+
+  {# ══════════════════════════════════════════════════════════════
+     EXTRA PANELS (AI tab, etc.) — injected by extending pages
+  ══════════════════════════════════════════════════════════════ #}
+  {% block extra_panels %}{% endblock %}
+
+  {# ══════════════════════════════════════════════════════════════
+     SHARED MODALS
+  ══════════════════════════════════════════════════════════════ #}
+
+  {# PDF progress modal — identical on both pages #}
+  <div class="modal-backdrop" id="pdf-progress-modal"
+       role="dialog" aria-modal="true">
+    <div class="modal-box pdf-modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">⬇</span>
+        <span class="modal-title">Generating PDF…</span>
+      </div>
+      <div class="pdf-modal-body">
+        <p id="pdf-status-msg" style="font-size:.8rem;color:var(--muted);">
+          Please wait while the report is prepared.
+        </p>
+        <div class="pdf-progress-bar">
+          <div class="pdf-progress-fill" id="pdf-prog"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Page-specific modals block #}
+  {% block modals %}{% endblock %}
+
+  {# ══════════════════════════════════════════════════════════════
+     AI VOICE PANEL (shared include — identical on both pages)
+  ══════════════════════════════════════════════════════════════ #}
+  {% include 'ai_panel.html' %}
+
+  {# ══════════════════════════════════════════════════════════════
+     JAVASCRIPT
+  ══════════════════════════════════════════════════════════════ #}
+
+  {# 1. Page-specific data constants — MUST be defined before shared JS #}
+  <script>
+    /* ── Core IDs / years ─────────────────────────────────────── */
+    const MEMBER_ID     = {{ member_id }};
+    const _initialYear  = {{ selected_year }};
+    const _availYears   = {{ avail_years | tojson | safe }};
+
+    /* ── PDF URL bases — set by each extending page ───────────── */
+    const _PDF_STATUS_BASE   = '{{ pdf_status_base }}';
+    const _PDF_DOWNLOAD_BASE = '{{ pdf_download_base }}';
+    // _PDF_START_URL is the prefix without the year; append year at call time:
+    // e.g. '/profile/189/pdf/start?year='  or  '/lab/189/pdf/start?year='
+    const _PDF_START_URL     = '{{ pdf_start_url }}';
+
+    {% block page_data %}{% endblock %}
+  </script>
+
+  {# 2. Shared JS library #}
+  <script src="{{ url_for('static', filename='profile_shared.js') }}"></script>
+
+  {# 3. Page-specific JS (section loaders, chart init, AI compose, etc.) #}
+  <script>
+    {% block page_js %}{% endblock %}
+  </script>
+
+</body>
+</html>

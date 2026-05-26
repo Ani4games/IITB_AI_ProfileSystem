@@ -1,115 +1,3 @@
-<!-- ══════════════════════════════════════════════════════════════════
-     IITBNF — Voice AI Panel
-     Uses: Web Speech API (STT + TTS) — zero server cost
-     Included in: profile.html, lab_profile.html
-══════════════════════════════════════════════════════════════════ -->
-
-<!-- ── Trigger Bubble ─────────────────────────────────────────────── -->
-<button id="ai-bubble" onclick="openAIModal()" aria-label="Open AI Voice Assistant" title="IITBNF AI Assistant">
-  <span class="ai-bubble-icon">✦</span>
-  <span class="ai-bubble-label">AI Assistant</span>
-</button>
-
-<!-- ── Main Modal ─────────────────────────────────────────────────── -->
-<div class="modal-backdrop" id="ai-modal" role="dialog" aria-modal="true" aria-label="IITBNF AI Voice Assistant">
-  <div class="ai-modal-box">
-
-    <!-- Header -->
-    <div class="ai-modal-head">
-      <div class="ai-head-left">
-        <div class="ai-logo-mark">✦</div>
-        <div>
-          <div class="ai-modal-title">IITBNF Assistant</div>
-          <div class="ai-modal-sub" id="ai-status-line">Ready</div>
-        </div>
-      </div>
-      <div class="ai-head-right">
-        <!-- Large Text Toggle -->
-        <button class="ai-util-btn" id="ai-large-text-btn" onclick="toggleLargeText()" title="Larger text for easier reading">
-          <span style="font-size:1rem;">Aa</span>
-        </button>
-        <!-- Voice Toggle -->
-        <button class="ai-util-btn" id="ai-voice-btn" onclick="toggleVoice()" title="Toggle voice output">
-          <span id="ai-voice-icon">🔊</span>
-        </button>
-        <!-- Close -->
-        <button class="ai-modal-close" onclick="closeAIModal()" aria-label="Close assistant">✕</button>
-      </div>
-    </div>
-
-    <!-- Orb + Quick Action Pills -->
-    <div class="ai-orb-zone">
-
-      <div class="ai-orb-wrap">
-        <div class="ai-orb" id="ai-orb">
-          <div class="ai-orb-core" id="ai-orb-core">✦</div>
-        </div>
-        <div class="ai-orb-label" id="ai-orb-label">Tap to speak</div>
-      </div>
-
-      <!-- Quick Action Pills -->
-      <div class="ai-quick-pills">
-        <button class="ai-pill" onclick="quickBrief('brief summary', this)">
-          <span class="pill-icon">◉</span> Brief
-        </button>
-        <button class="ai-pill" onclick="quickBrief('executive briefing for management', this)">
-          <span class="pill-icon">◈</span> Full Report
-        </button>
-        <button class="ai-pill" onclick="quickBrief('what is the attendance percentage', this)">
-          <span class="pill-icon">▦</span> Attendance
-        </button>
-        <button class="ai-pill" onclick="quickBrief('list all equipment and tools used', this)">
-          <span class="pill-icon">⬡</span> Equipment
-        </button>
-      </div>
-
-    </div>
-
-    <!-- Output Area -->
-    <div class="ai-output-area" id="ai-output-area">
-      <div id="ai-output-text" class="ai-output-text">
-        <span class="ai-placeholder">Hello. I am ready to brief you on this profile.<br>
-        Ask me anything, or choose an option above.</span>
-      </div>
-      <div id="ai-typing-cursor" class="ai-typing-cursor" style="display:none;">▌</div>
-    </div>
-
-    <!-- Mic + Text Input Row -->
-    <div class="ai-input-zone">
-      <!-- Mic Button -->
-      <button class="ai-mic-btn" id="ai-mic-btn" onclick="toggleMic()" title="Hold to speak">
-        <span class="ai-mic-icon" id="ai-mic-icon">🎤</span>
-      </button>
-
-      <!-- Text Input -->
-      <div class="ai-text-input-wrap">
-        <input
-          type="text"
-          id="ai-text-input"
-          class="ai-text-input"
-          placeholder="Or type your question here…"
-          autocomplete="off"
-        />
-      </div>
-
-      <!-- Send -->
-      <button class="ai-send-btn" onclick="sendAIText()" title="Send question">
-        <span>↑</span>
-      </button>
-    </div>
-
-    <!-- Speech support warning (shown only if not supported) -->
-    <div id="ai-no-speech-warn" class="ai-no-speech-warn" style="display:none;">
-      ⚠ Voice not available in this browser. Text input works normally.
-      Use Chrome or Edge for full voice features.
-    </div>
-
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════════════
-     STYLES
-══════════════════════════════════════════════════════════════════ -->
 <style>
 /* ── Trigger Bubble ──────────────────────────────────────────────── */
 #ai-bubble {
@@ -369,403 +257,608 @@
 /* ── Print: hide entirely ────────────────────────────────────────── */
 @media print { #ai-bubble, #ai-modal { display: none !important; } }
 </style>
+<style>
+/* ── AI Picker Menu (pops up when bubble is clicked) ─────────────── */
+#ai-picker-overlay {
+  position: fixed; bottom: 5.5rem; right: 1.75rem; z-index: 310;
+  display: flex; flex-direction: column; gap: .4rem;
+  opacity: 0; pointer-events: none;
+  transform: translateY(8px) scale(.97);
+  transition: opacity .18s ease, transform .18s ease;
+}
+#ai-picker-overlay.open {
+  opacity: 1; pointer-events: all;
+  transform: translateY(0) scale(1);
+}
+.ai-picker-option {
+  display: flex; align-items: center; gap: .6rem;
+  background: var(--surface, #0c0f18);
+  border: 1px solid rgba(245,166,35,.3);
+  border-radius: 12px; padding: .55rem 1rem;
+  cursor: pointer; white-space: nowrap;
+  font-family: var(--font-mono, 'Space Mono', monospace);
+  font-size: .68rem; font-weight: 700; letter-spacing: .06em;
+  color: var(--fg, #eef0f6);
+  box-shadow: 0 4px 20px rgba(0,0,0,.5);
+  transition: background .15s, border-color .15s, color .15s;
+  text-transform: uppercase;
+}
+.ai-picker-option:hover {
+  background: rgba(245,166,35,.1);
+  border-color: rgba(245,166,35,.6);
+  color: var(--amber, #f5a623);
+}
+.ai-picker-icon { font-size: .8rem; opacity: .8; }
+
+/* ── Summary + Q&A Modal shared box ─────────────────────────────── */
+.ai-summary-modal-box {
+  background: var(--surface, #0c0f18);
+  border: 1px solid rgba(245,166,35,.25);
+  border-radius: 18px;
+  width: 100%; max-width: 620px;
+  max-height: 80vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(245,166,35,.06),
+              0 24px 64px rgba(0,0,0,.7);
+  transform: scale(.96) translateY(12px);
+  transition: transform .2s ease;
+}
+.modal-backdrop.open .ai-summary-modal-box {
+  transform: scale(1) translateY(0);
+}
+.ai-summary-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .85rem 1.1rem;
+  border-bottom: 1px solid rgba(245,166,35,.1);
+  background: rgba(245,166,35,.04);
+  flex-shrink: 0;
+}
+.ai-summary-modal-name {
+  font-family: var(--font-mono, monospace);
+  font-size: .75rem; font-weight: 700;
+  color: var(--fg, #eef0f6); letter-spacing: .05em;
+}
+.ai-summary-modal-mode {
+  font-family: var(--font-mono, monospace);
+  font-size: .58rem; color: var(--amber, #f5a623);
+  letter-spacing: .1em; text-transform: uppercase;
+  margin-top: .15rem; opacity: .85;
+}
+.ai-summary-bubble {
+  flex: 1; overflow-y: auto; padding: 1rem 1.2rem;
+  min-height: 120px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,166,35,.2) transparent;
+}
+.ai-summary-bubble::-webkit-scrollbar { width: 3px; }
+.ai-summary-bubble::-webkit-scrollbar-thumb { background: rgba(245,166,35,.25); border-radius: 2px; }
+.ai-summary-idle {
+  display: flex; align-items: center; gap: .75rem;
+  color: var(--muted, #7c859e);
+  font-family: var(--font-mono, monospace); font-size: .75rem;
+  padding: 1rem 0;
+}
+.ai-summary-spinner {
+  width: 14px; height: 14px; flex-shrink: 0;
+  border: 2px solid rgba(245,166,35,.2);
+  border-top-color: var(--amber, #f5a623);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ai-summary-para {
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: .88rem; line-height: 1.8;
+  color: var(--fg, #eef0f6); margin-bottom: .75rem;
+  opacity: 0; transform: translateY(4px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+.ai-summary-para.visible { opacity: 1; transform: translateY(0); }
+.ai-summary-cursor {
+  display: inline-block; width: 2px; height: 1em;
+  background: var(--amber, #f5a623); border-radius: 1px;
+  margin-left: 1px; vertical-align: text-bottom;
+  animation: ai-blink .65s step-end infinite;
+}
+.ai-summary-modal-footer {
+  font-family: var(--font-mono, monospace);
+  font-size: .58rem; color: var(--faint, #3a4155);
+  letter-spacing: .08em; text-align: center;
+  padding: .5rem 1rem;
+  border-top: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+}
+
+/* ── Q&A specific ────────────────────────────────────────────────── */
+.ai-qa-answer {
+  flex: 1; overflow-y: auto; padding: .85rem 1.1rem;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: .88rem; line-height: 1.75;
+  color: var(--fg, #eef0f6); min-height: 80px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,166,35,.2) transparent;
+}
+.ai-qa-input-row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .65rem 1rem;
+  border-top: 1px solid rgba(255,255,255,.06);
+  background: rgba(0,0,0,.15); flex-shrink: 0;
+}
+.ai-qa-input {
+  flex: 1; padding: .45rem .75rem;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px; color: var(--fg, #eef0f6);
+  font-family: var(--font-mono, monospace); font-size: .72rem;
+  outline: none;
+  transition: border-color .15s, background .15s;
+}
+.ai-qa-input:focus {
+  border-color: rgba(245,166,35,.5);
+  background: rgba(245,166,35,.04);
+}
+.ai-qa-input::placeholder { color: rgba(255,255,255,.3); }
+.ai-qa-send {
+  width: 34px; height: 34px; border-radius: 8px;
+  background: var(--amber, #f5a623); color: #000;
+  border: none; font-weight: 700; font-size: .9rem;
+  cursor: pointer; transition: opacity .15s;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.ai-qa-send:hover { opacity: .85; }
+</style>
+<!-- ══════════════════════════════════════════════════════════════════
+     IITBNF — Voice AI Panel
+     Uses: Web Speech API (STT + TTS) — zero server cost
+     Included in: profile.html, lab_profile.html
+══════════════════════════════════════════════════════════════════ -->
+<!-- AI Picker Menu — 3 options shown when bubble is clicked -->
+<div id="ai-picker-overlay" >
+  <button class="ai-picker-option" onclick="openAISummaryModal('summary')">
+    <span class="ai-picker-icon">◈</span> Profile Summary
+  </button>
+  <button class="ai-picker-option" onclick="openAISummaryModal('qa')">
+    <span class="ai-picker-icon">?</span> Ask AI
+  </button>
+</div>
+<!-- ── Trigger Bubble ─────────────────────────────────────────────── -->
+<button id="ai-bubble" onclick="toggleAIPicker()" aria-label="Open AI Voice Assistant" title="IITBNF AI Assistant">
+  <span class="ai-bubble-icon">✦</span>
+  <span class="ai-bubble-label">AI Assistant</span>
+</button>
+
+<!-- AI SUMMARY MODAL (Brief + Executive) -->
+  <div class="modal-backdrop" id="ai-summary-modal" role="dialog" aria-modal="true">
+    <div class="ai-summary-modal-box">
+      <div class="ai-summary-modal-head">
+        <div>
+          <div class="ai-summary-modal-name" id="ai-modal-person-name" data-name></div>
+          <div class="ai-summary-modal-mode" id="ai-modal-mode-label">Brief Summary</div>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('ai-summary-modal')">✕</button>
+      </div>
+      <div class="ai-summary-bubble" id="ai-summary-bubble">
+        <div class="ai-summary-idle" id="ai-summary-idle">
+          <div class="ai-summary-spinner"></div>
+          <span>Generating…</span>
+        </div>
+      </div>
+      <div class="ai-summary-modal-footer" id="ai-summary-footer" style="display:none;">
+        ◈ IITBNF Analyst · Data-driven · No hallucination
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Q&A MODAL -->
+  <div class="modal-backdrop" id="ai-qa-modal" role="dialog" aria-modal="true">
+    <div class="ai-summary-modal-box">
+      <div class="ai-summary-modal-head">
+        <div>
+          <div class="ai-summary-modal-name" data-name></div>
+          <div class="ai-summary-modal-mode">Ask AI Assistant</div>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('ai-qa-modal')">✕</button>
+      </div>
+      <!-- Greeting -->
+      <div style="padding:.65rem 1.1rem .2rem;font-family:var(--font-mono);font-size:.65rem;color:var(--muted);"
+           id="ai-qa-greeting"></div>
+      <!-- Answer bubble -->
+      <div class="ai-qa-answer" id="ai-qa-answer">
+        <span style="color:var(--faint);font-style:italic;font-size:.85rem;">
+          Your answer will appear here…
+        </span>
+      </div>
+      <!-- Input row -->
+      <div class="ai-qa-input-row">
+        <input type="text" class="ai-qa-input" id="ai-qa-input"
+               placeholder="What is in your mind?"
+               autocomplete="off" />
+        <button class="ai-qa-send" onclick="sendAIQuestion()" title="Ask">↑</button>
+      </div>
+    </div>
+  </div>
+
 
 <!-- ══════════════════════════════════════════════════════════════════
      JAVASCRIPT
 ══════════════════════════════════════════════════════════════════ -->
 <script>
-(function() {
-'use strict';
-
-/* ── State ─────────────────────────────────────────────────────── */
-let _stream      = null;
-let _recognition = null;
-let _synth       = window.speechSynthesis || null;
-let _utterance   = null;
-let _voiceOn     = true;
-let _largeText   = false;
-let _isListening = false;
-let _isSpeaking  = false;
-let _speechSupported = false;
-let _pendingSpeech  = '';
-let _speechQueue    = [];
-
-/* ── DOM refs ────────────────────────────────────────────────────── */
-let _orb, _orbLabel, _orbCore, _statusLine,
-    _output, _cursor, _micBtn, _micIcon, _outputArea;
-
-/* ── Profile context ─────────────────────────────────────────────── */
-function _getProfile() {
-  const b = document.body;
-  return {
-    id:   b.dataset.memberId || b.dataset.memberid || '',
-    type: b.dataset.profileType || (location.pathname.startsWith('/lab/') ? 'lab' : 'staff')
-  };
-}
-
-/* ── Init ────────────────────────────────────────────────────────── */
-function _init() {
-  _orb        = document.getElementById('ai-orb');
-  _orbLabel   = document.getElementById('ai-orb-label');
-  _orbCore    = document.getElementById('ai-orb-core');
-  _statusLine = document.getElementById('ai-status-line');
-  _output     = document.getElementById('ai-output-text');
-  _cursor     = document.getElementById('ai-typing-cursor');
-  _micBtn     = document.getElementById('ai-mic-btn');
-  _micIcon    = document.getElementById('ai-mic-icon');
-  _outputArea = document.getElementById('ai-output-area');
-
-  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SpeechRec) {
-    _speechSupported = true;
-    _recognition = new SpeechRec();
-    _recognition.lang = 'en-IN';
-    _recognition.interimResults = true;
-    _recognition.maxAlternatives = 1;
-    _setupRecognition();
-  } else {
-    _speechSupported = false;
-    if (_micBtn) _micBtn.classList.add('unsupported');
-    const warn = document.getElementById('ai-no-speech-warn');
-    if (warn) warn.style.display = 'block';
-  }
-
-  const inp = document.getElementById('ai-text-input');
-  if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') sendAIText(); });
-
-  const modal = document.getElementById('ai-modal');
-  if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeAIModal(); });
-
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAIModal(); });
-
-  if (_orb) _orb.addEventListener('click', toggleMic);
-
-  _syncVoiceBtn();
-  _loadVoices();
-}
-
-/* ── Speech Recognition ─────────────────────────────────────────── */
-function _setupRecognition() {
-  if (!_recognition) return;
-
-  _recognition.onstart = () => {
-    _isListening = true;
-    _setOrbState('listening');
-    _setStatus('Listening…');
-    if (_micBtn) _micBtn.classList.add('active');
-    if (_micIcon) _micIcon.textContent = '🛑';
-  };
-
-  _recognition.onresult = e => {
-    const transcript = Array.from(e.results).map(r => r[0].transcript).join('');
-    const isFinal = e.results[e.results.length - 1].isFinal;
-    const inp = document.getElementById('ai-text-input');
-    if (inp) inp.value = transcript;
-    if (isFinal && transcript.trim()) {
-      _recognition.stop();
-      _startStream(transcript.trim());
+  // ── AI Bubble Picker ──────────────────────────────────────────────
+  function toggleAIPicker(e) {
+    if (e)  e.stopPropagation();
+    const overlay = document.getElementById('ai-picker-overlay');
+    if (!overlay) return;
+    const isOpen = overlay.classList.toggle('open');
+    if (isOpen) {
+      setTimeout(() => document.addEventListener('click', _closeAIPicker, { once: true }), 0);
     }
-  };
-
-  _recognition.onerror = e => {
-    _isListening = false;
-    _setOrbState('idle');
-    _setStatus('Ready');
-    if (_micBtn) _micBtn.classList.remove('active');
-    if (_micIcon) _micIcon.textContent = '🎤';
-    if (e.error === 'no-speech') _setStatus('No speech detected — try again');
-  };
-
-  _recognition.onend = () => {
-    _isListening = false;
-    if (_micBtn) _micBtn.classList.remove('active');
-    if (_micIcon) _micIcon.textContent = '🎤';
-    if (!_stream) { _setOrbState('idle'); _setStatus('Ready'); }
-  };
+  }
+  
+  function _closeAIPicker(e) {
+  const overlay = document.getElementById('ai-picker-overlay');
+  if (!overlay) return;
+  // If click was inside picker or on bubble, don't close
+  if (e && e.target) {
+    if (overlay.contains(e.target)) return;
+    const bubble = document.getElementById('ai-bubble');
+    if (bubble && bubble.contains(e.target)) return;
+  }
+  overlay.classList.remove('open');
 }
+  // ── AI Summary Modal (Brief + Executive) ──────────────────────────
+  const _AI_SPEED = {
+    short:     { char_base: 16, char_variance: 10, comma_pause: 80,  period_pause: 140, newline_pause: 240 },
+    executive: { char_base: 22, char_variance: 14, comma_pause: 100, period_pause: 180, newline_pause: 320 },
+  };
+  let _aiAnimFrame = null;
+  let _aiIsTyping  = false;
 
-/* ── Mic toggle ──────────────────────────────────────────────────── */
-window.toggleMic = function() {
-  if (!_speechSupported) {
-    document.getElementById('ai-no-speech-warn').style.display = 'block';
-    return;
-  }
-  if (_isListening) {
-    _recognition.stop();
-  } else {
-    _stopStream();
-    _stopSpeaking();
-    try { _recognition.start(); } catch(e) {}
-  }
-};
+  function openAISummaryModal(mode) {
+    const overlay = document.getElementById('ai-picker-overlay');
+    if (overlay) overlay.classList.remove('open');
 
-/* ── Voice output toggle ─────────────────────────────────────────── */
-window.toggleVoice = function() {
-  _voiceOn = !_voiceOn;
-  _syncVoiceBtn();
-  if (!_voiceOn) _stopSpeaking();
-};
-function _syncVoiceBtn() {
-  const btn  = document.getElementById('ai-voice-btn');
-  const icon = document.getElementById('ai-voice-icon');
-  if (!btn || !icon) return;
-  icon.textContent = _voiceOn ? '🔊' : '🔇';
-  btn.classList.toggle('active', _voiceOn);
-  btn.title = _voiceOn ? 'Voice on — click to mute' : 'Voice off — click to unmute';
-}
-
-/* ── Large text toggle ───────────────────────────────────────────── */
-window.toggleLargeText = function() {
-  _largeText = !_largeText;
-  const box = document.querySelector('.ai-modal-box');
-  if (box) box.classList.toggle('ai-large-text', _largeText);
-  const btn = document.getElementById('ai-large-text-btn');
-  if (btn) btn.classList.toggle('active', _largeText);
-};
-
-/* ── Modal open/close ────────────────────────────────────────────── */
-window.openAIModal = function() {
-  const modal = document.getElementById('ai-modal');
-  if (modal) { modal.classList.add('open'); document.body.style.overflow = 'hidden'; }
-};
-
-window.closeAIModal = function() {
-  const modal = document.getElementById('ai-modal');
-  if (modal) { modal.classList.remove('open'); document.body.style.overflow = ''; }
-  _stopStream();
-  _stopSpeaking();
-  if (_isListening && _recognition) _recognition.stop();
-  _setOrbState('idle');
-  _setStatus('Ready');
-  document.querySelectorAll('.ai-pill').forEach(p => p.classList.remove('active'));
-};
-
-/* ── Quick brief pills ───────────────────────────────────────────── */
-window.quickBrief = function(phrase, btn) {
-  document.querySelectorAll('.ai-pill').forEach(p => p.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  const inp = document.getElementById('ai-text-input');
-  if (inp) inp.value = phrase;
-  _startStream(phrase);
-};
-
-/* ── Text send ───────────────────────────────────────────────────── */
-window.sendAIText = function() {
-  const inp = document.getElementById('ai-text-input');
-  const msg = inp ? inp.value.trim() : '';
-  if (!msg) return;
-  _startStream(msg);
-};
-
-/* ── Core streaming ──────────────────────────────────────────────── */
-function _startStream(message) {
-  const p = _getProfile();
-  if (!p.id) {
-    _showOutput('Could not determine profile. Please refresh the page.');
-    return;
-  }
-
-  _stopStream();
-  _stopSpeaking();
-
-  if (_output)  { _output.innerHTML = ''; }
-  if (_cursor)  { _cursor.style.display = 'inline'; }
-  _pendingSpeech = '';
-  _speechQueue   = [];
-
-  _setOrbState('thinking');
-  _setStatus('Thinking…');
-
-  const url = `/api/ai/stream?profile_type=${p.type}&profile_id=${p.id}&message=${encodeURIComponent(message)}`;
-  _stream = new EventSource(url);
-
-  _stream.onmessage = e => {
-    const data = e.data;
-
-    if (data === '[DONE]') {
-      if (_cursor) _cursor.style.display = 'none';
-      _stopStream();
-      if (_pendingSpeech.trim()) _queueSpeak(_pendingSpeech.trim());
-      _flushSpeechQueue();
-      _setStatus('Done');
-      document.querySelectorAll('.ai-pill').forEach(p => p.classList.remove('active'));
+    if (mode === 'qa') {
+      const greet = document.getElementById('ai-qa-greeting');
+      if (greet) {
+        const hour = new Date().getHours();
+        const tod  = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+        const user = '{{ session.get("fname", "") }} {{ session.get("lname", "") }}'.trim() || 'there';
+        greet.textContent = `Good ${tod}, ${user}`;
+      }
+      const ans = document.getElementById('ai-qa-answer');
+      if (ans) ans.innerHTML = '<span style="color:var(--faint);font-style:italic;font-size:.85rem;">Your answer will appear here…</span>';
+      const inp = document.getElementById('ai-qa-input');
+      if (inp) inp.value = '';
+      openModal('ai-qa-modal');
+      setTimeout(() => { if (inp) inp.focus(); }, 200);
       return;
     }
 
-    if (data.startsWith('[ERROR]')) {
-      if (_cursor) _cursor.style.display = 'none';
-      _showOutput(data);
-      _stopStream();
-      _setOrbState('idle');
-      _setStatus('Error');
-      return;
-    }
+    // 'summary' mode — use the composer (short mode = instant, no LLM)
+    const labelEl  = document.getElementById('ai-modal-mode-label');
+    const bubbleEl = document.getElementById('ai-summary-bubble');
+    const footerEl = document.getElementById('ai-summary-footer');
+    if (labelEl)  labelEl.textContent  = 'Profile Summary';
+    if (footerEl) footerEl.style.display = 'none';
+    if (bubbleEl) bubbleEl.innerHTML = `<div class="ai-summary-idle"><div class="ai-summary-spinner"></div>
+                                        <span>Generating…</span></div>`;
+    openModal('ai-summary-modal');
+    _aiIsTyping = false;
+    if (_aiAnimFrame) clearTimeout(_aiAnimFrame);
 
-    try {
-      const token = JSON.parse(data);
-      if (token.startsWith('[MODE:') && token.includes(']')) {
-        const modeLabel = token.replace(/\[MODE:\s*/, '').replace(/\].*/, '').trim();
-        if (_output) {
-          const ph = _output.querySelector('.ai-placeholder');
-          if (ph) ph.remove();
-          const existing = _output.querySelector('.ai-mode-badge');
-          if (existing) existing.remove();
-          const badge = document.createElement('span');
-          badge.className = 'ai-mode-badge';
-          badge.textContent = modeLabel;
-          _output.insertBefore(badge, _output.firstChild);
-          const br = document.createElement('div');
-          br.style.cssText = 'height:.5rem;display:block;';
-          _output.insertBefore(br, badge.nextSibling);
-        }
+    // Always use short/composer mode — instant, no LLM required
+    _runBriefMode(bubbleEl, footerEl);
+  }
+
+  function _aiTypewriter(text, container, footerEl, speed) {
+    _aiIsTyping = true;
+    container.innerHTML = '';
+    const paragraphs = text.split('\n\n').filter(p => p.trim());
+    const nodes = [];
+    paragraphs.forEach(para => {
+      const div = document.createElement('div');
+      div.className = 'ai-summary-para';
+      div.style.fontFamily = 'var(--font-body)';
+      div.style.fontSize   = '.88rem';
+      div.style.lineHeight = '1.8';
+      div.style.color      = 'var(--fg)';
+      div.style.marginBottom = '.75rem';
+      container.appendChild(div);
+      nodes.push({ el: div, text: para.trim() });
+    });
+    const cursor = document.createElement('span');
+    cursor.className = 'ai-summary-cursor';
+    if (nodes.length > 0) nodes[0].el.appendChild(cursor);
+
+    function charDelay(c) {
+      let d = speed.char_base + Math.random() * speed.char_variance;
+      if (',;:'.includes(c)) d += speed.comma_pause;
+      if ('.!?'.includes(c)) d += speed.period_pause;
+      return d;
+    }
+    function typeNode(node, i, done) {
+      if (!node.el.classList.contains('visible')) {
+        setTimeout(() => node.el.classList.add('visible'), 50);
+      }
+      if (i >= node.text.length) { done(); return; }
+      const ch = node.text[i];
+      _aiAnimFrame = setTimeout(() => {
+        if (!_aiIsTyping) return;
+        const cur = container.querySelector('.ai-summary-cursor');
+        if (cur && cur.parentNode === node.el) node.el.insertBefore(document.createTextNode(ch), cur);
+        else node.el.appendChild(document.createTextNode(ch));
+        typeNode(node, i + 1, done);
+      }, charDelay(ch));
+    }
+    function typeAll(idx) {
+      if (idx >= nodes.length) {
+        _aiIsTyping = false;
+        const cur = container.querySelector('.ai-summary-cursor');
+        if (cur) cur.remove();
+        nodes.forEach(n => n.el.classList.add('visible'));
+        if (footerEl) footerEl.style.display = 'block';
         return;
       }
-      if (_output) {
-        const ph = _output.querySelector('.ai-placeholder');
-        if (ph) ph.remove();
-        _output.insertBefore(document.createTextNode(token), _cursor);
-      }
-      if (_outputArea) _outputArea.scrollTop = _outputArea.scrollHeight;
+      const node = nodes[idx];
+      const cur  = container.querySelector('.ai-summary-cursor');
+      if (cur) node.el.appendChild(cur);
+      const entrancePause = idx === 0 ? 0 : speed.newline_pause;
+      setTimeout(() => {
+        typeNode(node, 0, () => {
+          setTimeout(() => typeAll(idx + 1), idx < nodes.length - 1 ? speed.newline_pause : 0);
+        });
+      }, entrancePause);
+    }
+    typeAll(0);
+  }
 
-      _pendingSpeech += token;
-      const sentenceEnd = _pendingSpeech.search(/[.!?\n]/);
-      if (sentenceEnd !== -1) {
-        const sentence = _pendingSpeech.slice(0, sentenceEnd + 1).trim();
-        _pendingSpeech = _pendingSpeech.slice(sentenceEnd + 1);
-        if (sentence.length > 3) _queueSpeak(sentence);
-      } else if (_pendingSpeech.length > 80) {
-        const commaEnd = _pendingSpeech.lastIndexOf(',');
-        if (commaEnd > 20) {
-          const clause = _pendingSpeech.slice(0, commaEnd + 1).trim();
-          _pendingSpeech = _pendingSpeech.slice(commaEnd + 1);
-          if (clause.length > 5) _queueSpeak(clause);
+  function _runBriefMode(bubbleEl, footerEl) {
+    fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${MEMBER_ID}&mode=short`)
+      .then(r => {
+        const reader = r.body.getReader(), decoder = new TextDecoder();
+        let buffer = '';
+        function read() {
+          reader.read().then(({ done, value }) => {
+            if (done) return;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n'); buffer = lines.pop();
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const raw = line.slice(6).trim();
+              if (raw === '[DONE]') return;
+              if (raw.startsWith('[ERROR]')) {
+                bubbleEl.innerHTML = `<p style="color:var(--red);font-size:.8rem;">${raw}</p>`; return;
+              }
+              try {
+                const msg = JSON.parse(raw);
+                if (msg.type === 'text' && msg.content) {
+                  _aiTypewriter(msg.content, bubbleEl, footerEl, _AI_SPEED.short);
+                }
+              } catch(e) {}
+            }
+            read();
+          });
         }
+        read();
+      }).catch(e => { bubbleEl.innerHTML = `<p style="color:var(--red);">Error: ${e.message}</p>`; });
+  }
+
+  function _runExecutiveMode(bubbleEl, footerEl) {
+    let tokenBuffer = '';
+    const es = new EventSource(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${MEMBER_ID}&mode=executive`);
+    es.onmessage = event => {
+      const raw = event.data;
+      if (raw === '[DONE]') {
+        es.close();
+        const clean = tokenBuffer.trim().replace(/\*\*/g,'').replace(/\*/g,'').replace(/#{1,6}\s/g,'');
+        if (clean) _aiTypewriter(clean, bubbleEl, footerEl, _AI_SPEED.executive);
+        else bubbleEl.innerHTML = '<p style="color:var(--red);">No content received.</p>';
+        return;
       }
-    } catch(err) {}
-  };
-
-  _stream.onerror = () => {
-    if (_cursor) _cursor.style.display = 'none';
-    if (!_output || !_output.textContent.trim()) _showOutput('Connection error. Is the server running?');
-    _stopStream();
-    _setOrbState('idle');
-    _setStatus('Error — check server');
-  };
-}
-
-function _stopStream() {
-  if (_stream) { _stream.close(); _stream = null; }
-}
-
-/* ── TTS ─────────────────────────────────────────────────────────── */
-let _voiceCache = [];
-function _loadVoices() {
-  if (!_synth) return;
-  const v = _synth.getVoices();
-  if (v.length) { _voiceCache = v; return; }
-  _synth.addEventListener('voiceschanged', () => {
-    _voiceCache = _synth.getVoices();
-  }, { once: true });
-}
-
-function _pickVoice() {
-  if (!_voiceCache.length) _voiceCache = _synth ? _synth.getVoices() : [];
-  return _voiceCache.find(v => v.lang.startsWith('en') && v.name.includes('Google'))
-      || _voiceCache.find(v => v.lang.startsWith('en') && v.name.includes('Microsoft'))
-      || _voiceCache.find(v => v.lang.startsWith('en') && v.name.includes('Samantha'))
-      || _voiceCache.find(v => v.lang.startsWith('en'))
-      || _voiceCache[0]
-      || null;
-}
-
-function _queueSpeak(text) {
-  if (!_voiceOn || !_synth) return;
-  const t = text.trim();
-  if (!t || (t.startsWith('[') && t.endsWith(']'))) return;
-  if (t.startsWith('[') && t.includes(':')) return;
-  _speechQueue.push(t);
-  if (!_isSpeaking) _speakNext();
-}
-
-function _flushSpeechQueue() {
-  if (!_voiceOn || !_synth || !_speechQueue.length) return;
-  if (!_isSpeaking) _speakNext();
-}
-
-let _ttsKeepalive = null;
-function _startKeepalive() {
-  if (_ttsKeepalive) return;
-  _ttsKeepalive = setInterval(() => {
-    if (_synth && _synth.speaking) { _synth.pause(); _synth.resume(); }
-  }, 10000);
-}
-function _stopKeepalive() {
-  if (_ttsKeepalive) { clearInterval(_ttsKeepalive); _ttsKeepalive = null; }
-}
-
-function _speakNext() {
-  if (!_voiceOn || !_synth || !_speechQueue.length) {
-    _isSpeaking = false;
-    _stopKeepalive();
-    _setOrbState('idle');
-    _setStatus('Ready');
-    return;
+      if (raw.startsWith('[ERROR]')) {
+        es.close(); bubbleEl.innerHTML = `<p style="color:var(--red);font-size:.8rem;">${raw}</p>`; return;
+      }
+      if (raw.startsWith(':') || raw === '') return;
+      try {
+        const msg = JSON.parse(raw);
+        if (msg.type === 'token' && msg.content) tokenBuffer += msg.content;
+      } catch(_) {}
+    };
+    es.onerror = () => {
+      es.close();
+      if (tokenBuffer.trim()) _aiTypewriter(tokenBuffer.trim(), bubbleEl, footerEl, _AI_SPEED.executive);
+      else bubbleEl.innerHTML = '<p style="color:var(--red);">Connection error.</p>';
+    };
   }
-  _isSpeaking = true;
-  _startKeepalive();
-  _setOrbState('speaking');
-  _setStatus('Speaking…');
 
-  const text = _speechQueue.shift();
-  _utterance = new SpeechSynthesisUtterance(text);
-  _utterance.rate   = 0.90;
-  _utterance.pitch  = 1.0;
-  _utterance.volume = 1.0;
-  _utterance.lang   = 'en-IN';
+  // ── AI Q&A ────────────────────────────────────────────────────────
+  let _qaTyping = false;
+  let _qaFrame  = null;
 
-  const v = _pickVoice();
-  if (v) _utterance.voice = v;
+  function sendAIQuestion() {
+    const inp = document.getElementById('ai-qa-input');
+    const ans = document.getElementById('ai-qa-answer');
+    if (!inp || !ans) return;
+    const q = inp.value.trim();
+    if (!q) return;
+    inp.value = '';
+    ans.innerHTML = `<div class="ai-summary-idle"><div class="ai-summary-spinner"></div><span>Thinking…</span></div>`;
+    _qaTyping = false;
+    if (_qaFrame) clearTimeout(_qaFrame);
 
-  _utterance.onend   = () => { _isSpeaking = false; _speakNext(); };
-  _utterance.onerror = (e) => { console.warn('TTS error:', e.error); _isSpeaking = false; _speakNext(); };
-  _synth.speak(_utterance);
-}
-
-function _stopSpeaking() {
-  _speechQueue   = [];
-  _pendingSpeech = '';
-  _isSpeaking    = false;
-  _stopKeepalive();
-  if (_synth) { _synth.cancel(); }
-}
-
-/* ── Orb state helpers ───────────────────────────────────────────── */
-function _setOrbState(state) {
-  if (!_orb) return;
-  _orb.classList.remove('listening', 'speaking', 'thinking');
-  if (state !== 'idle') _orb.classList.add(state);
-  const labels = { idle: 'Tap to speak', listening: 'Listening…', speaking: 'Speaking…', thinking: 'Thinking…' };
-  if (_orbLabel) _orbLabel.textContent = labels[state] || 'Ready';
-  if (_orbCore) {
-    const icons = { idle: '✦', listening: '◉', speaking: '▶', thinking: '…' };
-    _orbCore.textContent = icons[state] || '✦';
+    const es = new EventSource(
+      `/api/ai/stream?profile_type=${PROFILE_TYPE}&profile_id=${MEMBER_ID}&message=${encodeURIComponent(q)}`
+    );
+    let fullText = '';
+    es.onmessage = event => {
+      const raw = event.data;
+      if (raw === '[DONE]') { es.close(); return; }
+      if (raw.startsWith('[ERROR]')) {
+        es.close(); ans.innerHTML = `<p style="color:var(--red);font-size:.82rem;">${raw}</p>`; return;
+      }
+      try {
+        const token = JSON.parse(raw);
+        if (typeof token === 'string' && !token.startsWith('[MODE:')) {
+          if (!fullText) ans.innerHTML = '';
+          fullText += token;
+          // Simple typewriter — append chars directly for Q&A speed
+          ans.textContent = fullText;
+        }
+      } catch(_) {}
+    };
+    es.onerror = () => { es.close(); if (!fullText) ans.innerHTML = '<p style="color:var(--red);">Connection error.</p>'; };
   }
-}
 
-function _setStatus(text) {
-  if (_statusLine) _statusLine.textContent = text;
-}
+  // Q&A send on Enter
+  document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('ai-qa-input');
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') sendAIQuestion(); });
+  });
+    const SPEED = {
+      short:     { char_base:16, char_variance:10, comma_pause:80, period_pause:140, newline_pause:240, word_end:6 },
+      executive: { char_base:22, char_variance:14, comma_pause:100, period_pause:180, newline_pause:320, word_end:8 },
+    };
+    let _mode='short', _animFrame=null, _currentText='', _isTyping=false, _tokenBuffer='';
 
-function _showOutput(text) {
-  if (_output) _output.textContent = text;
-}
+    const outputEl = () => document.getElementById('about-body');
+    const footerEl = () => document.getElementById('about-footer');
+    const badgeDot = () => document.getElementById('ai-badge-dot');
+    const copyBtn  = () => document.getElementById('about-copy-btn');
 
-/* ── Boot ────────────────────────────────────────────────────────── */
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', _init);
-} else {
-  _init();
-}
+    function spd() { return SPEED[_mode]||SPEED.short; }
+    function rand(a,b){ return Math.random()*(b-a)+a; }
+    function charDelay(c){
+      let d=spd().char_base+rand(0,spd().char_variance);
+      if(',;:'.includes(c)) d+=spd().comma_pause;
+      if('.!?'.includes(c)) d+=spd().period_pause;
+      if(c===' ') d+=spd().word_end;
+      return d;
+    }
+    function setBadge(state){
+      const dot=badgeDot(); if(!dot) return;
+      dot.className=state==='generating'?'ai-badge-dot pulsing':state==='done'?'ai-badge-dot done':'ai-badge-dot';
+    }
+    function setFooter(text){
+      const f=footerEl(); if(!f) return;
+      const words=text.split(/\s+/).filter(Boolean).length;
+      const wc=document.getElementById('about-word-count');
+      if(wc)wc.textContent=`${words} words`;
+      f.style.display='flex';
+    }
+    function showIdle(msg){
+      const o=outputEl(); if(!o) return;
+      o.innerHTML=`<div class="about-idle"><div class="about-idle-icon">◈</div><div class="about-idle-text">${msg}</div></div>`;
+    }
+    function buildParagraphNodes(text){
+      const o=outputEl(); if(!o) return [];
+      o.innerHTML='';
+      if(_mode==='executive'){
+        const b=document.createElement('div'); b.className='ai-executive-badge';
+        b.textContent='◈ Executive Summary · AI Generated'; o.appendChild(b);
+      }
+      const paragraphs=text.split('\n\n').filter(p=>p.trim());
+      const nodes=[];
+      paragraphs.forEach(para=>{
+        const div=document.createElement('div'); div.className='about-para'; o.appendChild(div);
+        nodes.push({el:div,text:para.trim()});
+      });
+      const cursor=document.createElement('span'); cursor.className='about-cursor'; cursor.id='about-cursor';
+      if(nodes.length>0) nodes[0].el.appendChild(cursor);
+      return nodes;
+    }
+    function typeIntoNode(node,charIndex,onComplete){
+      if(!node.el.classList.contains('visible')) setTimeout(()=>node.el.classList.add('visible'),50);
+      if(charIndex>=node.text.length){onComplete();return;}
+      const char=node.text[charIndex];
+      _animFrame=setTimeout(()=>{
+        if(!_isTyping) return;
+        const cursor=document.getElementById('about-cursor');
+        if(cursor&&cursor.parentNode===node.el) node.el.insertBefore(document.createTextNode(char),cursor);
+        else node.el.appendChild(document.createTextNode(char));
+        typeIntoNode(node,charIndex+1,onComplete);
+      },charDelay(char));
+    }
+    function typeSequentially(nodes,nodeIndex,onAllDone){
+      if(nodeIndex>=nodes.length){onAllDone();return;}
+      const node=nodes[nodeIndex],cursor=document.getElementById('about-cursor');
+      if(cursor) node.el.appendChild(cursor);
+      setTimeout(()=>{
+        typeIntoNode(node,0,()=>{setTimeout(()=>typeSequentially(nodes,nodeIndex+1,onAllDone),nodeIndex<nodes.length-1?spd().newline_pause:0);});
+      },nodeIndex===0?0:spd().newline_pause);
+    }
+    function _startTypewriter(text){
+      _isTyping=true; _currentText=text;
+      const nodes=buildParagraphNodes(text); if(!nodes.length){setBadge('done');return;}
+      typeSequentially(nodes,0,()=>{
+        _isTyping=false;
+        const cursor=document.getElementById('about-cursor'); if(cursor)cursor.remove();
+        document.querySelectorAll('.about-para').forEach(p=>p.classList.add('visible'));
+        setBadge('done'); setFooter(text);
+        const cb=copyBtn(); if(cb)cb.style.display='inline-flex';
+      });
+    }
+    function runShortMode(){
+      showIdle('Generating profile summary…'); setBadge('generating');
+      const f=footerEl(); if(f)f.style.display='none';
+      const cb=copyBtn(); if(cb)cb.style.display='none';
+      fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=short`)
+        .then(r=>{
+          const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='';
+          function read(){reader.read().then(({done,value})=>{
+            if(done) return;
+            buffer+=decoder.decode(value,{stream:true});
+            const lines=buffer.split('\n'); buffer=lines.pop();
+            for(const line of lines){
+              if(!line.startsWith('data: ')) continue;
+              const raw=line.slice(6).trim();
+              if(raw==='[DONE]') return;
+              if(raw.startsWith('[ERROR]')){const o=outputEl();if(o)o.innerHTML=`<p style="color:var(--red);font-size:.8rem;">${raw}</p>`;setBadge('idle');return;}
+              try{const msg=JSON.parse(raw);if(msg.type==='text'&&msg.content)_startTypewriter(msg.content);}catch(e){}
+            }
+            read();
+          });}
+          read();
+        }).catch(e=>{const o=outputEl();if(o)o.innerHTML=`<p style="color:var(--red);">Error: ${e.message}</p>`;setBadge('idle');});
+    }
+    function runExecutiveMode(){
+      _tokenBuffer=''; setBadge('generating');
+      const f=footerEl(); if(f)f.style.display='none';
+      const cb=copyBtn(); if(cb)cb.style.display='none';
+      const o=outputEl(); if(o)o.innerHTML=`<div class="about-idle"><div class="about-idle-icon" style="animation:about-pulse 1s ease-in-out infinite;">◈</div><div class="about-idle-text" id="about-loading-msg">Connecting to AI model…</div></div>`;
+      const es=new EventSource(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=executive`);
+      es.onmessage=event=>{
+        const raw=event.data;
+        if(raw==='[DONE]'){es.close();const clean=_tokenBuffer.trim().replace(/\*\*/g,'').replace(/\*/g,'').replace(/#{1,6}\s/g,'');if(clean)_startTypewriter(clean);else{const out=outputEl();if(out)out.innerHTML='<p style="color:var(--red);">No content received.</p>';setBadge('idle');}return;}
+        if(raw.startsWith('[ERROR]')){es.close();const out=outputEl();if(out)out.innerHTML=`<p style="color:var(--red);font-size:.8rem;">${raw}</p>`;setBadge('idle');return;}
+        if(raw.startsWith(':')||raw==='') return;
+        try{const msg=JSON.parse(raw);if(msg.type==='token'&&msg.content){_tokenBuffer+=msg.content;const lm=document.getElementById('about-loading-msg');if(lm)lm.textContent=`Writing… ${_tokenBuffer.split(/\s+/).filter(Boolean).length} words`;}}catch(_){}
+      };
+      es.onerror=()=>{es.close();if(_tokenBuffer.trim())_startTypewriter(_tokenBuffer.trim());else{const o=outputEl();if(o)o.innerHTML='<p style="color:var(--red);">Connection error. Is Ollama running?</p>';setBadge('idle');}};
+    }
 
-})();
+    window.startAbout = function(){
+      _isTyping=false; _tokenBuffer=''; _currentText='';
+      if(_animFrame) clearTimeout(_animFrame);
+      _mode==='short' ? runShortMode() : runExecutiveMode();
+    };
+    window.setAboutMode = function(mode){
+      _mode=mode;
+      document.querySelectorAll('.about-mode-btn').forEach(b=>{
+        b.classList.toggle('active', b.id===`btn-mode-${mode}`);
+      });
+      _currentText=''; startAbout();
+    };
+    window.copyAbout = function(){
+      const text=_currentText||_tokenBuffer; if(!text) return;
+      navigator.clipboard.writeText(text).then(()=>{
+        const cb=copyBtn(); if(!cb) return;
+        const orig=cb.textContent; cb.textContent='✓ Copied';
+        setTimeout(()=>{cb.textContent=orig;},1800);
+      });
+    };
+
+    // Auto-start on load
+    requestAnimationFrame(()=>setTimeout(startAbout, 300));
 </script>

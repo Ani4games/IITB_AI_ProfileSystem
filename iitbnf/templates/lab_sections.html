@@ -1,0 +1,911 @@
+{#
+  lab_sections.html  (replaces lab_profile.html)
+  ═══════════════════════════════════════════════════════════════
+  Extends base_profile.html.
+  Contains ONLY what is lab-specific:
+    - Hero variable setup (display_name, initials, role_label, meta_items)
+    - Card grid (reservations, equipment requests, access/cancellations,
+                 permissions, session reports, errors, projects,
+                 system ownership, ownership history)
+    - AI Profile tab panel
+    - Lab-specific modals (reservations, requests, access, cancellations,
+                           perms, sessions, errors, projects, ownership)
+    - Lab-specific JS (section loaders, PDF prefetch, AI compose engine,
+                       tab switching, reservation metrics init)
+
+  Route context variables (from lab_profile.py → lab_profile()):
+    user, stats, reservations, requests, lab_access, projects,
+    cancellations, errors, reg, session_reports, tool_perms_rich,
+    system_owned, owner_track, avail_years, selected_year,
+    memberid, full_access
+═══════════════════════════════════════════════════════════════
+#}
+{% extends "base_profile.html" %}
+
+{# ── Hero variables ──────────────────────────────────────────── #}
+{% set display_name = user.fname ~ ' ' ~ user.lname %}
+{% set initials     = '%04d' % memberid %}
+{% set role_label   = user.position or 'Lab User' %}
+{% set profile_type = "lab" %}
+{% set member_id    = memberid %}
+
+{# Tabs: dashboard + AI Profile #}
+{% set show_tabs  = true %}
+{% set tab_panels = [
+    {'id': 'dashboard', 'label': 'Dashboard', 'icon': '◈'},
+    {'id': 'ai',        'label': 'AI Profile', 'icon': '✦'},
+] %}
+
+{# Build meta_items #}
+{% set meta_items = [] %}
+{% if user.email %}
+  {% set _ = meta_items.append({'icon': '✉', 'text': user.email}) %}
+{% endif %}
+{% if user.department %}
+  {% set _ = meta_items.append({'icon': '⊕', 'text': user.department}) %}
+{% endif %}
+{% if user.supervisor_name or user.supervisor %}
+  {% set _ = meta_items.append({'icon': '↳', 'text': 'Supervisor: ' ~ (user.supervisor_name or user.supervisor)}) %}
+{% endif %}
+
+{# About html #}
+{% set about_html %}
+  <strong>{{ user.fname }} {{ user.lname }}</strong> is registered at IITBNF as a
+  <strong>{{ user.position or 'lab user' }}</strong>
+  {%- if user.department %} in the <strong>{{ user.department }}</strong> department{%- endif -%}.
+  {% if user.research_area and user.research_area not in ('', 'NA', 'N/A') %}
+    Research focus: <strong>{{ user.research_area }}</strong>.
+  {% endif %}
+{% endset %}
+
+{# PDF URL bases for shared JS #}
+{% set pdf_status_base   = '/lab/pdf/status/' %}
+{% set pdf_download_base = '/lab/pdf/download/' %}
+{% set pdf_start_url     = '/lab/' ~ memberid ~ '/pdf/start?year=' %}
+
+{# ── Page title ──────────────────────────────────────────────── #}
+{% block page_title %}{{ user.fname }} {{ user.lname }} | IITBNF Lab Profile{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   CARD GRID — lab cards
+════════════════════════════════════════════════════════════════ #}
+{% block sections %}
+
+  {# Slot Reservations #}
+  <div class="prf-card accent-blue" onclick="openModal('res-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon">◉</span>
+      <span class="card-title">Slot Reservations</span>
+      <select class="card-year-sel" onclick="event.stopPropagation()"
+              onchange="loadLabSection('reservations', this.value)">
+        {% for y in avail_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" id="c-res-total">{{ reservations | length }}<span class="unit"> slots</span></div>
+      <div class="card-sub">lifetime: {{ stats.reservations }} total</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View schedule <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Equipment Requests #}
+  <div class="prf-card accent-amber" onclick="openModal('req-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon">⬡</span>
+      <span class="card-title">Equipment Requests</span>
+      <select class="card-year-sel" onclick="event.stopPropagation()"
+              onchange="loadLabSection('requests', this.value)">
+        {% for y in avail_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="card-metric">
+      {% set approved = requests | selectattr('status','equalto',3) | list | length %}
+      {% set pending  = requests | selectattr('status','equalto',1) | list | length %}
+      <div class="card-big" id="c-req-total">{{ requests | length }}<span class="unit"> req</span></div>
+      <div class="card-sub">{{ stats.requests }} lifetime requests</div>
+      <div class="card-pills" style="margin-top:.3rem;">
+        <span class="cpill green" id="c-req-approved">✓ {{ approved }}</span>
+        <span class="cpill amber" id="c-req-pending">⏳ {{ pending }}</span>
+      </div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View requests <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Lab Access OR Cancellations #}
+  {% if lab_access %}
+  <div class="prf-card accent-green" onclick="openModal('access-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--green);">▦</span>
+      <span class="card-title">Lab Access Log</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big good">{{ lab_access | length }}<span class="unit"> entries</span></div>
+      <div class="card-sub">physical lab access records</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View access log <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+  {% else %}
+  <div class="prf-card accent-purple" onclick="openModal('cancel-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--purple);">✕</span>
+      <span class="card-title">Cancellations</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" style="color:var(--purple);">{{ cancellations | length }}<span class="unit"> cancel</span></div>
+      <div class="card-sub">reservation cancellations</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View detail <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Tool Permissions #}
+  <div class="prf-card accent-blue" onclick="openModal('perms-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon">⊞</span>
+      <span class="card-title">Tool Permissions</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" style="color:var(--blue);">{{ tool_perms_rich | length }}<span class="unit"> tools</span></div>
+      <div class="card-sub">approved equipment access</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View permissions <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Session Reports #}
+  {% if session_reports %}
+  <div class="prf-card accent-green" onclick="openModal('session-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--green);">▤</span>
+      <span class="card-title">Session Reports</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big good">{{ session_reports | length }}<span class="unit"> rpts</span></div>
+      <div class="card-sub">equipment usage reports submitted</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View reports <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Error Reports (admin only) #}
+  {% if full_access and errors %}
+  <div class="prf-card accent-red" onclick="openModal('error-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--red);">⚠</span>
+      <span class="card-title">Error Reports</span>
+    </div>
+    <div class="card-metric">
+      {% set open_errors = errors | selectattr('status','equalto',0) | list | length %}
+      <div class="card-big {% if open_errors > 0 %}bad{% else %}good{% endif %}">
+        {{ errors | length }}<span class="unit"> total</span>
+      </div>
+      <div class="card-sub">{% if open_errors > 0 %}{{ open_errors }} open / pending{% else %}all resolved{% endif %}</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View errors <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Projects & Papers #}
+  <div class="prf-card accent-green" onclick="openModal('projects-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--green);">◈</span>
+      <span class="card-title">Projects &amp; Papers</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big good">{{ stats.projects }}<span class="unit"> proj</span></div>
+      <div class="card-sub">{{ stats.papers }} approved publication{{ 's' if stats.papers != 1 else '' }}</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View output <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# System Ownership (current) #}
+  {% if system_owned %}
+  <div class="prf-card accent-amber" onclick="openModal('ownership-current-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon">◐</span>
+      <span class="card-title">Current Assignments</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big">{{ system_owned | length }}<span class="unit"> tools</span></div>
+      <div class="card-sub">assigned as system owner</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View tools <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+  {% endif %}
+
+  {# Ownership History #}
+  {% if owner_track %}
+  {% set active_own = owner_track | selectattr('is_active') | list | length %}
+  <div class="prf-card accent-purple" onclick="openModal('ownership-history-modal')" role="button">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--purple);">↻</span>
+      <span class="card-title">Ownership History</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" style="color:var(--purple);">{{ owner_track | length }}<span class="unit"> records</span></div>
+      <div class="card-sub">{{ active_own }} active, {{ owner_track | length - active_own }} past</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View history <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+  {% endif %}
+
+{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   AI PROFILE TAB PANEL  (lab only — staff has no tab system)
+════════════════════════════════════════════════════════════════ #}
+{% block extra_panels %}
+<div id="panel-ai" class="page-panel" role="tabpanel" aria-labelledby="tab-ai">
+  <div class="ai-profile-pane">
+    <div class="ai-profile-inner">
+      <div class="ai-profile-badge" id="ai-badge">
+        <span class="ai-badge-dot" id="ai-badge-dot"></span>
+        <span id="ai-badge-text">✦ AI Profile</span>
+      </div>
+      <h2 class="ai-profile-heading">{{ user.fname }} {{ user.lname }}</h2>
+      <p class="ai-profile-sub">
+        {{ user.position or 'Lab User' }}{% if user.department %} · {{ user.department }}{% endif %}
+      </p>
+      <div class="ai-profile-divider"></div>
+
+      <div class="ai-compose-card" id="ai-compose-card">
+        <div class="ai-compose-toolbar">
+          <div class="ai-compose-toolbar-left">
+            <span class="ai-compose-model-tag">◈ IITBNF Analyst</span>
+            <span class="ai-compose-timestamp" id="ai-compose-ts"></span>
+          </div>
+          <div class="ai-compose-toolbar-right">
+            <button class="ai-compose-action-btn" id="ai-copy-btn"
+                    onclick="copyAISummary()" style="display:none;">⎘ Copy</button>
+            <button class="ai-compose-action-btn" id="ai-regen-btn"
+                    onclick="startAICompose()">↻ Regenerate</button>
+          </div>
+        </div>
+        <div class="ai-compose-output" id="ai-compose-output">
+          <div class="ai-compose-idle" id="ai-compose-idle">
+            <div class="ai-idle-icon">◈</div>
+            <div class="ai-idle-text">Generating profile analysis…</div>
+          </div>
+        </div>
+        <div class="ai-compose-footer" id="ai-compose-footer" style="display:none;">
+          <span class="ai-footer-stat" id="ai-word-count"></span>
+          <span class="ai-footer-divider">·</span>
+          <span class="ai-footer-stat">Data-driven · No hallucination</span>
+          <span class="ai-footer-divider">·</span>
+          <span class="ai-footer-stat" id="ai-section-count"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% include "ai_panel.html" %}
+
+{# ════════════════════════════════════════════════════════════════
+   LAB-SPECIFIC MODALS
+════════════════════════════════════════════════════════════════ #}
+{% block modals %}
+
+  {# RESERVATIONS MODAL #}
+  <div class="modal-backdrop" id="res-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">◉</span>
+        <span class="modal-title">Slot Reservations — {{ selected_year }}</span>
+        <button class="modal-close-btn" onclick="closeModal('res-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val">{{ reservations | length }}</div><div class="mm-key">This Year</div></div>
+          <div class="mm-box"><div class="mm-val">{{ stats.reservations }}</div><div class="mm-key">Lifetime</div></div>
+          <div class="mm-box"><div class="mm-val good" id="m-res-completed">—</div><div class="mm-key">Completed</div></div>
+          <div class="mm-box"><div class="mm-val warn" id="m-res-upcoming">—</div><div class="mm-key">Upcoming</div></div>
+        </div>
+        {% if reservations %}
+        <div class="modal-section">
+          <div class="modal-section-title">Reservation Log</div>
+          <div class="table-scroll" style="max-height:360px;overflow-y:auto;">
+            <table class="modal-table" id="res-table">
+              <thead><tr><th>Start</th><th>Equipment</th><th>End</th><th>Status</th></tr></thead>
+              <tbody>
+              {% for r in reservations %}
+              <tr>
+                <td>{{ r.start_dt or '—' }}</td>
+                <td>{{ r.tool_name or '—' }}</td>
+                <td>{{ r.end_dt or '—' }}</td>
+                <td>{% if r.booking_status %}<span class="stag {% if 'Completed' in r.booking_status %}stag-muted{% elif 'Upcoming' in r.booking_status %}stag-amber{% else %}stag-green{% endif %}">{{ r.booking_status }}</span>{% else %}—{% endif %}</td>
+              </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% if cancellations %}
+        <div class="modal-section">
+          <div class="modal-section-title">Cancellations ({{ cancellations | length }})</div>
+          <div class="table-scroll">
+            <table class="modal-table">
+              <thead><tr><th>Start</th><th>Equipment</th><th>Reason</th><th>Cancelled</th></tr></thead>
+              <tbody>
+              {% for c in cancellations %}
+              <tr><td>{{ c.start_dt or '—' }}</td><td>{{ c.tool_name or '—' }}</td><td class="cell-muted">{{ c.reason or '—' }}</td><td>{{ c.cancel_time or '—' }}</td></tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No reservations for this year.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# EQUIPMENT REQUESTS MODAL #}
+  <div class="modal-backdrop" id="req-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--amber);">⬡</span>
+        <span class="modal-title">Equipment Requests — {{ selected_year }}</span>
+        <button class="modal-close-btn" onclick="closeModal('req-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if requests %}
+        {% set approved = requests | selectattr('status','equalto',3) | list | length %}
+        {% set pending  = requests | selectattr('status','equalto',1) | list | length %}
+        {% set rejected = requests | selectattr('status','equalto',2) | list | length %}
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val">{{ requests | length }}</div><div class="mm-key">Total</div></div>
+          <div class="mm-box"><div class="mm-val good">{{ approved }}</div><div class="mm-key">Approved</div></div>
+          <div class="mm-box"><div class="mm-val warn">{{ pending }}</div><div class="mm-key">Pending</div></div>
+          <div class="mm-box"><div class="mm-val bad">{{ rejected }}</div><div class="mm-key">Rejected</div></div>
+        </div>
+        <div class="table-scroll" style="max-height:360px;overflow-y:auto;">
+          <table class="modal-table" id="req-table">
+            <thead><tr><th>Equipment</th><th>Requested</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for r in requests %}
+            <tr>
+              <td>{{ r.tool_name or '—' }}</td>
+              <td class="cell-muted">{{ r.date_of_request or '—' }}</td>
+              <td>{% if r.status == 3 %}<span class="stag stag-green">Approved</span>{% elif r.status == 2 %}<span class="stag stag-red">Rejected</span>{% else %}<span class="stag stag-amber">Pending</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No equipment requests for this year.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# LAB ACCESS MODAL #}
+  {% if lab_access %}
+  <div class="modal-backdrop" id="access-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">▦</span>
+        <span class="modal-title">Lab Access Log</span>
+        <button class="modal-close-btn" onclick="closeModal('access-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Date</th><th>Equipment</th><th>Period</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for r in lab_access %}
+            <tr>
+              <td class="cell-mono">{{ r.access_date }}</td>
+              <td class="cell-muted">{{ r.equipments }}</td>
+              <td>{{ r.access_period }} days</td>
+              <td>{% if r.approval == 1 %}<span class="stag stag-green">Approved</span>{% elif r.approval == 2 %}<span class="stag stag-red">Rejected</span>{% else %}<span class="stag stag-amber">Pending</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# CANCELLATIONS MODAL (only shown when no lab_access) #}
+  {% if not lab_access and cancellations %}
+  <div class="modal-backdrop" id="cancel-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--purple);">✕</span>
+        <span class="modal-title">Reservation Cancellations</span>
+        <button class="modal-close-btn" onclick="closeModal('cancel-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Start</th><th>Equipment</th><th>Reason</th><th>Cancelled</th></tr></thead>
+            <tbody>
+            {% for c in cancellations %}
+            <tr><td>{{ c.start_dt or '—' }}</td><td>{{ c.tool_name or '—' }}</td><td class="cell-muted">{{ c.reason or '—' }}</td><td>{{ c.cancel_time or '—' }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# TOOL PERMISSIONS MODAL #}
+  <div class="modal-backdrop" id="perms-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">⊞</span>
+        <span class="modal-title">Tool Permissions ({{ tool_perms_rich | length }})</span>
+        <button class="modal-close-btn" onclick="closeModal('perms-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if tool_perms_rich %}
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Tool</th><th>Faculty Incharge</th><th>Granted</th></tr></thead>
+            <tbody>
+            {% for t in tool_perms_rich %}
+            <tr><td><strong>{{ t.tool_name }}</strong></td><td class="cell-muted">{{ t.faculty_name or '—' }}</td><td class="cell-mono">{{ t.permission_date or '—' }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No tool permissions on record.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# SESSION REPORTS MODAL #}
+  {% if session_reports %}
+  <div class="modal-backdrop" id="session-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">▤</span>
+        <span class="modal-title">Session Reports ({{ session_reports | length }})</span>
+        <button class="modal-close-btn" onclick="closeModal('session-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll">
+          <table class="modal-table">
+            <thead><tr><th>Equipment</th><th>Submitted</th><th>Details</th></tr></thead>
+            <tbody>
+            {% for s in session_reports %}
+            <tr><td>{{ s.tool_name or '—' }}</td><td class="cell-mono">{{ s.submitted_at or '—' }}</td><td class="cell-muted" style="max-width:220px;white-space:normal;">{{ s.report_details or '—' }}</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ERROR REPORTS MODAL #}
+  {% if full_access and errors %}
+  {% set open_errors     = errors | selectattr('status','equalto',0) | list %}
+  {% set resolved_errors = errors | selectattr('status','equalto',2) | list %}
+  <div class="modal-backdrop" id="error-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--red);">⚠</span>
+        <span class="modal-title">Equipment Error Reports</span>
+        <button class="modal-close-btn" onclick="closeModal('error-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val">{{ errors | length }}</div><div class="mm-key">Total</div></div>
+          <div class="mm-box"><div class="mm-val {% if open_errors %}bad{% else %}good{% endif %}">{{ open_errors | length }}</div><div class="mm-key">Open</div></div>
+          <div class="mm-box"><div class="mm-val good">{{ resolved_errors | length }}</div><div class="mm-key">Resolved</div></div>
+        </div>
+        {% if open_errors %}
+        <div class="modal-section">
+          <div class="modal-section-title">Open — Pending</div>
+          <div class="table-scroll"><table class="modal-table">
+            <thead><tr><th>Equipment</th><th>Details</th><th>Reported</th></tr></thead>
+            <tbody>{% for e in open_errors %}<tr><td><strong>{{ e.tool_name or '—' }}</strong></td><td class="cell-muted" style="max-width:200px;white-space:normal;">{{ e.error_details or '—' }}</td><td>{{ e.timestamp }}</td></tr>{% endfor %}</tbody>
+          </table></div>
+        </div>
+        {% endif %}
+        {% if resolved_errors %}
+        <div class="modal-section">
+          <div class="modal-section-title">Resolved</div>
+          <div class="table-scroll"><table class="modal-table">
+            <thead><tr><th>Equipment</th><th>Action Taken</th><th>By</th></tr></thead>
+            <tbody>{% for e in resolved_errors %}<tr><td><strong>{{ e.tool_name or '—' }}</strong></td><td class="cell-muted" style="max-width:200px;white-space:normal;">{{ e.action_taken or '—' }}</td><td class="cell-muted">{{ e.resolved_by or '—' }}</td></tr>{% endfor %}</tbody>
+          </table></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# PROJECTS MODAL #}
+  <div class="modal-backdrop" id="projects-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">◈</span>
+        <span class="modal-title">Projects &amp; Research Output</span>
+        <button class="modal-close-btn" onclick="closeModal('projects-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        {% if projects %}
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val good">{{ projects.projects | length if projects.projects else 0 }}</div><div class="mm-key">Projects</div></div>
+          <div class="mm-box"><div class="mm-val">{{ projects.papers | length if projects.papers else 0 }}</div><div class="mm-key">Papers</div></div>
+          {% if projects.balance %}
+          <div class="mm-box"><div class="mm-val good">₹{{ projects.balance.total_credit or 0 }}</div><div class="mm-key">Credits</div></div>
+          <div class="mm-box"><div class="mm-val bad">₹{{ projects.balance.total_debit or 0 }}</div><div class="mm-key">Debits</div></div>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% if projects and projects.projects %}
+        <div class="modal-section">
+          <div class="modal-section-title">Projects</div>
+          <div class="table-scroll"><table class="modal-table">
+            <thead><tr><th>Project</th><th>Category</th><th>Start Date</th><th>End Date</th><th>Status</th></tr></thead>
+            <tbody>{% for p in projects.projects %}<tr>
+              <td><strong>{{ p.project_title or p.project or '—' }}</strong></td>
+              <td class="cell-muted">{{ p.category_name or '—' }}</td>
+              <td class="cell-muted">{{ p.start_date_and_time or '—' }}</td>
+              <td class="cell-mono">{{ p.project_end_date or '—' }}</td>
+              <td><span class="stag {% if p.active %}stag-green{% else %}stag-muted{% endif %}">{{ 'Active' if p.active else 'Closed' }}</span></td>
+            </tr>{% endfor %}</tbody>
+          </table></div>
+        </div>
+        {% endif %}
+        {% if projects and projects.papers %}
+        <div class="modal-section">
+          <div class="modal-section-title">Publications ({{ projects.papers | length }})</div>
+          <div class="table-scroll"><table class="modal-table">
+            <thead><tr><th>Year</th><th>Title</th><th>Type</th><th>Venue</th></tr></thead>
+            <tbody>{% for p in projects.papers %}<tr><td class="cell-mono">{{ p.year }}</td><td>{{ p.title }}</td><td><span class="stag stag-blue">{{ p.type or '—' }}</span></td><td class="cell-muted">{{ p.conf_name or '—' }}</td></tr>{% endfor %}</tbody>
+          </table></div>
+        </div>
+        {% endif %}
+        {% if not projects or (not projects.projects and not projects.papers) %}
+        <p style="color:var(--muted);text-align:center;padding:2rem;">No research records on file.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# OWNERSHIP CURRENT MODAL #}
+  {% if system_owned %}
+  <div class="modal-backdrop" id="ownership-current-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon">◐</span>
+        <span class="modal-title">Current Tool Assignments</span>
+        <button class="modal-close-btn" onclick="closeModal('ownership-current-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-scroll"><table class="modal-table">
+          <thead><tr><th>Tool</th><th>Category</th><th>Location</th><th>Since</th><th>Status</th></tr></thead>
+          <tbody>
+          {% for t in system_owned %}
+          <tr>
+            <td><strong>{{ t.name or '—' }}</strong></td>
+            <td class="cell-muted">{{ t.category or '—' }}</td>
+            <td class="cell-muted">{{ t.location or '—' }}</td>
+            <td class="cell-mono">{{ t.ownership_date or '—' }}</td>
+            <td><span class="stag {% if t.isworking %}stag-green{% else %}stag-red{% endif %}">{{ 'Working' if t.isworking else 'Down' }}</span></td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# OWNERSHIP HISTORY MODAL #}
+  {% if owner_track %}
+  {% set active_own = owner_track | selectattr('is_active') | list | length %}
+  <div class="modal-backdrop" id="ownership-history-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--purple);">↻</span>
+        <span class="modal-title">Ownership History</span>
+        <button class="modal-close-btn" onclick="closeModal('ownership-history-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-metrics">
+          <div class="mm-box"><div class="mm-val">{{ owner_track | length }}</div><div class="mm-key">Total</div></div>
+          <div class="mm-box"><div class="mm-val good">{{ active_own }}</div><div class="mm-key">Active</div></div>
+          <div class="mm-box"><div class="mm-val">{{ owner_track | length - active_own }}</div><div class="mm-key">Removed</div></div>
+        </div>
+        <div class="table-scroll"><table class="modal-table">
+          <thead><tr><th>Tool</th><th>Category</th><th>Owned From</th><th>Removed On</th><th>Status</th></tr></thead>
+          <tbody>
+          {% for t in owner_track %}
+          <tr>
+            <td><strong>{{ t.tool_name or '—' }}</strong></td>
+            <td class="cell-muted">{{ t.category or '—' }}</td>
+            <td class="cell-mono">{{ t.owned_since or '—' }}</td>
+            <td class="cell-mono">{{ t.removed_on or '—' }}</td>
+            <td>{% if t.is_active %}<span class="stag stag-green">Active</span>{% else %}<span class="stag stag-muted">Removed</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   PAGE DATA (injected before profile_shared.js)
+════════════════════════════════════════════════════════════════ #}
+{% block page_data %}
+  {# Lab uses LAB_MEMBERID in its own JS; MEMBER_ID is also set by base #}
+  const PROFILE_TYPE = 'lab';
+  const PROFILE_ID = String(MEMBER_ID);
+  const LAB_MEMBERID = {{ memberid }};
+  const RESERVATIONS = {{ reservations | tojson | safe }};
+  // lab_sections.html page_data:
+document.querySelectorAll('[data-name]').forEach(el => el.textContent = '{{ user.fname }} {{ user.lname }}');
+{% endblock %}
+
+{# ════════════════════════════════════════════════════════════════
+   LAB-SPECIFIC JAVASCRIPT
+   profile_shared.js has already loaded at this point, providing:
+     toggleTheme, openModal, closeModal, escapeHtml, _statusTag,
+     handlePDFClick, togglePDFPicker, pickPDFYear, _waitAndDownload,
+     _setPDFBtnState, _startBtnPoll, _prefetchJobs,
+     _writeRecentProfile
+════════════════════════════════════════════════════════════════ #}
+{% block page_js %}
+  // ── Register open-modal hook: populate reservation metrics on open ──
+  _modalOpenHooks['res-modal'] = function() { initResMetrics(); };
+
+  function initResMetrics() {
+    if (!RESERVATIONS.length) return;
+    const completed = RESERVATIONS.filter(r => (r.booking_status||'').includes('Completed')).length;
+    const upcoming  = RESERVATIONS.filter(r => (r.booking_status||'').includes('Upcoming')).length;
+    const set = (eid, v) => { const el = document.getElementById(eid); if (el) el.textContent = v; };
+    set('m-res-completed', completed);
+    set('m-res-upcoming',  upcoming);
+  }
+
+  // ── Section AJAX loaders ─────────────────────────────────────────
+  function loadLabSection(section, year) {
+    fetch(`/api/section/lab/${LAB_MEMBERID}/${section}?year=${year}`)
+      .then(r => r.json()).then(data => {
+        if (!data.success) return;
+        if (section === 'reservations') _updateResCard(data.data);
+        if (section === 'requests')     _updateReqCard(data.data);
+      }).catch(console.error);
+  }
+
+  function _updateResCard(rows) {
+    if (!rows) return;
+    const el = document.getElementById('c-res-total');
+    if (el) el.innerHTML = rows.length + '<span class="unit"> slots</span>';
+  }
+
+  function _updateReqCard(rows) {
+    if (!rows) return;
+    const approved = rows.filter(r => r.status == 3).length;
+    const pending  = rows.filter(r => r.status == 1).length;
+    const el = document.getElementById('c-req-total');
+    if (el) el.innerHTML = rows.length + '<span class="unit"> req</span>';
+    const a = document.getElementById('c-req-approved'); if (a) a.textContent = '✓ ' + approved;
+    const p = document.getElementById('c-req-pending');  if (p) p.textContent = '⏳ ' + pending;
+  }
+
+  // ── Lab PDF prefetch (single-year, no prefetch-all endpoint) ─────
+  (function _prefetchLabPDF() {
+    fetch(`/lab/${LAB_MEMBERID}/pdf/prefetch?year=${_initialYear}`)
+      .then(r => r.json())
+      .then(d => {
+        _prefetchJobs.set(_initialYear, d.job_id);
+        _startBtnPoll(d.job_id);
+      })
+      .catch(() => {});
+  })();
+
+  // ── Tab navigation ───────────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.page-tab').forEach(t => {
+      t.classList.toggle('active', t.id === 'tab-' + name);
+      t.setAttribute('aria-selected', t.id === 'tab-' + name ? 'true' : 'false');
+    });
+    document.querySelectorAll('.page-panel').forEach(p => {
+      p.classList.toggle('active', p.id === 'panel-' + name);
+    });
+  }
+
+  // ── Recent profile localStorage write ───────────────────────────
+  _writeRecentProfile(
+    '{{ "%04d" % memberid }}',
+    '{{ user.fname }} {{ user.lname }}',
+    '/lab/{{ memberid }}',
+    'lab'
+  );
+
+  // ── AI COMPOSE TYPEWRITER ENGINE ─────────────────────────────────
+  (function() {
+    const PROFILE_TYPE = 'lab';
+    const PROFILE_ID   = '{{ memberid }}';
+    const SPEED = { char_base: 16, char_variance: 10, comma_pause: 80, period_pause: 140, newline_pause: 240, word_end: 6 };
+    let _animFrame = null, _currentText = '', _isTyping = false;
+
+    const outputEl  = document.getElementById('ai-compose-output');
+    const footerEl  = document.getElementById('ai-compose-footer');
+    const badgeDot  = document.getElementById('ai-badge-dot');
+    const badgeText = document.getElementById('ai-badge-text');
+    const copyBtn   = document.getElementById('ai-copy-btn');
+    const tsEl      = document.getElementById('ai-compose-ts');
+    const wcEl      = document.getElementById('ai-word-count');
+    const scEl      = document.getElementById('ai-section-count');
+
+    function rand(min, max) { return Math.random() * (max - min) + min; }
+    function charDelay(char) {
+      let d = SPEED.char_base + rand(0, SPEED.char_variance);
+      if (',;:'.includes(char)) d += SPEED.comma_pause;
+      if ('.!?'.includes(char)) d += SPEED.period_pause;
+      if (char === ' ')         d += SPEED.word_end;
+      return d;
+    }
+    function setBadge(state) {
+      if (!badgeDot || !badgeText) return;
+      badgeDot.className    = state === 'generating' ? 'ai-badge-dot pulsing' : state === 'done' ? 'ai-badge-dot done' : 'ai-badge-dot';
+      badgeText.textContent = state === 'generating' ? '✦ Generating…' : '✦ AI Profile';
+    }
+    function setFooter(text) {
+      if (!footerEl || !wcEl) return;
+      const words = text.split(/\s+/).filter(Boolean).length;
+      const paras = text.split('\n\n').filter(Boolean).length;
+      wcEl.textContent = `${words} words`;
+      if (scEl) scEl.textContent = `${paras} paragraph${paras !== 1 ? 's' : ''}`;
+      footerEl.style.display = 'flex';
+    }
+    function buildParagraphNodes(text) {
+      outputEl.innerHTML = '';
+      const nodes = [];
+      text.split('\n\n').filter(p => p.trim()).forEach(para => {
+        const div = document.createElement('div');
+        div.className = 'ai-para';
+        outputEl.appendChild(div);
+        nodes.push({ el: div, text: para.trim() });
+      });
+      const cursor = document.createElement('span');
+      cursor.className = 'ai-cursor'; cursor.id = 'ai-typing-cursor';
+      if (nodes.length > 0) nodes[0].el.appendChild(cursor);
+      return nodes;
+    }
+    function typeIntoNode(node, idx, onComplete) {
+      if (!node.el.classList.contains('visible')) setTimeout(() => node.el.classList.add('visible'), 50);
+      if (idx >= node.text.length) { onComplete(); return; }
+      _animFrame = setTimeout(() => {
+        if (!_isTyping) return;
+        const cursor = document.getElementById('ai-typing-cursor');
+        const char = node.text[idx];
+        if (cursor && cursor.parentNode === node.el) node.el.insertBefore(document.createTextNode(char), cursor);
+        else node.el.appendChild(document.createTextNode(char));
+        typeIntoNode(node, idx + 1, onComplete);
+      }, charDelay(node.text[idx]));
+    }
+    function typeSequentially(nodes, ni, onAllDone) {
+      if (ni >= nodes.length) { onAllDone(); return; }
+      const node = nodes[ni];
+      const cursor = document.getElementById('ai-typing-cursor');
+      if (cursor) node.el.appendChild(cursor);
+      setTimeout(() => {
+        typeIntoNode(node, 0, () => {
+          setTimeout(() => typeSequentially(nodes, ni + 1, onAllDone),
+            ni < nodes.length - 1 ? SPEED.newline_pause : 0);
+        });
+      }, ni === 0 ? 0 : SPEED.newline_pause);
+    }
+
+    window.startAICompose = function() {
+      _isTyping = false; _currentText = '';
+      if (_animFrame) clearTimeout(_animFrame);
+      if (outputEl) outputEl.innerHTML = `<div class="ai-compose-idle"><div class="ai-idle-icon">◈</div><div class="ai-idle-text">Generating profile analysis…</div></div>`;
+      if (footerEl) footerEl.style.display = 'none';
+      if (copyBtn)  copyBtn.style.display  = 'none';
+      setBadge('generating');
+      if (tsEl) tsEl.textContent = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+      fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}`)
+        .then(r => {
+          const reader = r.body.getReader(), decoder = new TextDecoder();
+          let buffer = '';
+          function read() {
+            reader.read().then(({ done, value }) => {
+              if (done) return;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split('\n'); buffer = lines.pop();
+              for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const raw = line.slice(6).trim();
+                if (raw === '[DONE]') return;
+                if (raw.startsWith('[ERROR]')) {
+                  if (outputEl) outputEl.innerHTML = `<p style="color:var(--red);font-size:.8rem;">${raw}</p>`;
+                  setBadge('idle'); return;
+                }
+                try {
+                  const msg = JSON.parse(raw);
+                  if (msg.type === 'text' && msg.content) {
+                    _currentText = msg.content; _isTyping = true;
+                    const nodes = buildParagraphNodes(msg.content);
+                    if (!nodes.length) { setBadge('done'); return; }
+                    typeSequentially(nodes, 0, () => {
+                      _isTyping = false;
+                      const cur = document.getElementById('ai-typing-cursor'); if (cur) cur.remove();
+                      document.querySelectorAll('.ai-para').forEach(p => p.classList.add('visible'));
+                      setBadge('done'); setFooter(msg.content);
+                      if (copyBtn) copyBtn.style.display = 'inline-flex';
+                    });
+                  }
+                } catch (e) {}
+              }
+              read();
+            });
+          }
+          read();
+        })
+        .catch(e => {
+          if (outputEl) outputEl.innerHTML = `<p style="color:var(--red);">Error: ${e.message}</p>`;
+          setBadge('idle');
+        });
+    };
+
+    window.copyAISummary = function() {
+      if (!_currentText) return;
+      navigator.clipboard.writeText(_currentText).then(() => {
+        if (copyBtn) {
+          const orig = copyBtn.textContent;
+          copyBtn.textContent = '✓ Copied';
+          setTimeout(() => { copyBtn.textContent = orig; }, 1800);
+        }
+      });
+    };
+
+    // Wrap switchTab so AI compose fires on first tab open
+    const _origSwitchTab = window.switchTab;
+    window.switchTab = function(name) {
+      _origSwitchTab(name);
+      if (name === 'ai' && !_isTyping && !_currentText) setTimeout(startAICompose, 120);
+    };
+
+    if (window.location.hash === '#ai') switchTab('ai');
+  })();
+
+{% endblock %}

@@ -337,3 +337,170 @@ def ai_session_digest():
             "Connection":        "keep-alive",
         }
     )
+@bp.route("/api/ai/admin-chat")
+@login_required
+def admin_chat():
+    """
+    SSE endpoint for admin panel Q&A.
+    No profile context — general facility questions, member lookups, policy queries.
+    Query params:
+        message: str
+    """
+    if not is_full_access():
+        return Response("data: [ERROR] Access restricted.\n\n",
+                        mimetype="text/event-stream"), 403
+
+    message = request.args.get("message", "").strip()
+    if not message:
+        return Response("data: [ERROR] No message.\n\n",
+                        mimetype="text/event-stream"), 400
+
+    # Build a minimal context: facility summary only, no personal data
+    ctx = {
+        "facility": "IIT Bombay Nanofabrication Facility (IITBNF)",
+        "system":   "Personnel and lab equipment management system",
+    }
+
+    token_queue = queue.Queue()
+    SENTINEL    = object()
+
+    def worker():
+        try:
+            from rag.agent import agent_stream
+            for token in agent_stream(message, ctx):
+                token_queue.put(token)
+        except Exception as e:
+            token_queue.put(f"[ERROR] {e}")
+        finally:
+            token_queue.put(SENTINEL)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def generate():
+        try:
+            while True:
+                try:
+                    item = token_queue.get(timeout=1.0)
+                except queue.Empty:
+                    yield ": heartbeat\n\n"
+                    continue
+                if item is SENTINEL:
+                    yield "data: [DONE]\n\n"
+                    break
+                elif isinstance(item, str) and item.startswith("[ERROR]"):
+                    yield f"data: {json.dumps(item)}\n\n"
+                    break
+                else:
+                    yield f"data: {json.dumps(item)}\n\n"
+        except GeneratorExit:
+            pass
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+@bp.route("/api/ai/logbook-explain")
+@login_required
+def logbook_explain():
+    """
+    SSE: explains logbook entries for a staff member on a specific tool.
+    Query params:
+        member_id : int
+        machid    : int
+        tool_name : str
+    """
+    if not is_full_access():
+        return Response("data: [ERROR] Access restricted.\n\n",
+                        mimetype="text/event-stream"), 403
+
+    member_id = request.args.get("member_id", type=int)
+    machid    = request.args.get("machid",    type=int)
+    tool_name = request.args.get("tool_name", "").strip() or "this tool"
+
+    if not member_id or not machid:
+        return Response("data: [ERROR] member_id and machid required.\n\n",
+                        mimetype="text/event-stream"), 400
+
+    from db import slots_query
+    from models.staff import _get_uid_from_member
+
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return Response("data: [ERROR] Could not resolve member.\n\n",
+                        mimetype="text/event-stream"), 404
+
+    # Fetch logbook rows for this member + tool
+    rows = slots_query(f"""
+        SELECT lg.*, FROM_UNIXTIME(res.startdate) AS booking_start,
+               FROM_UNIXTIME(res.enddate) AS booking_end
+        FROM `t_{machid}` lg
+        JOIN reservations res ON res.resid = lg.reservation_id
+        WHERE res.memberid = %s
+        ORDER BY lg.reservation_id DESC
+        LIMIT 30
+    """, (uid,)) or []
+
+    if not rows:
+        return Response("data: No logbook entries found for this member on this tool.\ndata: [DONE]\n\n",
+                        mimetype="text/event-stream")
+
+    # Format rows as readable text
+    from datetime import datetime, date
+    from decimal import Decimal
+    def _safe(v):
+        if v is None: return "—"
+        if isinstance(v, (datetime, date)): return str(v)
+        if isinstance(v, Decimal): return str(float(v))
+        return str(v)
+
+    formatted_rows = []
+    for r in rows:
+        parts = [f"{k}: {_safe(v)}" for k, v in r.items()
+                 if k not in ("reservation_id",) and v is not None]
+        formatted_rows.append("Entry: " + " | ".join(parts))
+
+    token_queue = queue.Queue()
+    SENTINEL    = object()
+
+    def worker():
+        try:
+            from rag.pipeline import _call_ollama_stream, _build_executive_prompt
+            prompt = (
+                f"You are summarising instrument logbook entries for {tool_name} "
+                f"at IIT Bombay Nanofabrication Facility for a specific user.\n\n"
+                f"Logbook entries:\n" + "\n".join(formatted_rows[:20]) + "\n\n"
+                f"Write 3-4 concise bullet points explaining: what process parameters "
+                f"were used, any patterns or anomalies, and overall usage quality. "
+                f"Be factual. Use plain text. No preamble."
+            )
+            for token in _call_ollama_stream(prompt, max_tokens=300):
+                token_queue.put(token)
+        except Exception as e:
+            token_queue.put(f"[ERROR] {e}")
+        finally:
+            token_queue.put(SENTINEL)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def generate():
+        try:
+            while True:
+                try:
+                    item = token_queue.get(timeout=1.0)
+                except queue.Empty:
+                    yield ": heartbeat\n\n"
+                    continue
+                if item is SENTINEL:
+                    yield "data: [DONE]\n\n"
+                    break
+                else:
+                    yield f"data: {json.dumps(item)}\n\n"
+        except GeneratorExit:
+            pass
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

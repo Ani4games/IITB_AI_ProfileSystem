@@ -166,21 +166,18 @@ def chunk_text(text: str, source: str) -> list[dict]:
     while start < len(words):
         end   = min(start + CHUNK_SIZE, len(words))
         chunk = " ".join(words[start:end])
-        if chunk.strip():                          # never store a blank chunk
-            if should_skip_chunk(text):
-                continue
-            chunk_type = classify_chunk_type(source, text)
-            staff_id = None
-            staff_name = None
-            year = extract_year(text)
-            staff_id = extract_staff_id(text)
-            staff_name = extract_staff_name(text)
-            chunks.append({"text": chunk, "source": source, "chunk_index": idx, 
-                           "type": chunk_type,
-                            "staff_id": staff_id,
-                            "staff_name": staff_name,
-                            "year": year,})
-        start += CHUNK_SIZE - CHUNK_OVERLAP
+        if chunk.strip():
+            if not should_skip_chunk(chunk):   # check the chunk itself, not full text
+                chunk_type = classify_chunk_type(source, chunk)  # also use chunk here
+                year       = extract_year(chunk)
+                staff_id   = extract_staff_id(chunk)
+                staff_name = extract_staff_name(chunk)
+                chunks.append({
+                    "text": chunk, "source": source, "chunk_index": idx,
+                    "type": chunk_type, "staff_id": staff_id,
+                    "staff_name": staff_name, "year": year,
+                })
+        start += CHUNK_SIZE - CHUNK_OVERLAP   # always advance — outside the if block
         idx   += 1
     return chunks
 
@@ -387,6 +384,49 @@ def serialize_leave_rules() -> str:
             lines.append(f"{h['holiday_date']}: {h['holiday_desc']}")
     return "\n".join(lines)
 
+def serialize_lab_users() -> str:
+    """Serialize lab user profiles from slotbooking.login into RAG context."""
+    _, slots_query = _get_db_funcs()
+    if slots_query is None:
+        return ""
+    try:
+        rows = slots_query("""
+            SELECT l.memberid, l.fname, l.lname, l.email,
+                   l.position, l.department, l.research_area,
+                   l.rollno,
+                   TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,''))) AS supervisor_name
+            FROM login l
+            LEFT JOIN login s ON s.memberid = l.supervisor
+            WHERE (
+                l.expiry_date IS NULL
+                OR l.expiry_date = ''
+                OR l.expiry_date = '0000-00-00'
+                OR COALESCE(STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y'), CURDATE()) >= CURDATE()
+            )
+            ORDER BY l.memberid
+        """)
+    except Exception as e:
+        logger.error("serialize_lab_users DB error: %s", e)
+        return ""
+
+    lines = ["SECTION: Lab Users\n"]
+    for u in (rows or []):
+        name = f"{u.get('fname','')} {u.get('lname','')}".strip() or f"User {u['memberid']}"
+        line = f"{name} (ID {u['memberid']}) is a lab user"
+        if u.get('position'):
+            line += f" with position {u['position']}"
+        if u.get('department'):
+            line += f" in the {u['department']} department"
+        if u.get('research_area') and u['research_area'] not in ('', 'NA', 'N/A'):
+            line += f". Research area: {u['research_area']}"
+        sup = (u.get('supervisor_name') or '').strip()
+        if sup:
+            line += f". Supervisor: {sup}"
+        if u.get('rollno') and u['rollno'] not in ('', '0', 'NA'):
+            line += f". Roll no: {u['rollno']}"
+        line += "."
+        lines.append(line)
+    return "\n".join(lines)
 # ════════════════════════════════════════════════════════════════════════════
 # ORCHESTRATOR
 # ════════════════════════════════════════════════════════════════════════════
@@ -405,7 +445,7 @@ def _prewarm_vectors(chunks: list[dict]):
         if rag_dir not in sys.path:
             sys.path.insert(0, rag_dir)
 
-        from rag.retrieve import _get_chunk_vecs, WORD_VEC_BACKEND  # noqa: PLC0415
+        from retrieve import _get_chunk_vecs, WORD_VEC_BACKEND  # noqa: PLC0415
         if not chunks:
             logger.warning("Pre-warm skipped — no chunks provided.")
             return
@@ -448,6 +488,7 @@ def init_rag(force: bool = False):
         "live:staff_profiles":  serialize_staff_profiles,
         "live:equipment_usage": serialize_equipment_usage,
         "live:leave_rules":     serialize_leave_rules,
+        "live:lab_users":       serialize_lab_users,
     }
     for source_key, fn in live_sources.items():
         logger.info("Serializing: %s", source_key)
@@ -474,8 +515,6 @@ def init_rag(force: bool = False):
     # This vectorises all chunks immediately after ingestion while the server
     # is still starting up, instead of blocking on the first user request.
 
-    # And in init_rag(), pass chunks after build_index():
-    build_index(all_chunks)
     _prewarm_vectors(all_chunks)   # ✅ pass in-memory chunks directly
     logger.info("Final chunk count: %d", len(all_chunks))
     for c in all_chunks[:10]:
