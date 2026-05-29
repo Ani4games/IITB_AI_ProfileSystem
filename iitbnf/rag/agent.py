@@ -21,6 +21,7 @@ import logging
 from rag.pipeline import rag_stream, rag_generate, rag_chat
 from rag.tier0 import lookup as tier0_lookup
 from rag.query_router import route as structured_route
+from rag.facility_router import route_facility
 logger = logging.getLogger(__name__)
 
 # ── Intent config ─────────────────────────────────────────────────────────────
@@ -146,6 +147,11 @@ def agent_stream(user_message: str, ctx: dict):
         if year_answer:
             yield year_answer  # for agent_stream
             return
+        facility_answer = route_facility(clean_message)
+        if facility_answer:
+            yield "[MODE: Facility Knowledge]\n\n"
+            yield facility_answer
+            return
         # ── Tier 0: answer directly from ctx dict, no model call ──────────
         fast = tier0_lookup(clean_message, ctx)
         if fast:
@@ -215,6 +221,16 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
                 "answer": year_answer,
                 "mode": "year_comparison",
                 "label": "Year Comparison",
+                "confidence": "high",
+                "success": True,
+                "tier": 1.5,
+            }
+        facility_answer = route_facility(clean_message)
+        if facility_answer:
+            return {
+                "answer": facility_answer,
+                "mode": "facility_knowledge",
+                "label": "Facility Knowledge",
                 "confidence": "high",
                 "success": True,
                 "tier": 1.5,

@@ -24,6 +24,8 @@ Pipeline
 
 import logging
 from datetime import date
+
+from flask import ctx
 from db import hr_query, slots_query
 from utils import calc_mandatory_days
 
@@ -217,6 +219,7 @@ def _build_staff_context(member_id: int) -> dict | None:
     # ── Slotbooking resolution ────────────────────────────────────────────────
     slot_uid = _resolve_slot_uid(member_id, email)
     ctx["slot_uid"] = slot_uid
+    ctx["member_id"] = member_id   # HR memberid for attendance/leave queries
 
     if slot_uid:
         # ── Reservations ──────────────────────────────────────────────────
@@ -305,6 +308,15 @@ def _build_staff_context(member_id: int) -> dict | None:
         except Exception as e:
             logger.warning("Training context failed for uid %s: %s", slot_uid, e)
 
+        # After the training section
+        try:
+            from models.staff import get_staff_logbook_stats
+            lb = get_staff_logbook_stats(slot_uid)
+            if lb:
+                ctx["logbook_total_entries"] = lb.get("total_entries", 0)
+                ctx["logbook_tools_count"] = lb.get("tools_with_logs", 0)
+        except Exception as e:
+            logger.warning("Logbook context failed for uid %s: %s", slot_uid, e)
         # ── Publications ──────────────────────────────────────────────────
         try:
             pp = slots_query(
@@ -344,6 +356,7 @@ def _build_lab_context(memberid: int) -> dict | None:
     """
     ctx: dict = {}
     ctx["slot_uid"] = memberid  # Default to memberid for any slotbooking queries if resolution fails   
+    ctx["member_id"] = memberid    # kept consistent for router and potential future use
     rows = slots_query("""
         SELECT
             l.fname, l.lname, l.email,

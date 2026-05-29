@@ -39,7 +39,7 @@ SESSION_COOKIE_SAMESITE = "Lax"
 PERMANENT_SESSION_LIFETIME = timedelta(hours=2)
 
 # ── App constants ─────────────────────────────────────────────────────────────
-STAFF_POSITIONS      = {"IITBNF Staff", "Faculty"}
+STAFF_POSITIONS      = {"IITBNF Staff", "Faculty", "Institute Facility"}
 SLOW_QUERY_THRESHOLD = 200  # ms
 
 # ── Position context for AI prompts ──────────────────────────────────────────

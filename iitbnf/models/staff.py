@@ -699,6 +699,33 @@ def get_staff_tool_perms_rich(member_id: int) -> list:
     from models.lab import get_member_tool_permissions
     return get_member_tool_permissions(uid)
 
+# ADD after get_staff_tool_perms_rich()
+
+def get_staff_session_reports(member_id: int) -> list:
+    """Session reports filed by this staff member — fetched via slotbooking uid."""
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return []
+    from models.lab import get_session_reports
+    return get_session_reports(uid) or []
+
+
+def get_staff_cancellations(member_id: int) -> list:
+    """Reservation cancellations for this staff member — fetched via slotbooking uid."""
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return []
+    from models.lab import get_lab_cancellations
+    return get_lab_cancellations(uid) or []
+
+
+def get_staff_lab_access(member_id: int, year=None) -> list:
+    """Lab access log for this staff member — fetched via slotbooking uid."""
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return []
+    from models.lab import get_lab_access_log
+    return get_lab_access_log(uid, year) or []
 
 def get_staff_reservations(member_id: int, year=None) -> list:
     uid = _get_uid_from_member(member_id)

@@ -270,7 +270,30 @@ def ingest_sql_files() -> list[dict]:
         except Exception as e:
             logger.error("Failed to ingest SQL file %s: %s", path.name, e)
     return all_chunks
-
+def ingest_text_files() -> list[dict]:
+    """
+    Ingest plain text knowledge documents from documents/ directory.
+    These provide facility-specific context that enriches RAG responses.
+    """
+    txt_files = list(DOCUMENTS_DIR.glob("**/*.txt")) if DOCUMENTS_DIR.exists() else []
+    if not txt_files:
+        logger.info("No .txt files found — skipping text ingestion.")
+        return []
+    
+    all_chunks = []
+    for path in txt_files:
+        logger.info("Ingesting text file: %s", path.name)
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if not text.strip():
+                continue
+            chunks = chunk_text(text, source=path.name)
+            all_chunks.extend(chunks)
+            logger.info("  → %d chunks from %s", len(chunks), path.name)
+        except Exception as e:
+            logger.error("Failed to ingest %s: %s", path.name, e)
+    
+    return all_chunks
 # ════════════════════════════════════════════════════════════════════════════
 # SOURCE 2 — LIVE DB QUERIES
 # [FIX 7] Each serializer returns a safe fallback on DB error instead of
@@ -482,8 +505,10 @@ def init_rag(force: bool = False):
 
     # Source 1 — SQL dump files
     all_chunks.extend(ingest_sql_files())
+    # Source 2 — Text knowledge documents  
+    all_chunks.extend(ingest_text_files())
 
-    # Source 2 — Live DB serializations
+    # Source 3 — Live DB serializations
     live_sources = {
         "live:staff_profiles":  serialize_staff_profiles,
         "live:equipment_usage": serialize_equipment_usage,

@@ -176,7 +176,59 @@
       <span class="card-cta">View breakdown <span class="card-cta-arrow">→</span></span>
     </div>
   </div>
+  {# Session Reports — only shown for IITBNF Staff with slotbooking data #}
+  <div class="prf-card accent-green" onclick="openModal('staff-session-modal')" role="button"
+       id="card-session-wrap" style="display:none;">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--green);">▤</span>
+      <span class="card-title">Session Reports</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big good" id="c-session-total">-<span class="unit"> rpts</span></div>
+      <div class="card-sub">Equipment usage reports filed</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View reports <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
 
+  {# Cancellations — only shown for IITBNF Staff with slotbooking data #}
+  <div class="prf-card accent-purple" onclick="openModal('staff-cancel-modal')" role="button"
+       id="card-cancel-wrap" style="display:none;">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--purple);">✕</span>
+      <span class="card-title">Cancellations</span>
+    </div>
+    <div class="card-metric">
+      <div class="card-big" style="color:var(--purple);" id="c-cancel-total">-<span class="unit"> cancel</span></div>
+      <div class="card-sub">Reservation cancellations</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View detail <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
+
+  {# Lab Access Log — only shown for IITBNF Staff with slotbooking data #}
+  <div class="prf-card accent-green" onclick="openModal('staff-access-modal')" role="button"
+       id="card-access-wrap" style="display:none;">
+    <div class="card-header">
+      <span class="card-icon" style="color:var(--green);">▦</span>
+      <span class="card-title">Lab Access Log</span>
+      <select class="card-year-sel" onclick="event.stopPropagation()"
+              onchange="loadStaffLabAccess(this.value)">
+        {% for y in avail_years %}
+        <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="card-metric">
+      <div class="card-big good" id="c-access-total">-<span class="unit"> entries</span></div>
+      <div class="card-sub">Physical lab access records</div>
+    </div>
+    <div class="card-footer">
+      <span class="card-cta">View access log <span class="card-cta-arrow">→</span></span>
+    </div>
+  </div>
 {% endblock %}
 
 {# ════════════════════════════════════════════════════════════════
@@ -325,6 +377,48 @@
         <div class="modal-body" id="logbook-entries-body">
           <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  {# STAFF SESSION REPORTS MODAL #}
+  <div class="modal-backdrop" id="staff-session-modal" role="dialog" aria-modal="true">
+    <div class="modal-box-min">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">▤</span>
+        <span class="modal-title" id="staff-session-modal-title">Session Reports</span>
+        <button class="modal-close-btn" onclick="closeModal('staff-session-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="staff-session-modal-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  {# STAFF CANCELLATIONS MODAL #}
+  <div class="modal-backdrop" id="staff-cancel-modal" role="dialog" aria-modal="true">
+    <div class="modal-box-min">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--purple);">✕</span>
+        <span class="modal-title">Reservation Cancellations</span>
+        <button class="modal-close-btn" onclick="closeModal('staff-cancel-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="staff-cancel-modal-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  {# STAFF LAB ACCESS MODAL #}
+  <div class="modal-backdrop" id="staff-access-modal" role="dialog" aria-modal="true">
+    <div class="modal-box-min">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">▦</span>
+        <span class="modal-title">Lab Access Log</span>
+        <button class="modal-close-btn" onclick="closeModal('staff-access-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="staff-access-modal-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
       </div>
     </div>
   </div>
@@ -563,7 +657,11 @@
       if (attData.data.leave_summary) _updateLeaveTable(attData.data.leave_summary);
     }
     if (slotData.success&&slotData.data)  _applySlotData(slotData.data);
-    if (sysData.success)   { const owned=sysData.data||[]; _renderSysOwnedModal(owned); }
+    if (sysData.success)   
+    { const owned=sysData.data||[]; _renderSysOwnedModal(owned); 
+      const el = document.getElementById('c-sys-owned');
+      if (el) el.innerHTML = owned.length + '<span class="unit"> tools</span>';
+    }
     if (trackData.success) { const track=trackData.data||[]; _renderOwnerTrackModal(track); }
     if (permsData.success) {
       const perms=permsData.data||[];
@@ -578,35 +676,128 @@
 
   // ── Logbook (deferred 2s after page load) ─────────────────────────
   function _loadLogbookDeferred(id) {
-    fetch(`/api/section/staff/${id}/logbook`).then(r=>r.json()).then(data=>{
-      if(!data.success||!data.data) return;
-      const lb=data.data;
+    fetch(`/api/section/staff/${id}/logbook`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success || !data.data) return;
+        const lb = data.data;
       const cardEl=document.getElementById('c-logbook-total'), subEl=document.getElementById('c-logbook-sub');
       if(cardEl) cardEl.innerHTML=lb.total_entries+'<span class="unit"> entries</span>';
       if(subEl)  subEl.textContent=lb.tools_with_logs+' tool'+(lb.tools_with_logs!==1?'s':'')+' with session logs';
       const title=document.getElementById('logbook-modal-title'); if(title) title.textContent=`Logbook Entries (${lb.total_entries})`;
       const body=document.getElementById('logbook-modal-body');
-      if(body) {
-        if(!lb.breakdown?.length) { body.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem;">No logbook entries found.</p>'; }
-        else body.innerHTML=`
-          <div class="modal-metrics">
-            <div class="mm-box"><div class="mm-val good">${lb.total_entries}</div><div class="mm-key">Total Entries</div></div>
-            <div class="mm-box"><div class="mm-val">${lb.tools_with_logs}</div><div class="mm-key">Tools Used</div></div>
-          </div>
-          <div class="table-scroll"><table class="modal-table">
-            <thead><tr><th>Tool</th><th>Entries</th></tr></thead>
-            <tbody>${lb.breakdown.map(t=>`<tr>
-              <td><strong>${escapeHtml(t.tool_name)}</strong>
-                <a href="#" onclick="event.preventDefault();openLogbookEntries(${t.machid},'${escapeHtml(t.tool_name)}')"
-                   style="font-family:var(--font-mono);font-size:.6rem;color:var(--blue);margin-left:.5rem;text-decoration:none;">View entries →</a>
-              </td>
-              <td class="cell-mono">${t.entries}</td></tr>`).join('')}
-            </tbody>
-          </table></div>`;
-      }
-    }).catch(e=>console.warn('Logbook load failed:',e));
+        if (body) {
+          body.innerHTML = lb.breakdown?.length
+            ? `<div class="modal-metrics">...</div>
+               <div class="table-scroll"><table class="modal-table">
+                 <thead><tr><th>Tool</th><th>Entries</th></tr></thead>
+                 <tbody>${lb.breakdown.map(t => `<tr>
+                   <td><strong>${escapeHtml(t.tool_name)}</strong>
+                     <a href="#" onclick="event.preventDefault();openLogbookEntries(${t.machid},'${escapeHtml(t.tool_name)}')"
+                        style="font-family:var(--font-mono);font-size:.6rem;color:var(--blue);margin-left:.5rem;text-decoration:none;">
+                        View entries →</a>
+                   </td>
+                   <td class="cell-mono">${t.entries}</td>
+                 </tr>`).join('')}
+                 </tbody>
+               </table></div>`
+            : '<p style="color:var(--muted);text-align:center;padding:2rem;">No logbook entries found.</p>';
+        }
+      }).catch(e => console.warn('Logbook load failed:', e));
+  }
+// ── Lab-only sections for IITBNF Staff ───────────────────────────────────
+  function _renderSessionReports(rows) {
+    const body = document.getElementById('staff-session-modal-body');
+    const title = document.getElementById('staff-session-modal-title');
+    const card = document.getElementById('card-session-wrap');
+    const countEl = document.getElementById('c-session-total');
+    if (!rows || !rows.length) return;
+    if (card) card.style.display = '';
+    if (countEl) countEl.innerHTML = rows.length + '<span class="unit"> rpts</span>';
+    if (title) title.textContent = `Session Reports (${rows.length})`;
+    if (body) body.innerHTML = `
+      <div class="table-scroll">
+        <table class="modal-table">
+          <thead><tr><th>Equipment</th><th>Submitted</th><th>Details</th></tr></thead>
+          <tbody>${rows.map(r => `<tr>
+            <td><strong>${escapeHtml(r.tool_name||'—')}</strong></td>
+            <td class="cell-mono">${r.submitted_at||'—'}</td>
+            <td class="cell-muted" style="max-width:220px;white-space:normal;">${escapeHtml(r.report_details||'—')}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
   }
 
+  function _renderCancellations(rows) {
+    const body = document.getElementById('staff-cancel-modal-body');
+    const card = document.getElementById('card-cancel-wrap');
+    const countEl = document.getElementById('c-cancel-total');
+    if (!rows || !rows.length) return;
+    if (card) card.style.display = '';
+    if (countEl) countEl.innerHTML = rows.length + '<span class="unit"> cancel</span>';
+    if (body) body.innerHTML = `
+      <div class="table-scroll">
+        <table class="modal-table">
+          <thead><tr><th>Start</th><th>Equipment</th><th>Reason</th><th>Cancelled</th></tr></thead>
+          <tbody>${rows.map(r => `<tr>
+            <td class="cell-mono">${r.start_dt||'—'}</td>
+            <td>${escapeHtml(r.tool_name||'—')}</td>
+            <td class="cell-muted">${escapeHtml(r.reason||'—')}</td>
+            <td class="cell-muted">${r.cancel_time||'—'}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function _renderLabAccess(rows) {
+    const body = document.getElementById('staff-access-modal-body');
+    const card = document.getElementById('card-access-wrap');
+    const countEl = document.getElementById('c-access-total');
+    if (!rows || !rows.length) return;
+    if (card) card.style.display = '';
+    if (countEl) countEl.innerHTML = rows.length + '<span class="unit"> entries</span>';
+    if (body) body.innerHTML = `
+      <div class="table-scroll">
+        <table class="modal-table">
+          <thead><tr><th>Date</th><th>Equipment</th><th>Period</th><th>Status</th></tr></thead>
+          <tbody>${rows.map(r => {
+            const badge = r.approval==1
+              ? '<span class="stag stag-green">Approved</span>'
+              : r.approval==2
+                ? '<span class="stag stag-red">Rejected</span>'
+                : '<span class="stag stag-amber">Pending</span>';
+            return `<tr>
+              <td class="cell-mono">${r.access_date||'—'}</td>
+              <td class="cell-muted">${escapeHtml(r.equipments||'—')}</td>
+              <td>${r.access_period||'—'} days</td>
+              <td>${badge}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function loadStaffLabAccess(year) {
+    fetch(`/api/section/staff/${MEMBER_ID}/lab_access?year=${year}`)
+      .then(r => r.json()).then(data => {
+        if (data.success && data.data) _renderLabAccess(data.data);
+      }).catch(console.error);
+  }
+
+  function _loadLabOnlySectionsDeferred(id) {
+    Promise.all([
+      fetch(`/api/section/staff/${id}/session_reports`).then(r => r.json()),
+      fetch(`/api/section/staff/${id}/cancellations`).then(r => r.json()),
+      fetch(`/api/section/staff/${id}/lab_access?year=${_initialYear}`).then(r => r.json()),
+    ]).then(([sessionData, cancelData, accessData]) => {
+      if (sessionData.success && sessionData.data) _renderSessionReports(sessionData.data);
+      if (cancelData.success && cancelData.data)   _renderCancellations(cancelData.data);
+      if (accessData.success && accessData.data)   _renderLabAccess(accessData.data);
+    }).catch(e => console.warn('Lab-only sections load failed:', e));
+  }
+
+  // Deferred 3s — after logbook, lowest priority
+  requestAnimationFrame(() => { setTimeout(() => _loadLabOnlySectionsDeferred(MEMBER_ID), 1000); });
 // Replace the existing openLogbookEntries function:
 async function openLogbookEntries(machid, toolName) {
   document.getElementById('logbook-entries-title').textContent = `Session Log — ${toolName}`;
@@ -637,12 +828,14 @@ async function openLogbookEntries(machid, toolName) {
 function loadRawLogbook(machid, toolName) {
   const content = document.getElementById('logbook-entries-content');
   content.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>';
-  _loadSessionLog(machid, toolName, content, 30);
+  _loadSessionLog(machid, toolName, content, 100, MEMBER_ID);
 }
 
 function loadAILogbook(machid, toolName) {
   const content = document.getElementById('logbook-entries-content');
-  content.innerHTML = '<div style="display:flex;align-items:center;gap:.5rem;color:var(--muted);font-family:var(--font-mono);font-size:.7rem;padding:.5rem 0;"><div style="width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;"></div>Analysing entries…</div>';
+  content.innerHTML = '<div style="display:flex;align-items:center;gap:.5rem;color:var(--muted);font-family:var(--font-mono);'
+  'font-size:.7rem;padding:.5rem 0;"><div style="width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--amber);'
+  'border-radius:50%;animation:spin .7s linear infinite;"></div>Analysing entries…</div>';
   let full = '';
   const es = new EventSource(
     `/api/ai/logbook-explain?member_id=${MEMBER_ID}&machid=${machid}&tool_name=${encodeURIComponent(toolName)}`
@@ -666,7 +859,7 @@ function loadAILogbook(machid, toolName) {
 
   // ── Kick off loads ────────────────────────────────────────────────
   requestAnimationFrame(() => { setTimeout(loadSecondarySections, 0); });
-  requestAnimationFrame(() => { setTimeout(() => _loadLogbookDeferred(MEMBER_ID), 2000); });
+  requestAnimationFrame(() => { setTimeout(() => _loadLogbookDeferred(MEMBER_ID), 500); });
 
   // ── Staff PDF prefetch (profile + owner PDFs) ─────────────────────
   const _ownerPdfJob  = { job_id: null };

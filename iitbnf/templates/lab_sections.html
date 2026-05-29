@@ -29,13 +29,6 @@
 {% set profile_type = "lab" %}
 {% set member_id    = memberid %}
 
-{# Tabs: dashboard + AI Profile #}
-{% set show_tabs  = true %}
-{% set tab_panels = [
-    {'id': 'dashboard', 'label': 'Dashboard', 'icon': '◈'},
-    {'id': 'ai',        'label': 'AI Profile', 'icon': '✦'},
-] %}
-
 {# Build meta_items #}
 {% set meta_items = [] %}
 {% if user.email %}
@@ -254,54 +247,7 @@
 
 {% endblock %}
 
-{# ════════════════════════════════════════════════════════════════
-   AI PROFILE TAB PANEL  (lab only — staff has no tab system)
-════════════════════════════════════════════════════════════════ #}
-{% block extra_panels %}
-<div id="panel-ai" class="page-panel" role="tabpanel" aria-labelledby="tab-ai">
-  <div class="ai-profile-pane">
-    <div class="ai-profile-inner">
-      <div class="ai-profile-badge" id="ai-badge">
-        <span class="ai-badge-dot" id="ai-badge-dot"></span>
-        <span id="ai-badge-text">✦ AI Profile</span>
-      </div>
-      <h2 class="ai-profile-heading">{{ user.fname }} {{ user.lname }}</h2>
-      <p class="ai-profile-sub">
-        {{ user.position or 'Lab User' }}{% if user.department %} · {{ user.department }}{% endif %}
-      </p>
-      <div class="ai-profile-divider"></div>
 
-      <div class="ai-compose-card" id="ai-compose-card">
-        <div class="ai-compose-toolbar">
-          <div class="ai-compose-toolbar-left">
-            <span class="ai-compose-model-tag">◈ IITBNF Analyst</span>
-            <span class="ai-compose-timestamp" id="ai-compose-ts"></span>
-          </div>
-          <div class="ai-compose-toolbar-right">
-            <button class="ai-compose-action-btn" id="ai-copy-btn"
-                    onclick="copyAISummary()" style="display:none;">⎘ Copy</button>
-            <button class="ai-compose-action-btn" id="ai-regen-btn"
-                    onclick="startAICompose()">↻ Regenerate</button>
-          </div>
-        </div>
-        <div class="ai-compose-output" id="ai-compose-output">
-          <div class="ai-compose-idle" id="ai-compose-idle">
-            <div class="ai-idle-icon">◈</div>
-            <div class="ai-idle-text">Generating profile analysis…</div>
-          </div>
-        </div>
-        <div class="ai-compose-footer" id="ai-compose-footer" style="display:none;">
-          <span class="ai-footer-stat" id="ai-word-count"></span>
-          <span class="ai-footer-divider">·</span>
-          <span class="ai-footer-stat">Data-driven · No hallucination</span>
-          <span class="ai-footer-divider">·</span>
-          <span class="ai-footer-stat" id="ai-section-count"></span>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %}
 {% include "ai_panel.html" %}
 
 {# ════════════════════════════════════════════════════════════════

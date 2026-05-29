@@ -382,7 +382,7 @@ body {
 .modal-box {
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: var(--radius-xl); box-shadow: var(--shadow-modal);
-  width: 100%; height: 75%;
+  width: 100%; height: 50%;
   display: flex; flex-direction: column;
   transform: scale(.96) translateY(10px); transition: transform var(--tr); overflow: hidden;
 }

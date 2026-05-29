@@ -138,8 +138,8 @@ def ai_stream():
         headers  = {
             "Cache-Control":      "no-cache",
             "X-Accel-Buffering":  "no",    # disable nginx buffering if behind proxy
-            "Connection":         "keep-alive",
-            "Transfer-Encoding": "chunked",   # add this line to ensure proper streaming
+            # "Transfer-Encoding": "chunked",   # add this line to ensure proper streaming
+            # "connection":       "keep-alive", ensure connection stays open
         }
     )
 @bp.route("/api/ai/compose")
@@ -199,7 +199,7 @@ def ai_compose():
             headers={
                 "Cache-Control":     "no-cache",
                 "X-Accel-Buffering": "no",
-                "Connection":        "keep-alive",
+                # "Connection":        "keep-alive",
             }
         )
 
@@ -248,7 +248,7 @@ def ai_compose():
         headers={
             "Cache-Control":     "no-cache",
             "X-Accel-Buffering": "no",
-            "Connection":        "keep-alive",
+            # "Connection":        "keep-alive",
         }
     )
 
@@ -334,7 +334,7 @@ def ai_session_digest():
         headers={
             "Cache-Control":     "no-cache",
             "X-Accel-Buffering": "no",
-            "Connection":        "keep-alive",
+            # "Connection":        "keep-alive",
         }
     )
 @bp.route("/api/ai/admin-chat")
@@ -359,6 +359,12 @@ def admin_chat():
     ctx = {
         "facility": "IIT Bombay Nanofabrication Facility (IITBNF)",
         "system":   "Personnel and lab equipment management system",
+        "location":     "IIT Bombay, Powai, Mumbai - 400076",
+        "type":         "Class 100/1000 Cleanroom",
+        "hours":        "Monday to Friday, 9:00 AM to 6:00 PM",
+        "slot_uid":     None,
+        "member_id":    None,
+        "name":         "Facility",
     }
 
     token_queue = queue.Queue()

@@ -123,7 +123,9 @@ def _startup_tasks():
     # Always signal ready — even on failure, so PDFs aren't blocked forever
         try:
             from routes.profile import _xhtml2pdf_ready
+            from routes.lab_profile import _xhtml2pdf_ready as _lab_xhtml2pdf_ready
             _xhtml2pdf_ready.set() # set anyway so PDFs aren't blocked forever 
+            _lab_xhtml2pdf_ready.set() 
         except Exception:
             pass
     # Step 3: member list cache

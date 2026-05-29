@@ -171,3 +171,77 @@ def safe_dict(d: dict) -> dict:
         k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
         for k, v in d.items()
     }
+# ── PDF temp file cleanup ─────────────────────────────────────────────────────
+import os
+import threading as _threading
+import time as _time_util
+
+def start_pdf_cleanup(jobs_dicts: list, tmp_dir: str = "tmp",
+                      max_age_seconds: int = 3600,
+                      interval_seconds: int = 1800):
+    """
+    Background daemon thread that:
+    1. Deletes PDF files in tmp_dir older than max_age_seconds.
+    2. Removes the corresponding entries from each dict in jobs_dicts.
+
+    Args:
+        jobs_dicts:        list of dicts to prune (PDF_JOBS, LAB_PDF_JOBS, etc.)
+        tmp_dir:           directory where PDF temp files are written
+        max_age_seconds:   files older than this are deleted (default 1 hour)
+        interval_seconds:  how often the cleanup runs (default 30 minutes)
+    """
+    def _cleanup():
+        while True:
+            _time_util.sleep(interval_seconds)
+            try:
+                now = _time_util.time()
+                deleted_files = set()
+
+                # Step 1: delete old files from disk
+                if os.path.isdir(tmp_dir):
+                    for fname in os.listdir(tmp_dir):
+                        if not fname.endswith(".pdf"):
+                            continue
+                        fpath = os.path.join(tmp_dir, fname)
+                        try:
+                            if now - os.path.getmtime(fpath) > max_age_seconds:
+                                os.remove(fpath)
+                                # job_id is the filename without .pdf
+                                deleted_files.add(fname[:-4])
+                                print(f"[PDF cleanup] Deleted {fname}")
+                        except Exception as e:
+                            print(f"[PDF cleanup] Could not delete {fname}: {e}")
+
+                # Step 2: prune job dicts
+                for jobs in jobs_dicts:
+                    stale_keys = [
+                        k for k, v in list(jobs.items())
+                        if (
+                            # remove entries whose file was just deleted
+                            k in deleted_files
+                            # also remove error/not_found entries older than
+                            # max_age_seconds regardless of file
+                            or (
+                                isinstance(v, dict)
+                                and v.get("status") in ("error", "not_found")
+                            )
+                            or (
+                                isinstance(v, dict)
+                                and v.get("status") == "done"
+                                and v.get("file")
+                                and not os.path.exists(v["file"])  # file was deleted in a prior run
+                            )
+                        )
+                    ]
+                    for k in stale_keys:
+                        jobs.pop(k, None)
+
+                if deleted_files:
+                    print(f"[PDF cleanup] Pruned {len(deleted_files)} job entries")
+
+            except Exception as e:
+                print(f"[PDF cleanup] Unexpected error: {e}")
+
+    t = _threading.Thread(target=_cleanup, daemon=True)
+    t.start()
+    return t

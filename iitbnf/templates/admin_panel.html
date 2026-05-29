@@ -370,18 +370,18 @@
     .j-dd-av{
       width:28px;height:28px;border-radius:4px;
       display:flex;align-items:center;justify-content:center;
-      font-family:var(--font-hud);font-size:.55rem;font-weight:700;flex-shrink:0;
+      font-family:var(--font-hud);font-size:.75rem;font-weight:700;flex-shrink:0;
     }
     .j-av-s{color:var(--gold);background:var(--gold-dim);border:1px solid rgba(245,166,35,.25)}
     .j-av-l{color:var(--violet);background:var(--violet-dim);border:1px solid rgba(187,134,252,.25)}
 
-    .j-dd-id{font-family:var(--font-mono);font-size:.7rem;min-width:38px;flex-shrink:0}
+    .j-dd-id{font-family:var(--font-mono);font-size:1.05rem;min-width:38px;flex-shrink:0}
     .j-dd-id.s{color:var(--gold)} .j-dd-id.l{color:var(--violet)}
     .j-dd-info{flex:1;min-width:0}
-    .j-dd-name{font-size:.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .j-dd-name{font-size:1.05rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .j-dd-name mark{background:rgba(0,180,255,.18);color:var(--arc);border-radius:2px;padding:0 1px}
     .j-dd-sub{font-family:var(--font-mono);font-size:.68rem;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .j-dd-arr{color:var(--fg3);font-size:.7rem;flex-shrink:0;transition:transform var(--tr)}
+    .j-dd-arr{color:var(--fg3);font-size:1.05rem;flex-shrink:0;transition:transform var(--tr)}
     .j-dd-row:hover .j-dd-arr{transform:translateX(3px);color:var(--arc)}
     .j-dd-empty{padding:1.5rem;text-align:center;color:var(--fg3);font-family:var(--font-mono);font-size:.75rem}
 
@@ -645,6 +645,100 @@
       .j-nav-center{display:none}
       .j-pulse-strip{grid-template-columns:1fr 1fr}
     }
+    .ai-chip {
+  font-family: var(--font-mono);
+  font-size: .6rem;
+  color: var(--fg2);
+  background: var(--panel2);
+  border: 1px solid var(--rim2);
+  border-radius: 999px;
+  padding: .3rem .75rem;
+  cursor: pointer;
+  transition: all .15s;
+  letter-spacing: .03em;
+}
+.ai-chip:hover {
+  color: var(--arc);
+  border-color: rgba(99,179,237,.4);
+  background: var(--arc-dim);
+}
+.ai-msg-row {
+  display: flex;
+  align-items: flex-end;
+  gap: .45rem;
+  animation: msgIn .18s ease;
+}
+@keyframes msgIn {
+  from { opacity:0; transform: translateY(6px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+.ai-msg-row.user  { flex-direction: row-reverse; }
+.ai-msg-row.ai    { flex-direction: row; }
+.ai-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem; flex-shrink: 0;
+}
+.ai-avatar.ai-av {
+  background: var(--arc-dim);
+  border: 1px solid rgba(99,179,237,.3);
+  color: var(--arc);
+}
+.ai-avatar.user-av {
+  background: var(--gold-dim);
+  border: 1px solid rgba(246,173,85,.3);
+  color: var(--gold);
+}
+.ai-bubble {
+  max-width: 72%;
+  padding: .55rem .85rem;
+  border-radius: 16px;
+  font-family: var(--font-body);
+  font-size: .82rem;
+  line-height: 1.6;
+  position: relative;
+}
+.ai-bubble.user {
+  background: var(--arc);
+  color: #000;
+  border-bottom-right-radius: 4px;
+}
+.ai-bubble.ai {
+  background: var(--panel2);
+  border: 1px solid var(--rim);
+  color: var(--fg);
+  border-bottom-left-radius: 4px;
+}
+.ai-bubble.ai.streaming {
+  border-color: rgba(99,179,237,.3);
+}
+.ai-bubble.error {
+  background: var(--crimson-dim);
+  border: 1px solid rgba(252,129,129,.3);
+  color: var(--crimson);
+}
+.ai-ts {
+  font-family: var(--font-mono);
+  font-size: .52rem;
+  color: var(--fg3);
+  margin-top: .18rem;
+  text-align: right;
+}
+.ai-msg-row.ai .ai-ts { text-align: left; }
+.ai-typing-dots span {
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--fg3);
+  margin: 0 1px;
+  animation: typingBounce 1.2s infinite;
+}
+.ai-typing-dots span:nth-child(2) { animation-delay: .2s; }
+.ai-typing-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes typingBounce {
+  0%,60%,100% { transform: translateY(0); }
+  30% { transform: translateY(-5px); }
+}
   </style>
 </head>
 <body>
@@ -738,43 +832,150 @@
         </div>
 
       </div>
-      <!-- AI Admin Chat Bubble -->
+<!-- ══ AI CHAT BUBBLE + MODAL ══ -->
 <button id="admin-ai-bubble" onclick="toggleAdminAI()"
   style="position:fixed;bottom:1.75rem;right:1.75rem;z-index:300;
          background:var(--arc);color:#000;font-family:var(--font-mono);
-         font-size:.68rem;font-weight:700;padding:.55rem 1rem;
+         font-size:.68rem;font-weight:700;padding:.55rem 1.1rem;
          border-radius:999px;border:none;cursor:pointer;
-         box-shadow:0 4px 20px rgba(99,179,237,.4);">
-  ✦ Ask AI
+         box-shadow:0 4px 20px rgba(99,179,237,.4);
+         display:flex;align-items:center;gap:.4rem;transition:all .2s;">
+  <span id="ai-bubble-icon">✦</span>
+  <span id="ai-bubble-label">AI Assistant</span>
 </button>
 
-<div id="admin-ai-panel" style="display:none;position:fixed;bottom:5rem;right:1.75rem;
-  z-index:301;background:var(--panel);border:1px solid var(--rim2);
-  border-radius:16px;width:360px;max-height:420px;display:flex;
-  flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.6);">
-  <div style="padding:.7rem 1rem;border-bottom:1px solid var(--rim);
-              font-family:var(--font-mono);font-size:.6rem;color:var(--arc);
-              letter-spacing:.1em;">◈ IITBNF AI Assistant</div>
-  <div id="admin-ai-output" style="flex:1;overflow-y:auto;padding:.85rem 1rem;
-       font-size:.82rem;line-height:1.7;color:var(--fg);min-height:120px;
-       font-family:var(--font-body);">
-    <span style="color:var(--fg3);font-style:italic;">Ask me anything about the facility…</span>
-  </div>
-  <div style="display:flex;gap:.4rem;padding:.65rem .85rem;
-              border-top:1px solid var(--rim);background:rgba(0,0,0,.15);">
-    <input id="admin-ai-input" type="text"
-      placeholder="e.g. Who manages PECVD?"
-      style="flex:1;background:rgba(255,255,255,.06);border:1px solid var(--rim2);
-             border-radius:8px;color:var(--fg);font-family:var(--font-mono);
-             font-size:.68rem;padding:.4rem .7rem;outline:none;"
-      onkeydown="if(event.key==='Enter') sendAdminAI()" />
-    <button onclick="sendAdminAI()"
-      style="background:var(--arc);color:#000;border:none;border-radius:8px;
-             padding:.4rem .75rem;cursor:pointer;font-weight:700;font-size:.8rem;">↑</button>
-  </div>
-</div>
+<!-- FULL-SCREEN MODAL OVERLAY -->
+<div id="admin-ai-modal" style="display:none;position:fixed;inset:0;z-index:400;
+  background:rgba(0,0,0,.75);backdrop-filter:blur(8px);
+  align-items:center;justify-content:center;">
 
-    </div><!-- end hub pane -->
+  <!-- MODAL BOX -->
+  <div style="width:min(680px,96vw);height:min(700px,92vh);
+              background:var(--panel);border:1px solid var(--rim2);
+              border-radius:20px;display:flex;flex-direction:column;
+              box-shadow:0 24px 80px rgba(0,0,0,.7),0 0 0 1px rgba(99,179,237,.1);
+              overflow:hidden;position:relative;">
+
+    <!-- HEADER BAR -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:.7rem 1.1rem;border-bottom:1px solid var(--rim);
+                background:var(--panel2);flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:.55rem;">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--arc);
+                    box-shadow:0 0 8px var(--arc);animation:pulse 2s infinite;"></div>
+        <span style="font-family:var(--font-hud);font-size:1.0rem;color:var(--arc);
+                     letter-spacing:.14em;text-transform:uppercase;">IITBNF AI Assistant</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;">
+        <button onclick="clearAIChat()"
+          style="background:none;border:1px solid var(--rim2);color:var(--fg3);
+                 font-family:var(--font-mono);font-size:.75rem;padding:.2rem .55rem;
+                 border-radius:5px;cursor:pointer;transition:all .15s;letter-spacing:.05em;"
+          onmouseover="this.style.color='var(--crimson)';this.style.borderColor='var(--crimson)'"
+          onmouseout="this.style.color='var(--fg3)';this.style.borderColor='var(--rim2)'">
+          Clear
+        </button>
+        <button onclick="toggleAdminAI()"
+          style="background:var(--hull);border:1px solid var(--rim2);color:var(--fg3);
+                 width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:1.0rem;
+                 display:flex;align-items:center;justify-content:center;transition:all .15s;"
+          onmouseover="this.style.color='var(--crimson)';this.style.borderColor='rgba(252,129,129,.4)'"
+          onmouseout="this.style.color='var(--fg3)';this.style.borderColor='var(--rim2)'">✕</button>
+      </div>
+    </div>
+
+    <!-- GREETING SCREEN (shown when no messages) -->
+    <div id="ai-greeting-screen"
+      style="flex:1;display:flex;flex-direction:column;align-items:center;
+             justify-content:center;padding:2rem 1.5rem;gap:1.5rem;text-align:center;">
+
+      <div style="width:56px;height:56px;border-radius:50%;
+                  background:linear-gradient(135deg,rgba(99,179,237,.2),rgba(99,179,237,.05));
+                  border:1px solid rgba(99,179,237,.3);
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:1.4rem;box-shadow:0 0 24px rgba(99,179,237,.15);">✦</div>
+
+      <div>
+        <div id="ai-greeting-headline"
+          style="font-family:var(--font-hud);font-size:1.3rem;font-weight:600;
+                 color:var(--fg);letter-spacing:.06em;margin-bottom:.4rem;"></div>
+        <div style="font-family:var(--font-mono);font-size:.68rem;color:var(--fg3);
+                    letter-spacing:.04em;line-height:1.6;">
+          Ask anything about IITBNF — staff, lab users,<br>equipment, policies, or facility operations.
+        </div>
+      </div>
+
+      <!-- SUGGESTION CHIPS -->
+      <div style="display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;max-width:420px;">
+        <button class="ai-chip" onclick="sendChip('How many active staff members are there?')">👤 Active staff count</button>
+        <button class="ai-chip" onclick="sendChip('How many lab users are registered?')">🔬 Lab user count</button>
+        <button class="ai-chip" onclick="sendChip('How many equipment are currently operational?')">⚙ Equipment status</button>
+        <button class="ai-chip" onclick="sendChip('What is the attendance policy?')">📋 Attendance policy</button>
+        <button class="ai-chip" onclick="sendChip('Are there any active announcements?')">📢 Announcements</button>
+        <button class="ai-chip" onclick="sendChip('What is the booking process?')">📅 Booking process</button>
+      </div>
+
+      <!-- CENTERED INPUT (greeting state) -->
+      <div style="width:100%;max-width:460px;">
+        <div style="display:flex;gap:.4rem;background:var(--panel2);
+                    border:1px solid var(--rim2);border-radius:12px;
+                    padding:.4rem .5rem .4rem .85rem;
+                    transition:border-color .15s;"
+             id="ai-greeting-input-wrap"
+             onfocusin="this.style.borderColor='rgba(99,179,237,.5)'"
+             onfocusout="this.style.borderColor='var(--rim2)'">
+          <input id="admin-ai-input-greeting" type="text"
+            placeholder="Ask anything about IITBNF…"
+            style="flex:1;background:transparent;border:none;color:var(--fg);
+                   font-family:var(--font-body);font-size:.85rem;outline:none;"
+            onkeydown="if(event.key==='Enter')sendAdminAI()" />
+          <button onclick="sendAdminAI()"
+            style="background:var(--arc);color:#000;border:none;border-radius:8px;
+                   padding:.45rem .85rem;cursor:pointer;font-weight:700;font-size:.85rem;
+                   transition:opacity .15s;flex-shrink:0;"
+            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">↑</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT CONVERSATION (shown once messages exist) -->
+    <div id="ai-chat-screen" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+
+      <!-- MESSAGE LIST -->
+      <div id="ai-message-list"
+        style="flex:1;overflow-y:auto;padding:1rem .85rem;
+               display:flex;flex-direction:column;gap:.6rem;
+               scrollbar-width:thin;scrollbar-color:var(--rim2) transparent;">
+      </div>
+
+      <!-- BOTTOM INPUT BAR -->
+      <div style="flex-shrink:0;padding:.65rem .85rem;border-top:1px solid var(--rim);
+                  background:var(--panel2);">
+        <div style="display:flex;gap:.4rem;background:var(--hull);
+                    border:1px solid var(--rim2);border-radius:12px;
+                    padding:.35rem .45rem .35rem .85rem;
+                    transition:border-color .15s;"
+             id="ai-chat-input-wrap"
+             onfocusin="this.style.borderColor='rgba(99,179,237,.5)'"
+             onfocusout="this.style.borderColor='var(--rim2)'">
+          <input id="admin-ai-input-chat" type="text"
+            placeholder="Message IITBNF AI…"
+            style="flex:1;background:transparent;border:none;color:var(--fg);
+                   font-family:var(--font-body);font-size:.85rem;outline:none;"
+            onkeydown="if(event.key==='Enter')sendAdminAI()" />
+          <button onclick="sendAdminAI()" id="ai-send-btn"
+            style="background:var(--arc);color:#000;border:none;border-radius:8px;
+                   padding:.4rem .75rem;cursor:pointer;font-weight:700;font-size:.9rem;
+                   transition:all .15s;flex-shrink:0;"
+            onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">↑</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end modal box -->
+</div><!-- end modal overlay -->
+
+</div><!-- end hub pane -->
 
     <!-- ══ ANNOUNCEMENTS PANE ══ -->
     <div class="j-pane" id="pane-announcements">
@@ -1060,35 +1261,199 @@ setTimeout(() => { document.querySelectorAll('.j-flash').forEach(f => f.remove()
 
 
 <script>
+/* ══ AI CHAT ENGINE ══ */
 let _adminAIOpen = false;
+let _aiMessages  = [];   // [{role:'user'|'ai', text, ts}]
+let _aiStreaming  = false;
+
 function toggleAdminAI() {
   _adminAIOpen = !_adminAIOpen;
-  const panel = document.getElementById('admin-ai-panel');
-  panel.style.display = _adminAIOpen ? 'flex' : 'none';
-  if (_adminAIOpen) setTimeout(() => document.getElementById('admin-ai-input')?.focus(), 100);
+  const modal = document.getElementById('admin-ai-modal');
+  modal.style.display = _adminAIOpen ? 'flex' : 'none';
+  if (_adminAIOpen) {
+    _setAIGreeting();
+    _renderAIScreen();
+    setTimeout(() => {
+      const inp = _aiMessages.length
+        ? document.getElementById('admin-ai-input-chat')
+        : document.getElementById('admin-ai-input-greeting');
+      inp && inp.focus();
+    }, 80);
+  }
 }
+
+// Close on backdrop click
+document.getElementById('admin-ai-modal').addEventListener('click', function(e) {
+  if (e.target === this) toggleAdminAI();
+});
+
+function _setAIGreeting() {
+  const hour = new Date().getHours();
+  const sal  = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const el   = document.getElementById('ai-greeting-headline');
+  if (el) el.textContent = `${sal}, Administrator.`;
+}
+
+function _renderAIScreen() {
+  const greet = document.getElementById('ai-greeting-screen');
+  const chat  = document.getElementById('ai-chat-screen');
+  if (!greet || !chat) return;
+  if (_aiMessages.length === 0) {
+    greet.style.display = 'flex';
+    chat.style.display  = 'none';
+  } else {
+    greet.style.display = 'none';
+    chat.style.display  = 'flex';
+    _renderMessages();
+  }
+}
+
+function _renderMessages() {
+  const list = document.getElementById('ai-message-list');
+  if (!list) return;
+  list.innerHTML = '';
+  _aiMessages.forEach((msg, idx) => {
+    const isUser = msg.role === 'user';
+    const row = document.createElement('div');
+    row.className = `ai-msg-row ${isUser ? 'user' : 'ai'}`;
+    row.id = `ai-msg-${idx}`;
+    row.innerHTML = `
+      <div class="ai-avatar ${isUser ? 'user-av' : 'ai-av'}">${isUser ? 'A' : '✦'}</div>
+      <div>
+        <div class="ai-bubble ${isUser ? 'user' : 'ai'} ${msg.streaming ? 'streaming' : ''} ${msg.error ? 'error' : ''}"
+             id="ai-bubble-${idx}">${_escapeAndFormat(msg.text)}</div>
+        <div class="ai-ts">${msg.ts || ''}</div>
+      </div>`;
+    list.appendChild(row);
+  });
+  // scroll to bottom
+  list.scrollTop = list.scrollHeight;
+}
+
+function _escapeAndFormat(text) {
+  if (!text) return '';
+  const d = document.createElement('div');
+  d.textContent = text;
+  // preserve newlines
+  return d.innerHTML.replace(/\n/g, '<br>');
+}
+
+function _now() {
+  return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+}
+
+function _addMessage(role, text, extra) {
+  const msg = { role, text, ts: _now(), ...extra };
+  _aiMessages.push(msg);
+  _renderAIScreen();
+  return _aiMessages.length - 1;
+}
+
+function _updateBubble(idx, text, done) {
+  const bubble = document.getElementById(`ai-bubble-${idx}`);
+  if (bubble) {
+    bubble.innerHTML = _escapeAndFormat(text);
+    if (done) bubble.classList.remove('streaming');
+  }
+  const list = document.getElementById('ai-message-list');
+  if (list) list.scrollTop = list.scrollHeight;
+  if (done && _aiMessages[idx]) {
+    _aiMessages[idx].text      = text;
+    _aiMessages[idx].streaming = false;
+  }
+}
+
+function sendChip(q) {
+  document.getElementById('admin-ai-input-greeting').value = q;
+  sendAdminAI();
+}
+
 function sendAdminAI() {
-  const inp = document.getElementById('admin-ai-input');
-  const out = document.getElementById('admin-ai-output');
-  if (!inp || !out) return;
-  const q = inp.value.trim(); if (!q) return;
-  inp.value = '';
-  out.innerHTML = '<span style="color:var(--fg3);font-style:italic;">Thinking…</span>';
+  if (_aiStreaming) return;
+
+  // Get input from whichever box is visible
+  const inpG = document.getElementById('admin-ai-input-greeting');
+  const inpC = document.getElementById('admin-ai-input-chat');
+  const activeInp = (_aiMessages.length === 0 ? inpG : inpC) || inpG;
+  const q = (activeInp ? activeInp.value.trim() : '');
+  if (!q) return;
+
+  // Clear inputs
+  if (inpG) inpG.value = '';
+  if (inpC) inpC.value = '';
+
+  // Add user message
+  _addMessage('user', q);
+
+  // Add AI placeholder (typing indicator)
+  const aiIdx = _addMessage('ai', '', { streaming: true });
+  _aiStreaming = true;
+
+  // Update bubble to typing dots
+  const bubble = document.getElementById(`ai-bubble-${aiIdx}`);
+  if (bubble) {
+    bubble.innerHTML = `<div class="ai-typing-dots"><span></span><span></span><span></span></div>`;
+    bubble.classList.add('streaming');
+  }
+
   let full = '';
+  let firstToken = true;
   const es = new EventSource(`/api/ai/admin-chat?message=${encodeURIComponent(q)}`);
+
   es.onmessage = event => {
     const raw = event.data;
-    if (raw === '[DONE]') { es.close(); return; }
-    if (raw.startsWith('[ERROR]')) { es.close(); out.textContent = raw; return; }
+    if (raw === '[DONE]') {
+      es.close();
+      _aiStreaming = false;
+      if (!full) full = '(No response)';
+      _updateBubble(aiIdx, full, true);
+      // re-focus input
+      setTimeout(() => document.getElementById('admin-ai-input-chat')?.focus(), 80);
+      return;
+    }
+    if (raw.startsWith('[ERROR]')) {
+      es.close();
+      _aiStreaming = false;
+      if (_aiMessages[aiIdx]) _aiMessages[aiIdx].error = true;
+      _updateBubble(aiIdx, raw.replace('[ERROR]','').trim() || 'Something went wrong.', true);
+      const b = document.getElementById(`ai-bubble-${aiIdx}`);
+      if (b) { b.classList.remove('streaming'); b.classList.add('error'); }
+      return;
+    }
     try {
       const token = JSON.parse(raw);
-      if (typeof token === 'string' && !token.startsWith('[MODE:')) {
-        if (!full) out.innerHTML = '';
-        full += token; out.textContent = full;
+      if (typeof token === 'string') {
+        // Skip mode annotations
+        if (token.startsWith('[MODE:')) return;
+        if (firstToken) {
+          full = '';
+          firstToken = false;
+        }
+        full += token;
+        _updateBubble(aiIdx, full, false);
       }
     } catch(_) {}
   };
-  es.onerror = () => { es.close(); if (!full) out.textContent = 'Connection error.'; };
+
+  es.onerror = () => {
+    es.close();
+    _aiStreaming = false;
+    if (!full) {
+      if (_aiMessages[aiIdx]) _aiMessages[aiIdx].error = true;
+      _updateBubble(aiIdx, 'Connection error. Please try again.', true);
+      const b = document.getElementById(`ai-bubble-${aiIdx}`);
+      if (b) { b.classList.remove('streaming'); b.classList.add('error'); }
+    } else {
+      _updateBubble(aiIdx, full, true);
+    }
+  };
+}
+
+function clearAIChat() {
+  _aiMessages  = [];
+  _aiStreaming = false;
+  _renderAIScreen();
+  setTimeout(() => document.getElementById('admin-ai-input-greeting')?.focus(), 80);
 }
 </script>
 </body>

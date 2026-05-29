@@ -1,0 +1,92 @@
+IITBNF FACILITY KNOWLEDGE BASE
+================================
+
+ABOUT THE FACILITY
+------------------
+IIT Bombay Nanofabrication Facility (IITBNF) is a state-of-the-art 
+cleanroom facility located at IIT Bombay, Mumbai, India.
+The facility provides fabrication and characterization services to 
+researchers from IIT Bombay and external institutions under the 
+National Programme on Micro and Smart Systems (NPMASS) and 
+National Centre for Photovoltaic Research and Education (NCPRE).
+
+FACILITY TYPE: Class 100 / Class 1000 Cleanroom
+LOCATION: IIT Bombay Campus, Powai, Mumbai - 400076
+OPERATING HOURS: Monday to Friday, 9:00 AM to 6:00 PM
+WEBSITE: https://www.iitbnf.iitb.ac.in
+
+TEAMS AND ROLES
+---------------
+IITBNF Staff: Core facility staff managing day-to-day lab operations,
+equipment maintenance, and user support.
+
+Faculty: Faculty members supervising research projects and student work
+at the facility.
+
+System Owner: Staff member assigned responsibility for a specific 
+equipment — handles maintenance coordination and operational status.
+
+HR Admin / HR Team: Manages staff attendance, leave, and personnel records.
+
+IT Admin / IT Team: Manages the slotbooking system, user accounts,
+and digital infrastructure.
+
+Attendance Team: Responsible for uploading and verifying attendance records.
+
+USER CATEGORIES
+---------------
+Ph.D: Doctoral researchers working towards a PhD degree.
+M.Tech: Postgraduate students pursuing M.Tech degree.
+M.Tech RA: M.Tech students on research assistantship.
+B.Tech: Undergraduate students on project internship.
+INUP: Visiting researchers under the INUP national nanofabrication programme.
+PDF: Postdoctoral fellows conducting research.
+Industry User: Industry users accessing facility for commercial R&D.
+Project Staff: Staff supporting research operations on project basis.
+
+ACCESS AND REGISTRATION
+-----------------------
+New users must register through the slotbooking portal.
+Registration requires supervisor approval and course/project details.
+Access is granted after registration review and approval.
+Lab access expires based on registration period.
+Access can be renewed by contacting facility staff.
+
+EQUIPMENT BOOKING PROCESS
+--------------------------
+Step 1: Submit equipment usage request through slotbooking portal.
+Step 2: Request reviewed and approved by system owner or faculty incharge.
+Step 3: Once approved, slot booking is confirmed.
+Step 4: User submits session report after equipment use.
+Cancellations must be made in advance through the portal.
+
+EQUIPMENT CATEGORIES
+--------------------
+Deposition: PECVD, LPCVD, Sputtering, Evaporation systems
+Lithography: Spin coaters, Mask aligners, E-beam lithography
+Etching: RIE, ICP etching systems, Wet bench stations  
+Characterization: SEM, TEM, AFM, XRD, XPS, EDX systems
+Thermal: Diffusion furnaces, RTA systems, Anneal ovens
+Metrology: Profilometers, Ellipsometers, IV measurement
+
+PUBLICATIONS AND PROJECTS
+--------------------------
+Users publish research papers associated with IITBNF.
+Faculty projects are linked to user accounts.
+Publications require approval before appearing in records.
+Project categories include sponsored, consultancy, and student projects.
+
+ATTENDANCE AND LEAVE POLICY
+----------------------------
+Mandatory attendance threshold: 75% of working days per year.
+Leave types: Casual Leave (CL), Earned Leave (EL), Medical Leave (ML),
+Restricted Leave (RL).
+Attendance is recorded daily and tracked annually.
+Staff below 75% threshold may require management review.
+
+CONTACT AND SUPPORT
+-------------------
+For equipment issues: Contact the system owner for that equipment.
+For access issues: Contact IT Admin through the portal.
+For attendance queries: Contact HR Team.
+For registration help: Contact facility staff.

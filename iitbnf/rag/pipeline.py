@@ -1,9 +1,6 @@
 # rag/pipeline.py — Ollama-backed generation
-
-import json
+import re
 import logging
-import requests
-from config import AI_MODE
 from llm import llm_generate, llm_stream
 logger = logging.getLogger(__name__)
 
@@ -192,7 +189,6 @@ def _build_report_query(ctx: dict) -> str:
 
     return " ".join(parts)
 
-
 def _format_context(ctx: dict) -> str:
     return "\n".join(
         f"{k}: {v}"
@@ -200,10 +196,8 @@ def _format_context(ctx: dict) -> str:
         if v and str(v) not in ("N/A", "None", "0", "")
     )
 
-
 def _format_chunks(chunks: list) -> str:
     return "\n".join(c["text"] for c in chunks[:5]) if chunks else ""
-
 
 def _build_executive_prompt(ctx: dict, rag_block: str = "") -> str:
     context_block = _format_context(ctx)
@@ -337,8 +331,6 @@ def _validate_response(response: str, ctx: dict) -> str:
     if not response or not ctx:
         return response
     
-    import re
-    
     # Collect all numeric values from ctx
     ctx_numbers = set()
     for v in ctx.values():
@@ -382,4 +374,4 @@ def _validate_response(response: str, ctx: dict) -> str:
 # ── RAG config constants (used by retrieve.py and debug_ai.py) ────────────────
 RAG_K     = 5
 MIN_SCORE = 0.05
-N_CTX     = 4096
+N_CTX     = 8192

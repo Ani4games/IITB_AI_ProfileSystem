@@ -4,12 +4,9 @@ routes/admin_panel.py — /admin-panel
 Cleaned + scalable admin panel blueprint
 """
 
-
 import traceback
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, make_response
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from auth import staff_required
-from cache import cache
-from db import hr_execute, slots_execute, hr_query
 from utils import run_parallel
 from models.staff import get_all_members
 from models.lab import get_all_lab_users, get_announcements_all
@@ -20,8 +17,16 @@ def _build_search_index(members, lab_users):
     Staff and lab users are merged — no tabs, no classifications.
     Each entry carries a `kind` field ("staff"/"lab") used only for
     the avatar colour; the search itself is blind to the distinction.
+
+    IITBNF Staff members appear in both the hr_portal (staff) list AND the
+    slotbooking (lab) list.  We deduplicate by excluding any lab user whose
+    memberid already has a staff entry, so they appear exactly once with
+    kind="staff" pointing to their /profile/<id> page.
     """
     people = []
+
+    # Build a set of member IDs that already have a staff entry
+    staff_ids = {m.get("member_id") for m in members}
 
     for m in members:
         name  = (m.get("display_name") or "").strip()
@@ -41,10 +46,13 @@ def _build_search_index(members, lab_users):
         })
 
     for u in lab_users:
+        uid = u.get("memberid", 0)
+        # Skip lab users who are already represented as staff entries
+        if uid in staff_ids:
+            continue
         fname = u.get("fname") or ""
         lname = u.get("lname") or ""
         name  = f"{fname} {lname}".strip()
-        uid   = u.get("memberid", 0)
         pos   = u.get("position") or ""
         dept  = u.get("department") or ""
         parts = name.split()
@@ -175,7 +183,6 @@ def panel_announcement_add():
     except Exception as e:
         flash(f"Error: {e}", "error")
     return redirect(url_for("admin_panel.index") + "#announcements")
-
 
 @bp.route("/announcement/edit/<int:aid>", methods=["POST"])
 @staff_required

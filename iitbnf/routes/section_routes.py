@@ -40,6 +40,7 @@ from models.staff import (
     get_attendance_stats, get_equipment_stats, get_staff_logbook_stats, get_staff_owner_track,
     get_staff_reservations, get_attendance_trend,
     get_slot_activity, get_staff_system_owned, get_staff_tool_perms_rich,
+    get_staff_session_reports, get_staff_cancellations, get_staff_lab_access,
 )
 from models.lab import (
     get_lab_reservations, get_lab_equipment_requests,
@@ -213,6 +214,44 @@ def staff_tool_perms(member_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+# ADD after staff_tool_perms()
+
+@bp.route("/api/section/staff/<int:member_id>/session_reports")
+@login_required
+def staff_session_reports(member_id):
+    if not is_full_access():
+        return jsonify({"error": "Access restricted."}), 403
+    try:
+        data = get_staff_session_reports(member_id)
+        return _cached_json(safe_json({"success": True, "data": _serialize(data)}))
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/api/section/staff/<int:member_id>/cancellations")
+@login_required
+def staff_cancellations(member_id):
+    if not is_full_access():
+        return jsonify({"error": "Access restricted."}), 403
+    try:
+        data = get_staff_cancellations(member_id)
+        return _cached_json(safe_json({"success": True, "data": _serialize(data)}))
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@bp.route("/api/section/staff/<int:member_id>/lab_access")
+@login_required
+def staff_lab_access(member_id):
+    if not is_full_access():
+        return jsonify({"error": "Access restricted."}), 403
+    year = request.args.get("year", type=int) or _cur_year
+    try:
+        data = get_staff_lab_access(member_id, year)
+        return _cached_json(safe_json({"success": True, "year": year, "data": _serialize(data)}))
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Same pattern for lab:
 @bp.route("/api/section/lab/<int:memberid>/system_owned")
 @login_required  
@@ -244,7 +283,9 @@ def tool_session_log(machid):
         return jsonify({"success": False, "error": "Access restricted."}), 403
 
     limit = min(request.args.get("limit", 30, type=int), 200)
-
+    member_id = request.args.get("member_id", type=int)
+    if not member_id:
+        return jsonify({"success": False, "error": "member_id required"}), 400
     try:
         from db import slots_query
         from models.staff import _get_logbook_tables
@@ -287,9 +328,10 @@ def tool_session_log(machid):
             FROM `t_{machid}` lg
             LEFT JOIN reservations res ON res.resid = lg.reservation_id
             LEFT JOIN login l           ON l.memberid = res.memberid
+            WHERE res.memberid = %s
             ORDER BY lg.reservation_id DESC
             LIMIT %s
-        """, (limit,))
+        """, (member_id, limit))
 
         if rows is None:
             rows = []

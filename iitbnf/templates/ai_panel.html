@@ -408,6 +408,226 @@
   flex-shrink: 0;
 }
 .ai-qa-send:hover { opacity: .85; }
+/* ── AI CHAT MODAL (profile Q&A) ──────────────────────────── */
+.ai-chat-modal-box {
+  background: var(--surface, #0c0f18);
+  border: 1px solid rgba(245,166,35,.2);
+  border-radius: 20px;
+  width: min(640px, 96vw);
+  height: min(680px, 90vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.75), 0 0 0 1px rgba(245,166,35,.06);
+  transform: scale(.96) translateY(12px);
+  transition: transform .2s ease;
+}
+.modal-backdrop.open .ai-chat-modal-box {
+  transform: scale(1) translateY(0);
+}
+.ai-chat-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .7rem 1.1rem;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  background: rgba(255,255,255,.03);
+  flex-shrink: 0;
+}
+.ai-chat-status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--amber, #f5a623);
+  box-shadow: 0 0 8px rgba(245,166,35,.6);
+  animation: pulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.ai-chat-modal-name {
+  font-family: var(--font-mono, monospace);
+  font-size: .72rem; font-weight: 700;
+  color: var(--fg, #eef0f6);
+  letter-spacing: .04em;
+}
+.ai-chat-modal-sub {
+  font-family: var(--font-mono, monospace);
+  font-size: .58rem;
+  color: var(--amber, #f5a623);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  opacity: .8;
+  margin-top: .1rem;
+}
+.ai-chat-clear-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.4);
+  font-family: var(--font-mono, monospace);
+  font-size: .58rem;
+  padding: .2rem .55rem;
+  border-radius: 5px;
+  cursor: pointer;
+  letter-spacing: .05em;
+  transition: all .15s;
+}
+.ai-chat-clear-btn:hover {
+  color: var(--red, #f43f5e);
+  border-color: rgba(244,63,94,.4);
+}
+.ai-chat-orb {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(245,166,35,.1);
+  border: 1px solid rgba(245,166,35,.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; color: var(--amber, #f5a623);
+  box-shadow: 0 0 20px rgba(245,166,35,.12);
+}
+.ai-chat-greeting-headline {
+  font-family: var(--font-display, 'Syne', sans-serif);
+  font-size: 1.15rem; font-weight: 700;
+  color: var(--fg, #eef0f6);
+  margin-bottom: .35rem;
+}
+.ai-chat-greeting-sub {
+  font-family: var(--font-mono, monospace);
+  font-size: .62rem;
+  color: var(--muted, #7c859e);
+  letter-spacing: .03em;
+  line-height: 1.65;
+}
+.ai-chat-chips {
+  display: flex; flex-wrap: wrap; gap: .4rem;
+  justify-content: center; max-width: 420px;
+}
+.ai-profile-chip {
+  font-family: var(--font-mono, monospace);
+  font-size: .6rem;
+  color: var(--muted, #7c859e);
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 999px;
+  padding: .28rem .7rem;
+  cursor: pointer;
+  transition: all .15s;
+  letter-spacing: .03em;
+}
+.ai-profile-chip:hover {
+  color: var(--amber, #f5a623);
+  border-color: rgba(245,166,35,.4);
+  background: rgba(245,166,35,.08);
+}
+.ai-chat-input-wrap {
+  display: flex; gap: .4rem;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: .35rem .4rem .35rem .8rem;
+  transition: border-color .15s;
+}
+.ai-chat-input-wrap:focus-within {
+  border-color: rgba(245,166,35,.45);
+}
+.ai-chat-input {
+  flex: 1; background: transparent; border: none;
+  color: var(--fg, #eef0f6);
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: .85rem; outline: none;
+}
+.ai-chat-input::placeholder { color: rgba(255,255,255,.25); }
+.ai-chat-send-btn {
+  background: var(--amber, #f5a623);
+  color: #000; border: none; border-radius: 8px;
+  padding: .38rem .8rem; cursor: pointer;
+  font-weight: 700; font-size: .9rem;
+  transition: opacity .15s; flex-shrink: 0;
+}
+.ai-chat-send-btn:hover { opacity: .85; }
+.ai-chat-message-list {
+  flex: 1; overflow-y: auto;
+  padding: .85rem .8rem;
+  display: flex; flex-direction: column; gap: .55rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245,166,35,.15) transparent;
+}
+.ai-chat-message-list::-webkit-scrollbar { width: 3px; }
+.ai-chat-message-list::-webkit-scrollbar-thumb {
+  background: rgba(245,166,35,.2); border-radius: 2px;
+}
+.ai-chat-bottom-bar {
+  flex-shrink: 0;
+  padding: .6rem .8rem;
+  border-top: 1px solid rgba(255,255,255,.05);
+  background: rgba(0,0,0,.12);
+}
+/* message rows */
+.ai-prf-msg-row {
+  display: flex; align-items: flex-end; gap: .4rem;
+  animation: pMsgIn .16s ease;
+}
+@keyframes pMsgIn {
+  from { opacity:0; transform:translateY(5px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.ai-prf-msg-row.user { flex-direction: row-reverse; }
+.ai-prf-av {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem; flex-shrink: 0;
+}
+.ai-prf-av.ai-side {
+  background: rgba(245,166,35,.12);
+  border: 1px solid rgba(245,166,35,.3);
+  color: var(--amber, #f5a623);
+}
+.ai-prf-av.user-side {
+  background: rgba(56,189,248,.12);
+  border: 1px solid rgba(56,189,248,.3);
+  color: var(--blue, #38bdf8);
+}
+.ai-prf-bubble {
+  max-width: 75%;
+  padding: .5rem .8rem;
+  border-radius: 14px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  font-size: .82rem; line-height: 1.65;
+  white-space: pre-wrap; word-break: break-word;
+}
+.ai-prf-bubble.user {
+  background: var(--amber, #f5a623);
+  color: #000;
+  border-bottom-right-radius: 3px;
+}
+.ai-prf-bubble.ai {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.08);
+  color: var(--fg, #eef0f6);
+  border-bottom-left-radius: 3px;
+}
+.ai-prf-bubble.ai.streaming {
+  border-color: rgba(245,166,35,.25);
+}
+.ai-prf-bubble.ai.error {
+  background: rgba(244,63,94,.08);
+  border-color: rgba(244,63,94,.25);
+  color: var(--red, #f43f5e);
+}
+.ai-prf-ts {
+  font-family: var(--font-mono, monospace);
+  font-size: .5rem; color: var(--faint, #3a4155);
+  margin-top: .15rem;
+}
+.ai-prf-msg-row.user  .ai-prf-ts { text-align: right; }
+.ai-prf-msg-row.ai    .ai-prf-ts { text-align: left; }
+.ai-prf-typing span {
+  display: inline-block; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--muted, #7c859e);
+  margin: 0 1px;
+  animation: pTypeBounce 1.2s infinite;
+}
+.ai-prf-typing span:nth-child(2) { animation-delay: .2s; }
+.ai-prf-typing span:nth-child(3) { animation-delay: .4s; }
+@keyframes pTypeBounce {
+  0%,60%,100% { transform:translateY(0); }
+  30%          { transform:translateY(-5px); }
+}
 </style>
 <!-- ══════════════════════════════════════════════════════════════════
      IITBNF — Voice AI Panel
@@ -451,32 +671,77 @@
     </div>
   </div>
 
-  <!-- AI Q&A MODAL -->
+<!-- AI Q&A MODAL — ChatGPT greeting + WhatsApp chat -->
   <div class="modal-backdrop" id="ai-qa-modal" role="dialog" aria-modal="true">
-    <div class="ai-summary-modal-box">
-      <div class="ai-summary-modal-head">
-        <div>
-          <div class="ai-summary-modal-name" data-name></div>
-          <div class="ai-summary-modal-mode">Ask AI Assistant</div>
+    <div class="ai-chat-modal-box">
+
+      <!-- HEADER -->
+      <div class="ai-chat-modal-head">
+        <div style="display:flex;align-items:center;gap:.55rem;">
+          <div class="ai-chat-status-dot"></div>
+          <div>
+            <div class="ai-chat-modal-name" id="ai-chat-person-name"></div>
+            <div class="ai-chat-modal-sub">AI Profile Assistant</div>
+          </div>
         </div>
-        <button class="modal-close-btn" onclick="closeModal('ai-qa-modal')">✕</button>
+        <div style="display:flex;align-items:center;gap:.4rem;">
+          <button onclick="_clearProfileChat()"
+            class="ai-chat-clear-btn">Clear</button>
+          <button class="modal-close-btn" onclick="closeModal('ai-qa-modal')">✕</button>
+        </div>
       </div>
-      <!-- Greeting -->
-      <div style="padding:.65rem 1.1rem .2rem;font-family:var(--font-mono);font-size:.65rem;color:var(--muted);"
-           id="ai-qa-greeting"></div>
-      <!-- Answer bubble -->
-      <div class="ai-qa-answer" id="ai-qa-answer">
-        <span style="color:var(--faint);font-style:italic;font-size:.85rem;">
-          Your answer will appear here…
-        </span>
+
+      <!-- GREETING SCREEN (shown when no messages) -->
+      <div id="ai-qa-greeting-screen"
+        style="flex:1;display:flex;flex-direction:column;align-items:center;
+               justify-content:center;padding:2rem 1.5rem;gap:1.25rem;text-align:center;">
+
+        <div class="ai-chat-orb">✦</div>
+
+        <div>
+          <div id="ai-qa-greeting-headline" class="ai-chat-greeting-headline"></div>
+          <div class="ai-chat-greeting-sub">
+            Ask me anything about this profile —<br>
+            attendance, equipment usage, publications, and more.
+          </div>
+        </div>
+
+        <!-- SUGGESTION CHIPS -->
+        <div class="ai-chat-chips" id="ai-qa-chips"></div>
+
+        <!-- CENTERED INPUT -->
+        <div style="width:100%;max-width:420px;">
+          <div class="ai-chat-input-wrap" id="ai-qa-greeting-wrap">
+            <input id="ai-qa-input-greeting" type="text"
+              class="ai-chat-input"
+              placeholder="Ask anything about this profile…"
+              autocomplete="off"
+              onkeydown="if(event.key==='Enter')sendAIQuestion()" />
+            <button onclick="sendAIQuestion()" class="ai-chat-send-btn">↑</button>
+          </div>
+        </div>
       </div>
-      <!-- Input row -->
-      <div class="ai-qa-input-row">
-        <input type="text" class="ai-qa-input" id="ai-qa-input"
-               placeholder="What is in your mind?"
-               autocomplete="off" />
-        <button class="ai-qa-send" onclick="sendAIQuestion()" title="Ask">↑</button>
+
+      <!-- CHAT SCREEN (shown once messages exist) -->
+      <div id="ai-qa-chat-screen"
+        style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+
+        <!-- MESSAGE LIST -->
+        <div id="ai-qa-message-list" class="ai-chat-message-list"></div>
+
+        <!-- BOTTOM INPUT -->
+        <div class="ai-chat-bottom-bar">
+          <div class="ai-chat-input-wrap" id="ai-qa-chat-wrap">
+            <input id="ai-qa-input-chat" type="text"
+              class="ai-chat-input"
+              placeholder="Ask another question…"
+              autocomplete="off"
+              onkeydown="if(event.key==='Enter')sendAIQuestion()" />
+            <button onclick="sendAIQuestion()" class="ai-chat-send-btn">↑</button>
+          </div>
+        </div>
       </div>
+
     </div>
   </div>
 
@@ -673,48 +938,194 @@
     };
   }
 
-  // ── AI Q&A ────────────────────────────────────────────────────────
-  let _qaTyping = false;
-  let _qaFrame  = null;
+  // ── PROFILE AI CHAT ENGINE ────────────────────────────────────────
+  let _pChatMsgs     = [];
+  let _pChatStreaming = false;
+
+  // Chips are profile-aware — generated once the person's name is known
+  const _PROFILE_CHIPS = {
+    staff: [
+      { label: '📊 Attendance this year',   q: 'What is the attendance this year?' },
+      { label: '⚙ Equipment requests',      q: 'How many equipment requests were submitted?' },
+      { label: '🔑 Tool permissions',        q: 'How many tool permissions does this person have?' },
+      { label: '📄 Publications',            q: 'How many publications does this person have?' },
+      { label: '🗂 Projects',               q: 'What projects is this person associated with?' },
+      { label: '🏷 Designation & team',     q: 'What is the designation and team?' },
+    ],
+    lab: [
+      { label: '📅 Slot reservations',      q: 'How many slot reservations have been made?' },
+      { label: '⚙ Equipment requests',      q: 'How many equipment requests were submitted?' },
+      { label: '🔬 Research area',          q: 'What is the research area?' },
+      { label: '👤 Supervisor',             q: 'Who is the supervisor?' },
+      { label: '📄 Publications',           q: 'How many publications does this person have?' },
+      { label: '🗂 Projects',              q: 'What projects is this person associated with?' },
+    ]
+  };
+
+  function _buildProfileChips() {
+    const container = document.getElementById('ai-qa-chips');
+    if (!container) return;
+    const chips = _PROFILE_CHIPS[PROFILE_TYPE] || _PROFILE_CHIPS.staff;
+    container.innerHTML = chips.map(c =>
+      `<button class="ai-profile-chip" onclick="_sendProfileChip(${JSON.stringify(c.q)})">${c.label}</button>`
+    ).join('');
+  }
+
+  function _sendProfileChip(q) {
+    const inp = document.getElementById('ai-qa-input-greeting');
+    if (inp) inp.value = q;
+    sendAIQuestion();
+  }
+
+  function _renderProfileChatScreen() {
+    const greet = document.getElementById('ai-qa-greeting-screen');
+    const chat  = document.getElementById('ai-qa-chat-screen');
+    if (!greet || !chat) return;
+    if (_pChatMsgs.length === 0) {
+      greet.style.display = 'flex';
+      chat.style.display  = 'none';
+    } else {
+      greet.style.display = 'none';
+      chat.style.display  = 'flex';
+      _renderProfileMessages();
+    }
+  }
+
+  function _renderProfileMessages() {
+    const list = document.getElementById('ai-qa-message-list');
+    if (!list) return;
+    list.innerHTML = '';
+    _pChatMsgs.forEach((msg, idx) => {
+      const isUser = msg.role === 'user';
+      const row = document.createElement('div');
+      row.className = `ai-prf-msg-row ${isUser ? 'user' : 'ai'}`;
+      const bubbleClass = `ai-prf-bubble ${isUser ? 'user' : 'ai'}${msg.streaming ? ' streaming' : ''}${msg.error ? ' error' : ''}`;
+      row.innerHTML = `
+        <div class="ai-prf-av ${isUser ? 'user-side' : 'ai-side'}">${isUser ? 'U' : '✦'}</div>
+        <div style="display:flex;flex-direction:column;">
+          <div class="${bubbleClass}" id="ai-prf-bubble-${idx}">${_pEscape(msg.text)}</div>
+          <div class="ai-prf-ts">${msg.ts || ''}</div>
+        </div>`;
+      list.appendChild(row);
+    });
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function _pEscape(text) {
+    if (!text) return '';
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML.replace(/\n/g, '<br>');
+  }
+
+  function _pNow() {
+    return new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', hour12:true });
+  }
+
+  function _pAddMsg(role, text, extra) {
+    _pChatMsgs.push({ role, text, ts: _pNow(), ...extra });
+    _renderProfileChatScreen();
+    return _pChatMsgs.length - 1;
+  }
+
+  function _pUpdateBubble(idx, text, done) {
+    const b = document.getElementById(`ai-prf-bubble-${idx}`);
+    if (b) {
+      b.innerHTML = _pEscape(text);
+      if (done) b.classList.remove('streaming');
+    }
+    const list = document.getElementById('ai-qa-message-list');
+    if (list) list.scrollTop = list.scrollHeight;
+    if (done && _pChatMsgs[idx]) {
+      _pChatMsgs[idx].text      = text;
+      _pChatMsgs[idx].streaming = false;
+    }
+  }
+
+  function _clearProfileChat() {
+    _pChatMsgs     = [];
+    _pChatStreaming = false;
+    _renderProfileChatScreen();
+    setTimeout(() => document.getElementById('ai-qa-input-greeting')?.focus(), 80);
+  }
 
   function sendAIQuestion() {
-    const inp = document.getElementById('ai-qa-input');
-    const ans = document.getElementById('ai-qa-answer');
-    if (!inp || !ans) return;
-    const q = inp.value.trim();
-    if (!q) return;
-    inp.value = '';
-    ans.innerHTML = `<div class="ai-summary-idle"><div class="ai-summary-spinner"></div><span>Thinking…</span></div>`;
-    _qaTyping = false;
-    if (_qaFrame) clearTimeout(_qaFrame);
+    if (_pChatStreaming) return;
 
+    // Pick active input
+    const inpG = document.getElementById('ai-qa-input-greeting');
+    const inpC = document.getElementById('ai-qa-input-chat');
+    const src  = _pChatMsgs.length === 0 ? inpG : inpC;
+    const q    = (src ? src.value.trim() : '');
+    if (!q) return;
+    if (inpG) inpG.value = '';
+    if (inpC) inpC.value = '';
+
+    _pAddMsg('user', q);
+
+    const aiIdx = _pAddMsg('ai', '', { streaming: true });
+    _pChatStreaming = true;
+
+    // Show typing dots
+    const bubble = document.getElementById(`ai-prf-bubble-${aiIdx}`);
+    if (bubble) bubble.innerHTML = `<div class="ai-prf-typing"><span></span><span></span><span></span></div>`;
+
+    let full = '', firstToken = true;
     const es = new EventSource(
-      `/api/ai/stream?profile_type=${PROFILE_TYPE}&profile_id=${MEMBER_ID}&message=${encodeURIComponent(q)}`
+      `/api/ai/stream?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&message=${encodeURIComponent(q)}`
     );
-    let fullText = '';
+
     es.onmessage = event => {
       const raw = event.data;
-      if (raw === '[DONE]') { es.close(); return; }
+      if (raw === '[DONE]') {
+        es.close();
+        _pChatStreaming = false;
+        if (!full) full = '(No response received.)';
+        _pUpdateBubble(aiIdx, full, true);
+        setTimeout(() => document.getElementById('ai-qa-input-chat')?.focus(), 80);
+        return;
+      }
       if (raw.startsWith('[ERROR]')) {
-        es.close(); ans.innerHTML = `<p style="color:var(--red);font-size:.82rem;">${raw}</p>`; return;
+        es.close();
+        _pChatStreaming = false;
+        if (_pChatMsgs[aiIdx]) _pChatMsgs[aiIdx].error = true;
+        const b = document.getElementById(`ai-prf-bubble-${aiIdx}`);
+        if (b) { b.classList.remove('streaming'); b.classList.add('error'); }
+        _pUpdateBubble(aiIdx, 'Something went wrong. Please try again.', true);
+        return;
       }
       try {
         const token = JSON.parse(raw);
-        if (typeof token === 'string' && !token.startsWith('[MODE:')) {
-          if (!fullText) ans.innerHTML = '';
-          fullText += token;
-          // Simple typewriter — append chars directly for Q&A speed
-          ans.textContent = fullText;
+        if (typeof token === 'string') {
+          if (token.startsWith('[MODE:')) return;
+          if (firstToken) { full = ''; firstToken = false; }
+          full += token;
+          _pUpdateBubble(aiIdx, full, false);
         }
       } catch(_) {}
     };
-    es.onerror = () => { es.close(); if (!fullText) ans.innerHTML = '<p style="color:var(--red);">Connection error.</p>'; };
+
+    es.onerror = () => {
+      es.close();
+      _pChatStreaming = false;
+      if (!full) {
+        if (_pChatMsgs[aiIdx]) _pChatMsgs[aiIdx].error = true;
+        const b = document.getElementById(`ai-prf-bubble-${aiIdx}`);
+        if (b) { b.classList.remove('streaming'); b.classList.add('error'); }
+        _pUpdateBubble(aiIdx, 'Connection error. Please try again.', true);
+      } else {
+        _pUpdateBubble(aiIdx, full, true);
+      }
+    };
   }
 
-  // Q&A send on Enter
+  // Q&A send on Enter (kept for legacy inline onkeydown handlers above,
+  // but also wired here for safety)
   document.addEventListener('DOMContentLoaded', () => {
-    const inp = document.getElementById('ai-qa-input');
-    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') sendAIQuestion(); });
+    ['ai-qa-input-greeting','ai-qa-input-chat'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') sendAIQuestion(); });
+    });
   });
     const SPEED = {
       short:     { char_base:16, char_variance:10, comma_pause:80, period_pause:140, newline_pause:240, word_end:6 },

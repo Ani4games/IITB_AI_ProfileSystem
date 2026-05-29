@@ -66,6 +66,7 @@ def get_all_lab_users():
                expiry_date, is_admin
         FROM login
         WHERE STR_TO_DATE(expiry_date, '%m/%d/%Y') >= CURDATE()
+            AND (position IS NULL OR position NOT IN ('IITBNF Staff', 'Faculty', 'Institute Facility'))
         ORDER BY fname, lname
     """) or []
 
@@ -216,13 +217,34 @@ def get_session_reports(memberid):
         LIMIT 100
     """, (memberid,)) or []
 
+# ── Faculty / staff position constants ───────────────────────────────────────
 
-# ── Faculty position constant ─────────────────────────────────────────────────
+# Positions that have a staff profile in hr_portal.
+# These members are shown on /profile/<id> and should NOT appear as lab users.
+STAFF_PORTAL_POSITIONS = frozenset({'IITBNF Staff', 'Faculty', 'Institute Facility'})
 
+# Positions that redirect away from /lab/<id> (superset — includes academic
+# staff who may not have an hr_portal entry but are managed as staff).
 FACULTY_POSITIONS = (
-    'Faculty', 'IITBNF Staff', 'Institute Facility',
+    'Faculty', 'Institute Facility',
     'NCPRE Academic', 'Project Staff'
 )
+
+
+def is_iitbnf_staff(memberid) -> bool:
+    """
+    Returns True if this slotbooking member holds a position that has a
+    corresponding hr_portal staff profile (IITBNF Staff, Faculty, etc.).
+    Used to suppress duplicate entries in the lab user list and to redirect
+    /lab/<id> → /profile/<id> for IITBNF Staff members.
+    """
+    row = slots_query(
+        "SELECT position FROM login WHERE memberid = %s LIMIT 1",
+        (memberid,)
+    )
+    if not row:
+        return False
+    return (row[0].get("position") or "") in STAFF_PORTAL_POSITIONS
 
 
 def is_faculty(memberid) -> bool:
@@ -234,8 +256,6 @@ def is_faculty(memberid) -> bool:
     if not row:
         return False
     return (row[0].get("position") or "") in FACULTY_POSITIONS
-
-
 # ── Resources / Equipment detail ──────────────────────────────────────────────
 @cached(ttl_seconds=300)
 def get_member_tool_permissions(memberid: int) -> list:

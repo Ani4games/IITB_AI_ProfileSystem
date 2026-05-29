@@ -337,10 +337,11 @@ async function _downloadWithPrefetch(cachedJobId, startUrl, onNewJob) {
 }
 
 /* ── SESSION LOG INLINE LOADER ──────────────────────────────────── */
-async function _loadSessionLog(machid, toolName, panel, limit) {
+async function _loadSessionLog(machid, toolName, panel, limit, memberId) {
   panel.innerHTML = `<p style="color:var(--muted);font-size:1.25rem;padding:.5rem 0;">Loading session log for <strong>${escapeHtml(toolName)}</strong>…</p>`;
   try {
-    const r = await fetch(`/api/section/tool/${machid}/session_log?limit=${limit}`);
+    const url =`/api/section/tool/${machid}/session_log?limit=${limit}&member_id=${memberId}`;
+    const r = await fetch(url);
     const d = await r.json();
     if (!d.success) {
       panel.innerHTML = `<p style="color:var(--red);font-size:1.25rem;padding:.5rem 0;">${escapeHtml(d.error || 'Could not load session log.')}</p>`;
@@ -352,14 +353,15 @@ async function _loadSessionLog(machid, toolName, panel, limit) {
     }
 
     const SKIP = new Set(['member_id', 'member_position']);
-    const cols = d.columns.filter(c => !SKIP.has(c));
+    const FIXED_COLS = ['reservation_id', 'member_name', 'booking_start', 'booking_end'];
+    // Using FIXED_COLS instead of d.columns when building the table header and rows
 
-    const thCells = cols.map(c =>
+    const thCells = FIXED_COLS.map(c =>
       `<th style="font-family:var(--font-mono);font-size:1.00rem;color:var(--amber);letter-spacing:.07em;text-transform:uppercase;padding:.3rem .55rem;text-align:left;border-bottom:1px solid var(--border2);white-space:nowrap;">${_humanCol(c)}</th>`
     ).join('');
 
     const tdRows = d.rows.map(row => {
-      const cells = cols.map(c => {
+      const cells = FIXED_COLS.map(c => {
         const val = row[c];
         const display = (val === null || val === undefined || val === '') ? '—' : String(val);
         let style = 'padding:.3rem .55rem;border-bottom:1px solid var(--border);font-size:1.25rem;vertical-align:middle;';

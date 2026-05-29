@@ -332,6 +332,17 @@ LOOKUP_RULES: list[dict] = [
             f"training {_pluralise(_int(ctx, 'trainings'), 'session')}."
         ),
     },
+    {
+    "intent":   "logbook",
+    "patterns": [r"\b(logbook|log book|session log)\b"],
+    "fields":   ["logbook_total_entries"],
+    "formatter": lambda ctx: (
+        f"{_str(ctx, 'name')} has {_int(ctx, 'logbook_total_entries')} logbook "
+        f"{_pluralise(_int(ctx, 'logbook_total_entries'), 'entry', 'entries')} "
+        f"across {_int(ctx, 'logbook_tools_count')} "
+        f"{_pluralise(_int(ctx, 'logbook_tools_count'), 'tool')}."
+    ),
+    },
 
     # ── Lab-specific ──────────────────────────────────────────────────────────
 

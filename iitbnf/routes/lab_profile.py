@@ -234,7 +234,16 @@ def _generate_lab_pdf_job(app, job_id: str, memberid: int, year: int):
                 selected_year   = year,
                 now             = datetime.now().strftime("%d %b %Y, %I:%M %p"),
             )
-            pdf = _html_to_pdf(html)
+            try:
+                pdf = _html_to_pdf(html)
+            except ValueError as ve:
+                # Log first 3000 chars of HTML to help identify the offending table
+                import logging
+                logging.getLogger(__name__).error(
+                    "[PDF] xhtml2pdf layout error: %s\nHTML snippet: %s",
+                    ve, html[:3000]
+                )
+                raise
 
             tmp_dir  = os.path.join(os.getcwd(), "tmp")
             os.makedirs(tmp_dir, exist_ok=True)

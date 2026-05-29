@@ -439,7 +439,7 @@ class LlamaCppBackend(Backend):
                 t0 = time.perf_counter()
                 self._llm = Llama(
                     model_path    = self.model_path,
-                    n_ctx         = 2048,
+                    n_ctx         = 8192,
                     n_threads     = 4,        # adjust to your CPU core count
                     n_gpu_layers  = 0,        # 0 = CPU only
                     verbose       = False,
@@ -555,7 +555,7 @@ def _get_backend() -> Backend:
             _backend = MockBackend()
             logger.info("[LLM] Mock backend active — instant responses")
         elif mode == "llamacpp":
-            gguf_path = os.getenv("GGUF_MODEL_PATH") or getattr(_cfg, "GGUF_MODEL_PATH", "qwen2.5-0.5b-instruct-q4_k_m.gguf")
+            gguf_path = os.getenv("GGUF_MODEL_PATH") or getattr(_cfg, "GGUF_MODEL_PATH", "qwen2.5-0.5b-instruct.Q4_K_M.gguf")
             _backend  = LlamaCppBackend(gguf_path, temperature=temperature)
             logger.info("[LLM] llama.cpp backend: %s", gguf_path)
         else:
