@@ -98,7 +98,7 @@ pip install gensim
 Download `qwen2.5-0.5b-instruct-q4_0.gguf` from HuggingFace and place it at:
 
 ```
-models/qwen2.5-0.5b-instruct-q4_0.gguf
+models/qwen2.5-0.5b-instruct-Q4.K_M.gguf
 ```
 
 The app runs without the model — profile pages and PDFs work fully; only the streaming AI summary panel will show an error.
