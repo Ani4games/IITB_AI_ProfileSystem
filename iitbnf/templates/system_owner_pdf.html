@@ -43,36 +43,6 @@
   }
   .doc-meta strong { color: #111; font-weight: 700; }
 
-  /* ── IDENTITY BLOCK — table layout (grid not supported by xhtml2pdf) ── */
-  .id-block {
-    display: table;
-    width: 100%;
-    background: #f9f9f9;
-    border: 1px solid #e5e5e5;
-    padding: 12px;
-    margin-bottom: 20px;
-  }
-  .id-col {
-    display: table-cell;
-    vertical-align: top;
-    width: 33%;
-    padding-right: 12px;
-  }
-  .id-col:last-child { padding-right: 0; }
-  .id-label {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #999;
-    display: block;
-    margin-bottom: 2px;
-  }
-  .id-value {
-    font-size: 11px;
-    font-weight: 600;
-    color: #1a1a1a;
-  }
-
   /* ── SECTION ── */
   .section { margin-bottom: 20px; }
   .section-hdr {
@@ -153,38 +123,63 @@
 <body>
 
 <!-- ══ HEADER ════════════════════════════════════════════════════════ -->
-<div class="doc-header">
-  <div class="doc-header-left">
-    <div class="doc-logo">IITBNF System Owner Report</div>
-  </div>
-</div>
-
+<table style="width:100%; border-collapse:collapse; table-layout:fixed; 
+              border-bottom:2px solid #d97706; margin-bottom:14px;">
+  <colgroup><col style="width:60%;"><col style="width:40%;"></colgroup>
+  <tr>
+    <td style="padding:0 0 8px 0; border:none; font-size:16px; 
+               font-weight:700; color:#d97706; letter-spacing:1px;">
+      IITBNF System Owner Report
+    </td>
+    <td style="padding:0 0 8px 0; border:none; text-align:right; 
+               font-size:8px; color:#777; line-height:1.6;">
+      <strong style="color:#111;">{{ person.display_name or '—' }}</strong><br>
+    </td>
+  </tr>
+</table>
 <!-- ══ IDENTITY ══════════════════════════════════════════════════════ -->
-<div class="id-block">
-  <div class="id-col">
-    <span class="id-label">Name</span>
-    <span class="id-value">{{ name }}</span>
-  </div>
-  {% if person.designation or person.position %}
-  <div class="id-col">
-    <span class="id-label">Designation</span>
-    <span class="id-value">{{ person.designation or person.position }}</span>
-  </div>
-  {% endif %}
-  {% if person.team %}
-  <div class="id-col">
-    <span class="id-label">Team</span>
-    <span class="id-value">{{ person.team }}</span>
-  </div>
-  {% endif %}
-  {% if person.email %}
-  <div class="id-col">
-    <span class="id-label">Email</span>
-    <span class="id-value">{{ person.slot_email or person.email }}</span>
-  </div>
-  {% endif %}
-</div>
-
+<table style="width:100%; border-collapse:collapse; table-layout:fixed; 
+              border-top:1px solid #ddd; border-bottom:1px solid #ddd; 
+              margin-bottom:12px;">
+  <colgroup><col style="width:50%;"><col style="width:50%;"></colgroup>
+  <tr>
+    <td style="padding:8px 12px 8px 0; border:none; vertical-align:top;">
+      <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:2px;">
+        {{ person.display_name or '—' }}
+      </div>
+      <div style="font-size:11px; font-weight:600; color:#555; 
+                  text-transform:uppercase; letter-spacing:0.5px;">
+        {{ person.designation or '—' }}
+      </div>
+      {% if person.team %}
+      <div style="font-size:10px; color:#333;">{{ person.team }} Team</div>
+      {% endif %}
+    </td>
+    <td style="padding:8px 0; border:none; vertical-align:top;">
+      <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+        <colgroup><col style="width:80px;"><col style="width:auto;"></colgroup>
+        {% if person.slot_email or person.email %}
+        <tr>
+          <td style="padding:1px 4px 1px 0; border:none; font-size:8px; 
+                     color:#888; text-transform:uppercase;">Email</td>
+          <td style="padding:1px 0; border:none; font-size:9px; 
+                     font-weight:600; color:#111; word-break:break-all;">
+            {{ person.slot_email or person.email }}
+          </td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td style="padding:1px 4px 1px 0; border:none; font-size:8px; 
+                     color:#888; text-transform:uppercase;">Member</td>
+          <td style="padding:1px 0; border:none; font-size:9px; 
+                     font-weight:600; color:#111;">
+            #{{ '%04d' % member_id }}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 <!-- ══ CURRENTLY ASSIGNED TOOLS ══════════════════════════════════════ -->
 <div class="section">
   <div class="section-hdr">Currently Assigned Tools ({{ owned | length }})</div>

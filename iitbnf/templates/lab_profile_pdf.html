@@ -4,99 +4,17 @@
 <meta charset="UTF-8">
 <title>IITBNF Lab Profile — {{ user.fname }} {{ user.lname }}</title>
 <style>
-  /* ── BASE ── */
   body {
     font-family: DejaVuSans, sans-serif;
-    font-size: 11px;
+    font-size: 10px;
     color: #111;
     background: #fff;
     padding: 18px 24px 24px;
     line-height: 1.4;
   }
 
-  /* ── DOCUMENT HEADER ── */
-  .doc-header {
-    width: 100%;
-    border-bottom: 2px solid #ff6a00;
-    padding-bottom: 12px;
-    margin-bottom: 20px;
-  }
-  .doc-header-left  { display: table-cell; }
-  .doc-header-right { display: table-cell; text-align: right; }
-  .doc-logo {
-    font-size: 18px;
-    font-weight: 700;
-    color: #ff6200;
-    letter-spacing: 1px;
-  }
-  .doc-logo-sub {
-    font-size: 9px;
-    color: #555;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
-  .doc-meta {
-    font-size: 9px;
-    color: #777;
-    text-align: right;
-    line-height: 1.6;
-  }
-  .doc-meta strong { color: #111; font-weight: 700; }
-
-  /* ── IDENTITY BLOCK ── */
-  .id-block {
-    display: table;
-    width: 100%;
-    border-top: 1px solid #ddd;
-    border-bottom: 1px solid #ddd;
-    padding: 8px 0;
-    margin-bottom: 12px;
-  }
-  .id-name-col   { display: table-cell; width: 50%; padding-right: 16px; }
-  .id-fields-col { display: table-cell; width: 50%; }
-
-  .id-name {
-    font-size: 15px;
-    font-weight: 700;
-    color: #111;
-    line-height: 1.2;
-    margin-bottom: 2px;
-  }
-  .id-position {
-    font-size: 12px;
-    font-weight: 600;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 1px;
-  }
-  .id-department {
-    font-size: 11px;
-    color: #333;
-  }
-
-  .id-kv-table { width: 100%; border-collapse: collapse; }
-  .id-kv-table td {
-    padding: 1px 0;
-    font-size: 9px;
-    border: none;
-    vertical-align: top;
-  }
-  .id-kv-table td:first-child {
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    font-size: 8px;
-    width: 80px;
-    padding-right: 6px;
-    white-space: nowrap;
-  }
-  .id-kv-table td:last-child { color: #111; font-weight: 600; }
-
   /* ── SECTION ── */
   .section { margin-bottom: 12px; page-break-inside: avoid; }
-
   .section-hdr {
     font-size: 8px;
     font-weight: 700;
@@ -108,89 +26,43 @@
     margin-bottom: 6px;
   }
 
-  /* ── METRICS STRIP ── */
-  .metrics-strip {
+  /* ── ALL TABLES: fixed layout to prevent negative width crashes ── */
+  table {
     width: 100%;
-    text-align: center;
-    border: 1px solid #e0e0e0;
     border-collapse: collapse;
-    margin-bottom: 10px;
+    table-layout: fixed;
   }
-  .metrics-strip td {
-    text-align: center;
-    padding: 8px 6px;
-    border-right: 1px solid #e0e0e0;
-    width: 1%;
-    white-space: nowrap;
-  }
-  .metrics-strip td:last-child { border-right: none; }
-  .m-val {
-    font-size: 14px;
-    font-weight: 700;
-    color: #111;
-    line-height: 1;
-    display: block;
-  }
-  .m-val.good { color: #166534; }
-  .m-val.warn { color: #92400e; }
-  .m-val.bad  { color: #991b1b; }
-  .m-key {
-    font-size: 7px;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #888;
-    display: block;
-    margin-top: 2px;
-  }
-
-  /* ── TABLE ── */
-  table { width: 100%; border-collapse: collapse; }
   thead { display: table-header-group; }
-  tfoot { display: table-footer-group; }
-  tr    { page-break-inside: avoid; page-break-after: auto; }
-
-  table th {
+  tr    { page-break-inside: avoid; }
+  th {
     font-size: 7px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.6px;
     color: #555;
-    padding: 4px 6px;
+    padding: 4px 5px;
     border-bottom: 1px solid #111;
     text-align: left;
-    background: #fff;
+    background: #f5f5f5;
+    overflow: hidden;
+    word-break: break-word;
   }
-  table td {
-    padding: 4px 6px;
+  td {
+    padding: 4px 5px;
     border-bottom: 1px solid #ebebeb;
     font-size: 9px;
     vertical-align: middle;
     color: #111;
+    overflow: hidden;
+    word-break: break-word;
   }
-  table tr:last-child td { border-bottom: none; }
-
-  /* ── KV TABLE (registration) ── */
-  .kv-table td { padding: 3px 8px; border-bottom: 1px solid #ebebeb; font-size: 9px; }
-  .kv-table td:first-child { color: #777; width: 150px; }
-  .kv-table tr:last-child td { border-bottom: none; }
-
-  /* ── SUB TITLE ── */
-  .sub-title {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.2px;
-    color: #555;
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 3px;
-    margin: 10px 0 6px;
-  }
+  tr:last-child td { border-bottom: none; }
 
   /* ── BADGES ── */
   .badge {
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 2px;
+    font-size: 7px;
     font-weight: 700;
     letter-spacing: 0.4px;
     text-transform: uppercase;
@@ -200,123 +72,127 @@
   .badge-amber  { color: #92400e; border-color: #fde68a; background: #fffbeb; }
   .badge-red    { color: #991b1b; border-color: #fecaca; background: #fef2f2; }
   .badge-blue   { color: #1e40af; border-color: #bfdbfe; background: #eff6ff; }
-  .badge-purple { color: #5b21b6; border-color: #ddd6fe; background: #f5f3ff; }
   .badge-muted  { color: #6b7280; border-color: #e5e7eb; background: #f9fafb; }
 
-  /* ── FOOTER ── */
-  .doc-footer {
-    width: 100%;
-    margin-top: 28px;
-    padding-top: 8px;
-    border-top: 1px solid #ddd;
-    font-size: 8px;
-    color: #aaa;
-  }
-  .doc-footer td { display: table-cell; }
-  .doc-footer td:last-child { text-align: right; }
+  .m-val { font-size: 13px; font-weight: 700; color: #111; }
+  .m-val.good { color: #166534; }
+  .m-val.warn { color: #92400e; }
+  .m-val.bad  { color: #991b1b; }
+  .m-key { font-size: 7px; text-transform: uppercase; letter-spacing: 0.7px; color: #888; }
 </style>
 </head>
 <body>
 
-<!-- ══ HEADER ════════════════════════════════════════════════════════ -->
-<div class="doc-header">
-  <div class="doc-header-left">
-    <div class="doc-logo">IITBNF Lab Profile Report</div>
-  </div>
-</div>
-<!-- ══ IDENTITY ═════════════════════════════════════════════════════ -->
-<div class="id-block">
-  <div class="id-name-col">
-    <div class="id-name">{{ user.fname }} {{ user.lname }}</div>
-    <div class="id-position">{{ user.position or 'Lab User' }}</div>
-    {% if user.department %}<div class="id-department">{{ user.department }}</div>{% endif %}
-  </div>
-  <div class="id-fields-col">
-    <table class="id-kv-table">
-      {% if user.email %}
-      <tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Email</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ user.email }}</td></tr>
-      {% endif %}
-      {% if user.rollno and user.rollno not in ['','0','NA'] %}
-      <tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Roll No</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ user.rollno }}</td></tr>
-      {% endif %}
-      {% if user.mobile and user.mobile not in ['','0','NA'] %}
-      <tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Mobile</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ user.mobile }}</td></tr>
-      {% endif %}
-      {% if user.research_area and user.research_area not in ['','NA'] %}
-      <tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Research Area</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ user.research_area }}</td></tr>
-      {% endif %}
-      {% if user.supervisor_name or user.supervisor %}
-      <tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Supervisor</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ user.supervisor_name or user.supervisor }}</td></tr>
-      {% endif %}
-      {% if user.expiry_date and user.expiry_date not in ['','0000-00-00'] %}
-      <tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Access Expiry</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ user.expiry_date }}</td></tr>
-      {% endif %}
-    </table>
-  </div>
-</div>
+<!-- ══ HEADER ══ -->
+<table style="width:100%; border-collapse:collapse; table-layout:fixed; border-bottom:2px solid #ff6a00; margin-bottom:14px;">
+  <colgroup><col style="width:60%;"><col style="width:40%;"></colgroup>
+  <tr>
+    <td style="padding:0 0 8px 0; border:none; font-size:16px; font-weight:700; color:#ff6200; letter-spacing:1px;">IITBNF Lab Profile Report</td>
+    <td style="padding:0 0 8px 0; border:none; text-align:right; font-size:8px; color:#777; line-height:1.6;">
+      <strong style="color:#111;">{{ user.fname }} {{ user.lname }}</strong><br>
+      Lab User #{{ '%04d' % memberid }}<br>
+      Year: {{ selected_year }}
+    </td>
+  </tr>
+</table>
 
-<!-- ══ ACTIVITY SUMMARY ══════════════════════════════════════════════ -->
+<!-- ══ IDENTITY ══ -->
+<table style="width:100%; border-collapse:collapse; table-layout:fixed; border-top:1px solid #ddd; border-bottom:1px solid #ddd; margin-bottom:12px;">
+  <colgroup><col style="width:50%;"><col style="width:50%;"></colgroup>
+  <tr>
+    <td style="padding:8px 12px 8px 0; border:none; vertical-align:top;">
+      <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:2px;">{{ user.fname }} {{ user.lname }}</div>
+      <div style="font-size:11px; font-weight:600; color:#555; text-transform:uppercase; letter-spacing:0.5px;">{{ user.position or 'Lab User' }}</div>
+      {% if user.department %}<div style="font-size:10px; color:#333;">{{ user.department }}</div>{% endif %}
+    </td>
+    <td style="padding:8px 0; border:none; vertical-align:top;">
+      <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+        <colgroup><col style="width:80px;"><col style="width:auto;"></colgroup>
+        {% if user.email %}
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Email</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111; word-break:break-all;">{{ user.email }}</td></tr>
+        {% endif %}
+        {% if user.rollno and user.rollno not in ['','0','NA'] %}
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Roll No</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.rollno }}</td></tr>
+        {% endif %}
+        {% if user.mobile and user.mobile not in ['','0','NA'] %}
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Mobile</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.mobile }}</td></tr>
+        {% endif %}
+        {% if user.research_area and user.research_area not in ['','NA'] %}
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Research</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.research_area }}</td></tr>
+        {% endif %}
+        {% if user.supervisor_name or user.supervisor %}
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Supervisor</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.supervisor_name or user.supervisor }}</td></tr>
+        {% endif %}
+        {% if user.expiry_date and user.expiry_date not in ['','0000-00-00'] %}
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Expiry</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.expiry_date }}</td></tr>
+        {% endif %}
+      </table>
+    </td>
+  </tr>
+</table>
+
+<!-- ══ ACTIVITY SUMMARY ══ -->
 {% if stats %}
 <div class="section">
   <div class="section-hdr">Activity Summary</div>
-  <table class="metrics-strip">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #e0e0e0; margin-bottom:10px; text-align:center;">
+    <colgroup><col style="width:25%;"><col style="width:25%;"><col style="width:25%;"><col style="width:25%;"></colgroup>
     <tr>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val">{{ stats.reservations or 0 }}</span><span class="m-key">Reservations</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val">{{ stats.requests or 0 }}</span><span class="m-key">Eq. Requests</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val good">{{ stats.projects or 0 }}</span><span class="m-key">Projects</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val good">{{ stats.papers or 0 }}</span><span class="m-key">Publications</span></td>
+      <td style="padding:7px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val">{{ stats.reservations or 0 }}</span><br><span class="m-key">Reservations</span></td>
+      <td style="padding:7px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val">{{ stats.requests or 0 }}</span><br><span class="m-key">Eq. Requests</span></td>
+      <td style="padding:7px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val good">{{ stats.projects or 0 }}</span><br><span class="m-key">Projects</span></td>
+      <td style="padding:7px 4px; text-align:center;"><span class="m-val good">{{ stats.papers or 0 }}</span><br><span class="m-key">Publications</span></td>
     </tr>
   </table>
 </div>
 {% endif %}
 
-<!-- ══ REGISTRATION ══════════════════════════════════════════════════ -->
+<!-- ══ REGISTRATION ══ -->
 {% if reg %}
 <div class="section">
   <div class="section-hdr">Registration Details</div>
-  <table class="kv-table">
-    {% if reg.course %}<tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Course</td><td style="overflow: hidden; word-break: break-word; padding: 4px;"><strong>{{ reg.course }}</strong></td></tr>{% endif %}
-    {% if reg.cosupervisor_name %}<tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Co-Supervisor</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ reg.cosupervisor_name }}</td></tr>{% endif %}
-    {% if reg.project_first %}<tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Project (Primary)</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ reg.project_first }}</td></tr>{% endif %}
-    {% if reg.project_second %}<tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Project (Secondary)</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ reg.project_second }}</td></tr>{% endif %}
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:140px;"><col style="width:auto;"></colgroup>
+    {% if reg.course %}<tr><td style="color:#777;">Course</td><td><strong>{{ reg.course }}</strong></td></tr>{% endif %}
+    {% if reg.cosupervisor_name %}<tr><td style="color:#777;">Co-Supervisor</td><td>{{ reg.cosupervisor_name }}</td></tr>{% endif %}
+    {% if reg.project_first %}<tr><td style="color:#777;">Project (Primary)</td><td>{{ reg.project_first }}</td></tr>{% endif %}
+    {% if reg.project_second %}<tr><td style="color:#777;">Project (Secondary)</td><td>{{ reg.project_second }}</td></tr>{% endif %}
     <tr>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;">Status</td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;">
-        {% if reg.status == 2 %}<span class="badge badge-green">Active</span>
-        {% elif reg.status == 1 %}<span class="badge badge-amber">Under Review</span>
-        {% else %}<span class="badge badge-muted">Pending</span>{% endif %}
-      </td>
+      <td style="color:#777;">Status</td>
+      <td>{% if reg.status == 2 %}<span class="badge badge-green">Active</span>{% elif reg.status == 1 %}<span class="badge badge-amber">Under Review</span>{% else %}<span class="badge badge-muted">Pending</span>{% endif %}</td>
     </tr>
-    {% if reg.reg_date %}<tr><td style="overflow: hidden; word-break: break-word; padding: 4px;">Registered On</td><td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ reg.reg_date }}</td></tr>{% endif %}
+    {% if reg.reg_date %}<tr><td style="color:#777;">Registered On</td><td>{{ reg.reg_date }}</td></tr>{% endif %}
   </table>
 </div>
 {% endif %}
 
-<!-- ══ SLOT RESERVATIONS ═════════════════════════════════════════════ -->
+<!-- ══ SLOT RESERVATIONS ══ -->
 {% if reservations %}
 <div class="section">
   {% set completed = reservations | selectattr('booking_status','defined') | selectattr('booking_status','equalto','Completed') | list | length %}
-  {% set upcoming  = reservations | selectattr('booking_status','defined') | selectattr('booking_status','equalto','Upcoming')  | list | length %}
-  <div class="section-hdr">Slot Reservations — {{ selected_year }} ({{ reservations | length }} most recent)</div>
-  <table class="metrics-strip">
+  {% set upcoming  = reservations | selectattr('booking_status','defined') | selectattr('booking_status','equalto','Upcoming') | list | length %}
+  <div class="section-hdr">Slot Reservations — {{ selected_year }} ({{ reservations | length }} shown)</div>
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #e0e0e0; margin-bottom:8px; text-align:center;">
+    <colgroup><col style="width:33%;"><col style="width:34%;"><col style="width:33%;"></colgroup>
     <tr>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val">{{ reservations | length }}</span><span class="m-key">This Year</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val good">{{ completed }}</span><span class="m-key">Completed</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val warn">{{ upcoming }}</span><span class="m-key">Upcoming</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val">{{ reservations | length }}</span><br><span class="m-key">This Year</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val good">{{ completed }}</span><br><span class="m-key">Completed</span></td>
+      <td style="padding:6px 4px; text-align:center;"><span class="m-val warn">{{ upcoming }}</span><br><span class="m-key">Upcoming</span></td>
     </tr>
   </table>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:28%;"><col style="width:34%;"><col style="width:25%;"><col style="width:13%;"></colgroup>
     <thead><tr><th>Start</th><th>Equipment</th><th>End</th><th>Status</th></tr></thead>
     <tbody>
       {% for r in reservations %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.start_dt or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.tool_name or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.end_dt or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">
+        <td>{{ r.start_dt or '—' }}</td>
+        <td>{{ r.tool_name or '—' }}</td>
+        <td>{{ r.end_dt or '—' }}</td>
+        <td>
           {% if r.booking_status %}
-            {% if 'Completed' in r.booking_status %}<span class="badge badge-muted">Completed</span>
-            {% elif 'Upcoming' in r.booking_status %}<span class="badge badge-amber">Upcoming</span>
+            {% if 'Completed' in r.booking_status %}<span class="badge badge-muted">Done</span>
+            {% elif 'Upcoming' in r.booking_status %}<span class="badge badge-amber">Soon</span>
             {% else %}<span class="badge badge-green">{{ r.booking_status }}</span>{% endif %}
           {% else %}—{% endif %}
         </td>
@@ -327,33 +203,31 @@
 </div>
 {% endif %}
 
-<!-- ══ EQUIPMENT REQUESTS ════════════════════════════════════════════ -->
+<!-- ══ EQUIPMENT REQUESTS ══ -->
 {% if requests %}
 <div class="section">
   {% set approved = requests | selectattr('status','equalto',3) | list | length %}
   {% set pending  = requests | selectattr('status','equalto',1) | list | length %}
   {% set rejected = requests | selectattr('status','equalto',2) | list | length %}
-  <div class="section-hdr">Equipment Requests — {{ selected_year }} ({{ requests | length }} most recent)</div>
-  <table class="metrics-strip">
+  <div class="section-hdr">Equipment Requests — {{ selected_year }} ({{ requests | length }} shown)</div>
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #e0e0e0; margin-bottom:8px; text-align:center;">
+    <colgroup><col style="width:25%;"><col style="width:25%;"><col style="width:25%;"><col style="width:25%;"></colgroup>
     <tr>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val">{{ requests | length }}</span><span class="m-key">Total</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val good">{{ approved }}</span><span class="m-key">Approved</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val warn">{{ pending }}</span><span class="m-key">Pending</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val bad">{{ rejected }}</span><span class="m-key">Rejected</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val">{{ requests | length }}</span><br><span class="m-key">Total</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val good">{{ approved }}</span><br><span class="m-key">Approved</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val warn">{{ pending }}</span><br><span class="m-key">Pending</span></td>
+      <td style="padding:6px 4px; text-align:center;"><span class="m-val bad">{{ rejected }}</span><br><span class="m-key">Rejected</span></td>
     </tr>
   </table>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:55%;"><col style="width:30%;"><col style="width:15%;"></colgroup>
     <thead><tr><th>Equipment</th><th>Requested On</th><th>Status</th></tr></thead>
     <tbody>
       {% for r in requests %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.tool_name or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.date_of_request or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">
-          {% if r.status == 3 %}<span class="badge badge-green">Approved</span>
-          {% elif r.status == 2 %}<span class="badge badge-red">Rejected</span>
-          {% else %}<span class="badge badge-amber">Pending</span>{% endif %}
-        </td>
+        <td>{{ r.tool_name or '—' }}</td>
+        <td>{{ r.date_of_request or '—' }}</td>
+        <td>{% if r.status == 3 %}<span class="badge badge-green">Approved</span>{% elif r.status == 2 %}<span class="badge badge-red">Rejected</span>{% else %}<span class="badge badge-amber">Pending</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -361,19 +235,20 @@
 </div>
 {% endif %}
 
-<!-- ══ CANCELLATIONS ═════════════════════════════════════════════════ -->
+<!-- ══ CANCELLATIONS ══ -->
 {% if cancellations %}
 <div class="section">
   <div class="section-hdr">Reservation Cancellations ({{ cancellations | length }})</div>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:22%;"><col style="width:28%;"><col style="width:32%;"><col style="width:18%;"></colgroup>
     <thead><tr><th>Start</th><th>Equipment</th><th>Reason</th><th>Cancelled At</th></tr></thead>
     <tbody>
       {% for c in cancellations %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ c.start_dt or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ c.tool_name or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ c.reason or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ c.cancel_time or '—' }}</td>
+        <td>{{ c.start_dt or '—' }}</td>
+        <td>{{ c.tool_name or '—' }}</td>
+        <td>{{ c.reason or '—' }}</td>
+        <td>{{ c.cancel_time or '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -381,23 +256,20 @@
 </div>
 {% endif %}
 
-<!-- ══ LAB ACCESS LOG ════════════════════════════════════════════════ -->
+<!-- ══ LAB ACCESS LOG ══ -->
 {% if lab_access %}
 <div class="section">
   <div class="section-hdr">Lab Access Log ({{ lab_access | length }} Entries)</div>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:22%;"><col style="width:40%;"><col style="width:20%;"><col style="width:18%;"></colgroup>
     <thead><tr><th>Date</th><th>Equipment</th><th>Period (days)</th><th>Status</th></tr></thead>
     <tbody>
       {% for r in lab_access %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.access_date or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.equipments or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ r.access_period or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">
-          {% if r.approval == 1 %}<span class="badge badge-green">Approved</span>
-          {% elif r.approval == 2 %}<span class="badge badge-red">Rejected</span>
-          {% else %}<span class="badge badge-amber">Pending</span>{% endif %}
-        </td>
+        <td>{{ r.access_date or '—' }}</td>
+        <td>{{ r.equipments or '—' }}</td>
+        <td>{{ r.access_period or '—' }}</td>
+        <td>{% if r.approval == 1 %}<span class="badge badge-green">Approved</span>{% elif r.approval == 2 %}<span class="badge badge-red">Rejected</span>{% else %}<span class="badge badge-amber">Pending</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -405,18 +277,19 @@
 </div>
 {% endif %}
 
-<!-- ══ TOOL PERMISSIONS ══════════════════════════════════════════════ -->
+<!-- ══ TOOL PERMISSIONS ══ -->
 {% if tool_perms_rich %}
 <div class="section">
   <div class="section-hdr">Authorized Tool Permissions ({{ tool_perms_rich | length }})</div>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
-    <thead><tr><th>Tool</th><th>Faculty Incharge</th><th>Permission Date</th></tr></thead>
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:50%;"><col style="width:30%;"><col style="width:20%;"></colgroup>
+    <thead><tr><th>Tool</th><th>Faculty Incharge</th><th>Granted</th></tr></thead>
     <tbody>
       {% for t in tool_perms_rich %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;"><strong>{{ t.tool_name }}</strong></td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.faculty_name or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.permission_date or '—' }}</td>
+        <td><strong>{{ t.tool_name }}</strong></td>
+        <td>{{ t.faculty_name or '—' }}</td>
+        <td>{{ t.permission_date or '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -424,18 +297,19 @@
 </div>
 {% endif %}
 
-<!-- ══ SESSION REPORTS ═══════════════════════════════════════════════ -->
+<!-- ══ SESSION REPORTS ══ -->
 {% if session_reports %}
 <div class="section">
   <div class="section-hdr">Session Reports ({{ session_reports | length }})</div>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:30%;"><col style="width:22%;"><col style="width:48%;"></colgroup>
     <thead><tr><th>Equipment</th><th>Submitted At</th><th>Details</th></tr></thead>
     <tbody>
       {% for s in session_reports %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ s.tool_name or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ s.submitted_at or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ s.report_details or '—' }}</td>
+        <td>{{ s.tool_name or '—' }}</td>
+        <td>{{ s.submitted_at or '—' }}</td>
+        <td>{{ s.report_details or '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -443,28 +317,30 @@
 </div>
 {% endif %}
 
-<!-- ══ SYSTEM OWNERSHIP — CURRENT ════════════════════════════════════ -->
+<!-- ══ SYSTEM OWNERSHIP — CURRENT ══ -->
 {% if system_owned %}
 <div class="section">
   {% set working = system_owned | selectattr('isworking') | list | length %}
   <div class="section-hdr">Current System Ownership ({{ system_owned | length }} Tools)</div>
-  <table class="metrics-strip">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #e0e0e0; margin-bottom:8px; text-align:center;">
+    <colgroup><col style="width:33%;"><col style="width:34%;"><col style="width:33%;"></colgroup>
     <tr>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val">{{ system_owned | length }}</span><span class="m-key">Total Assigned</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val good">{{ working }}</span><span class="m-key">Active</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val {% if system_owned | length - working > 0 %}bad{% else %}good{% endif %}">{{ system_owned | length - working }}</span><span class="m-key">Inactive</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val">{{ system_owned | length }}</span><br><span class="m-key">Total</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val good">{{ working }}</span><br><span class="m-key">Active</span></td>
+      <td style="padding:6px 4px; text-align:center;"><span class="m-val {% if system_owned | length - working > 0 %}bad{% else %}good{% endif %}">{{ system_owned | length - working }}</span><br><span class="m-key">Inactive</span></td>
     </tr>
   </table>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
-    <thead><tr><th>Tool Name</th><th>Category</th><th>Location</th><th>Owned Since</th><th>Status</th></tr></thead>
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:30%;"><col style="width:20%;"><col style="width:22%;"><col style="width:16%;"><col style="width:12%;"></colgroup>
+    <thead><tr><th>Tool Name</th><th>Category</th><th>Location</th><th>Since</th><th>Status</th></tr></thead>
     <tbody>
       {% for t in system_owned %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;"><strong>{{ t.name or '—' }}</strong></td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.category or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.location or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.ownership_date or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="badge {% if t.isworking %}badge-green{% else %}badge-red{% endif %}">{{ 'Working' if t.isworking else 'Down' }}</span></td>
+        <td><strong>{{ t.name or '—' }}</strong></td>
+        <td>{{ t.category or '—' }}</td>
+        <td>{{ t.location or '—' }}</td>
+        <td>{{ t.ownership_date or '—' }}</td>
+        <td><span class="badge {% if t.isworking %}badge-green{% else %}badge-red{% endif %}">{{ 'OK' if t.isworking else 'Down' }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -472,28 +348,30 @@
 </div>
 {% endif %}
 
-<!-- ══ OWNERSHIP HISTORY ═════════════════════════════════════════════ -->
+<!-- ══ OWNERSHIP HISTORY ══ -->
 {% if owner_track %}
 <div class="section">
   {% set active_own = owner_track | selectattr('is_active') | list | length %}
   <div class="section-hdr">System Ownership History ({{ owner_track | length }} Records)</div>
-  <table class="metrics-strip">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #e0e0e0; margin-bottom:8px; text-align:center;">
+    <colgroup><col style="width:33%;"><col style="width:34%;"><col style="width:33%;"></colgroup>
     <tr>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val">{{ owner_track | length }}</span><span class="m-key">Total</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val good">{{ active_own }}</span><span class="m-key">Active</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val">{{ owner_track | length - active_own }}</span><span class="m-key">Removed</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val">{{ owner_track | length }}</span><br><span class="m-key">Total</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val good">{{ active_own }}</span><br><span class="m-key">Active</span></td>
+      <td style="padding:6px 4px; text-align:center;"><span class="m-val">{{ owner_track | length - active_own }}</span><br><span class="m-key">Removed</span></td>
     </tr>
   </table>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:30%;"><col style="width:20%;"><col style="width:18%;"><col style="width:18%;"><col style="width:14%;"></colgroup>
     <thead><tr><th>Tool</th><th>Category</th><th>Owned From</th><th>Removed On</th><th>Status</th></tr></thead>
     <tbody>
       {% for t in owner_track %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;"><strong>{{ t.tool_name or '—' }}</strong></td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.category or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.ownership_date or t.owned_since or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ t.removal_date or t.removed_on or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="badge {% if t.is_active %}badge-green{% else %}badge-muted{% endif %}">{{ 'Active' if t.is_active else 'Removed' }}</span></td>
+        <td><strong>{{ t.tool_name or '—' }}</strong></td>
+        <td>{{ t.category or '—' }}</td>
+        <td>{{ t.ownership_date or t.owned_since or '—' }}</td>
+        <td>{{ t.removal_date or t.removed_on or '—' }}</td>
+        <td><span class="badge {% if t.is_active %}badge-green{% else %}badge-muted{% endif %}">{{ 'Active' if t.is_active else 'Removed' }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -501,27 +379,29 @@
 </div>
 {% endif %}
 
-<!-- ══ PROJECTS ══════════════════════════════════════════════════════ -->
+<!-- ══ PROJECTS ══ -->
 {% if projects and projects.projects %}
 <div class="section">
   <div class="section-hdr">Projects ({{ projects.projects | length }})</div>
   {% if projects.balance and (projects.balance.total_credit or projects.balance.total_debit) %}
-  <table class="metrics-strip">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed; border:1px solid #e0e0e0; margin-bottom:8px; text-align:center;">
+    <colgroup><col style="width:50%;"><col style="width:50%;"></colgroup>
     <tr>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val good">{{ projects.balance.total_credit or 0 }}</span><span class="m-key">Credits (₹)</span></td>
-      <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="m-val bad">{{ projects.balance.total_debit or 0 }}</span><span class="m-key">Debits (₹)</span></td>
+      <td style="padding:6px 4px; border-right:1px solid #e0e0e0; text-align:center;"><span class="m-val good">{{ projects.balance.total_credit or 0 }}</span><br><span class="m-key">Credits (₹)</span></td>
+      <td style="padding:6px 4px; text-align:center;"><span class="m-val bad">{{ projects.balance.total_debit or 0 }}</span><br><span class="m-key">Debits (₹)</span></td>
     </tr>
   </table>
   {% endif %}
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:44%;"><col style="width:22%;"><col style="width:18%;"><col style="width:16%;"></colgroup>
     <thead><tr><th>Project</th><th>Category</th><th>End Date</th><th>Status</th></tr></thead>
     <tbody>
       {% for p in projects.projects %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ p.project_title or p.project or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ p.category_name or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ p.project_end_date or '—' }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="badge {% if p.active %}badge-green{% else %}badge-muted{% endif %}">{{ 'Active' if p.active else 'Closed' }}</span></td>
+        <td>{{ p.project_title or p.project or '—' }}</td>
+        <td>{{ p.category_name or '—' }}</td>
+        <td>{{ p.project_end_date or '—' }}</td>
+        <td><span class="badge {% if p.active %}badge-green{% else %}badge-muted{% endif %}">{{ 'Active' if p.active else 'Closed' }}</span></td>
       </tr>
       {% endfor %}
     </tbody>
@@ -529,19 +409,20 @@
 </div>
 {% endif %}
 
-<!-- ══ PUBLICATIONS ══════════════════════════════════════════════════ -->
+<!-- ══ PUBLICATIONS ══ -->
 {% if projects and projects.papers %}
 <div class="section">
   <div class="section-hdr">Publications ({{ projects.papers | length }})</div>
-  <table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+  <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+    <colgroup><col style="width:10%;"><col style="width:50%;"><col style="width:15%;"><col style="width:25%;"></colgroup>
     <thead><tr><th>Year</th><th>Title</th><th>Type</th><th>Venue</th></tr></thead>
     <tbody>
       {% for p in projects.papers %}
       <tr>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ p.year }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ p.title }}</td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;"><span class="badge badge-blue">{{ p.type or '—' }}</span></td>
-        <td style="overflow: hidden; word-break: break-word; padding: 4px;">{{ p.conf_name or '—' }}</td>
+        <td>{{ p.year }}</td>
+        <td>{{ p.title }}</td>
+        <td><span class="badge badge-blue">{{ p.type or '—' }}</span></td>
+        <td>{{ p.conf_name or '—' }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -549,11 +430,12 @@
 </div>
 {% endif %}
 
-<!-- ══ FOOTER ════════════════════════════════════════════════════════ -->
-<table class="doc-footer">
+<!-- ══ FOOTER ══ -->
+<table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-top:20px; padding-top:6px; border-top:1px solid #ddd;">
+  <colgroup><col style="width:60%;"><col style="width:40%;"></colgroup>
   <tr>
-    <td style="overflow: hidden; word-break: break-word; padding: 4px;">IIT Bombay Nanofabrication Facility — Confidential</td>
-    <td style="overflow: hidden; word-break: break-word; padding: 4px;">Lab User #{{ '%04d' % memberid }} &nbsp;·&nbsp; {{ selected_year }}</td>
+    <td style="border:none; font-size:8px; color:#aaa; padding:4px 0;">IIT Bombay Nanofabrication Facility — Confidential</td>
+    <td style="border:none; font-size:8px; color:#aaa; padding:4px 0; text-align:right;">Lab User #{{ '%04d' % memberid }} · {{ selected_year }}</td>
   </tr>
 </table>
 

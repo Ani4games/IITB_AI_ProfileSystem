@@ -832,29 +832,49 @@ function loadRawLogbook(machid, toolName) {
 }
 
 function loadAILogbook(machid, toolName) {
-  const content = document.getElementById('logbook-entries-content');
-  content.innerHTML = '<div style="display:flex;align-items:center;gap:.5rem;color:var(--muted);font-family:var(--font-mono);'
-  'font-size:.7rem;padding:.5rem 0;"><div style="width:12px;height:12px;border:2px solid var(--border2);border-top-color:var(--amber);'
-  'border-radius:50%;animation:spin .7s linear infinite;"></div>Analysing entries…</div>';
-  let full = '';
-  const es = new EventSource(
-    `/api/ai/logbook-explain?member_id=${MEMBER_ID}&machid=${machid}&tool_name=${encodeURIComponent(toolName)}`
-  );
-  es.onmessage = event => {
-    const raw = event.data;
-    if (raw === '[DONE]') { es.close(); return; }
-    if (raw.startsWith('[ERROR]')) { es.close(); content.textContent = raw; return; }
-    try {
-      const token = JSON.parse(raw);
-      if (typeof token === 'string') {
-        if (!full) content.innerHTML = '<div style="font-size:.85rem;line-height:1.8;color:var(--fg);white-space:pre-wrap;" id="ai-logbook-text"></div>';
-        full += token;
-        const el = document.getElementById('ai-logbook-text');
-        if (el) el.textContent = full;
-      }
-    } catch(_) {}
-  };
-  es.onerror = () => { es.close(); if (!full) content.textContent = 'Connection error.'; };
+    const content = document.getElementById('logbook-entries-content');
+    // Fetch the raw session data
+    fetch(`/api/section/tool/${machid}/session_log?limit=200&member_id=${MEMBER_ID}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success || !data.rows?.length) {
+          content.innerHTML = '<p style="color:var(--muted);">No sessions found.</p>';
+          return;
+        }
+        const rows = data.rows;
+        const total = rows.length;
+        
+        // Calculate date range
+        const starts = rows.map(r => r.booking_start).filter(Boolean).sort();
+        const first = starts[0]?.slice(0, 10);
+        const last  = starts[starts.length-1]?.slice(0, 10);
+        
+        // Calculate average duration in minutes
+        let totalMins = 0, counted = 0;
+        rows.forEach(r => {
+          if (r.booking_start && r.booking_end) {
+            const diff = (new Date(r.booking_end) - new Date(r.booking_start)) / 60000;
+            if (diff > 0 && diff < 1440) { totalMins += diff; counted++; }
+          }
+        });
+        const avgMins = counted ? Math.round(totalMins / counted) : null;
+        
+        // Build deterministic summary — no SLM needed
+        let summary = `${total} session${total !== 1 ? 's' : ''} recorded on ${toolName}`;
+        if (first && last && first !== last) summary += `, from ${first} to ${last}`;
+        else if (first) summary += ` on ${first}`;
+        if (avgMins) summary += `. Average session duration: ${avgMins} minutes.`;
+        
+        content.innerHTML = `
+          <div style="background:var(--surface2);border:1px solid var(--border);
+                      border-radius:8px;padding:.85rem 1rem;margin-bottom:.75rem;">
+            <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--amber);
+                        letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;">
+              ◈ Session Summary — ${escapeHtml(toolName)}
+            </div>
+            <p style="font-size:.88rem;line-height:1.75;color:var(--fg);">${summary}</p>
+          </div>`;
+      });
 }
 
   // ── Kick off loads ────────────────────────────────────────────────

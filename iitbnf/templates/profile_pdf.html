@@ -45,52 +45,6 @@
   }
   .doc-meta strong { color: #111; font-weight: 700; }
 
-  /* ── IDENTITY BLOCK ── */
-  .id-block {
-    display: table;
-    width: 100%;
-    border-top: 1px solid #ddd;
-    border-bottom: 1px solid #ddd;
-    padding: 8px 0;
-    margin-bottom: 12px;
-  }
-  .id-name-col { display: table-cell; width: 48%; padding-right: 12px; }
-  .id-fields-col { display: table-cell; width: 52%; }
-
-  .id-name {
-    font-size: 15px;
-    font-weight: 700;
-    color: #111;
-    line-height: 1.2;
-    margin-bottom: 2px;
-  }
-  .id-role {
-    font-size: 12px;
-    font-weight: 600;
-    color: #555;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 1px;
-  }
-
-  .id-kv-table { width: 100%; border-collapse: collapse; }
-  .id-kv-table td {
-    padding: 1px 0;
-    font-size: 9px;
-    border: none;
-    vertical-align: top;
-  }
-  .id-kv-table td:first-child {
-    color: #888;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    font-size: 8px;
-    width: 80px;
-    padding-right: 6px;
-    white-space: nowrap;
-  }
-  .id-kv-table td:last-child { color: #111; font-weight: 600; }
-
   /* ── SECTION ── */
   .section { margin-bottom: 12px; page-break-inside: avoid; }
 
@@ -224,37 +178,74 @@
 <body>
 
 <!-- ══ HEADER ════════════════════════════════════════════════════════ -->
-<div class="doc-header">
-  <div class="doc-header-left">
-    <div class="doc-logo">IITBNF Staff Profile Report</div>
-  </div>
-</div>
+<table style="width:100%; border-collapse:collapse; table-layout:fixed; 
+              border-bottom:2px solid #d97706; margin-bottom:14px;">
+  <colgroup><col style="width:60%;"><col style="width:40%;"></colgroup>
+  <tr>
+    <td style="padding:0 0 8px 0; border:none; font-size:16px; 
+               font-weight:700; color:#d97706; letter-spacing:1px;">
+      IITBNF Staff Member Report
+    </td>
+    <td style="padding:0 0 8px 0; border:none; text-align:right; 
+               font-size:8px; color:#777; line-height:1.6;">
+      <strong style="color:#111;">{{ person.display_name or '—' }}</strong><br>
+    </td>
+  </tr>
+</table>
 
 <!-- ══ IDENTITY ═════════════════════════════════════════════════════ -->
-<div class="id-block">
-    <div class="id-name">{{ person.display_name or '—' }} </div>
-    <div class="id-role">{{ person.role_name or 'Staff' }} | {{ person.designation or '—' }} | {{ person.team }} </div>
-    <table class="metrics-strip">
-      {% if person.slot_email %}
-      <tr><td><span class="m-key">{{ person.slot_email }}</span><span class="m-key">Email</span></td>
-      {% else %}
-      <td><span class="m-key">{{ person.email }}</span><span class="m-key">Email</span></td>
+<table style="width:100%; border-collapse:collapse; table-layout:fixed; 
+              border-top:1px solid #ddd; border-bottom:1px solid #ddd; 
+              margin-bottom:12px;">
+  <colgroup><col style="width:50%;"><col style="width:50%;"></colgroup>
+  <tr>
+    <!-- LEFT: Name + designation + team -->
+    <td style="padding:8px 12px 8px 0; border:none; vertical-align:top;">
+      <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:2px;">
+        {{ person.display_name or '—' }}
+      </div>
+      <div style="font-size:11px; font-weight:600; color:#555; 
+                  text-transform:uppercase; letter-spacing:0.5px;">
+        {{ person.designation or person.position or 'Staff' }}
+      </div>
+      {% if person.team %}
+      <div style="font-size:10px; color:#333;">{{ person.team }} Team</div>
       {% endif %}
-      {% if person.type_of_appointment %}
-      <td><span class="m-key">{{ person.type_of_appointment }}</span><span class="m-key">Appointment</span></td>
-      {% endif %}
-      {% if person.qualification %}
-      <td><span class="m-key">{{ person.qualification }}</span><span class="m-key">Qualification</span></td>
-      {% endif %}
-      {% if person.iitb_joining_date and person.iitb_joining_date not in ['0000-00-00','None',''] %}
-      <td><span class="m-key">{{ person.iitb_joining_date }}</span><span class="m-key">Joined</span></td>
-      {% elif person.joining_date and person.joining_date not in ['0000-00-00','None',''] %}
-      <td><span class="m-key">{{ person.joining_date }}</span><span class="m-key">Joined</span></td>
-      {% endif %}
-      </tr>
-    </table>
-  <div class="clearfix"></div>
-</div>
+    </td>
+    <!-- RIGHT: compact key-value pairs -->
+    <td style="padding:8px 0; border:none; vertical-align:top;">
+      <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
+        <colgroup><col style="width:80px;"><col style="width:auto;"></colgroup>
+        {% if person.slot_email or person.email %}
+        <tr>
+          <td style="padding:1px 4px 1px 0; border:none; font-size:8px; 
+                     color:#888; text-transform:uppercase;">Email</td>
+          <td style="padding:1px 0; border:none; font-size:9px; 
+                     font-weight:600; color:#111; word-break:break-all;">
+            {{ person.slot_email or person.email }}
+          </td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td style="padding:1px 4px 1px 0; border:none; font-size:8px; 
+                     color:#888; text-transform:uppercase;">Member</td>
+          <td style="padding:1px 0; border:none; font-size:9px; 
+                     font-weight:600; color:#111;">
+            #{{ '%04d' % member_id }}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:1px 4px 1px 0; border:none; font-size:8px; 
+                     color:#888; text-transform:uppercase;">Generated</td>
+          <td style="padding:1px 0; border:none; font-size:9px; 
+                     font-weight:600; color:#111;">
+            {{ now }}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 
 <!-- ══ ATTENDANCE ════════════════════════════════════════════════════ -->
 {% if att and att.days_present is defined %}

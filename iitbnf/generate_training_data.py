@@ -9,7 +9,6 @@ import sys
 import random
 from db import slots_query, hr_query
 
-
 # ── Question templates ────────────────────────────────────────────────────────
 
 SLOT_TEMPLATES_YEAR = [
@@ -90,6 +89,82 @@ def safe_int(val, default=0):
     except Exception:
         return default
 
+def _build_context_block(fields: dict) -> str:
+    """
+    Convert a dict of field→value into a readable context block.
+    Skips zero counts, None, and empty values — these become negatives instead.
+    Converts any list/dict values to clean strings.
+    """
+    lines = []
+    for k, v in fields.items():
+        if v is None or str(v) in ("", "N/A"):
+            continue
+        # Skip zero numeric values — 0 means "no data", use negative example instead
+        try:
+            if float(str(v)) == 0:
+                continue
+        except (ValueError, TypeError):
+            pass
+        # Convert list of dicts (tool usage) to a clean comma-separated string
+        if isinstance(v, list):
+            clean = ", ".join(
+                item.get("tool_name", str(item)) if isinstance(item, dict) else str(item)
+                for item in v
+            )
+            lines.append(f"  {k} = {clean}")
+        else:
+            lines.append(f"  {k} = {v}")
+    return "Context:\n" + "\n".join(lines) if lines else "Context:\n  (no data)"
+
+
+def _make_negative(question: str, name: str) -> dict:
+    """
+    Refusal example — context has only the name, not the answer.
+    Teaches: if the number isn't in Context, say not available.
+    Uses LF line endings explicitly to prevent Windows CRLF corruption.
+    """
+    context = f"Context:\n  name = {name}"
+    text = (
+        "<|im_start|>system\n"
+        "Answer questions using ONLY the data in the Context block. "
+        "If the answer is not in the Context, respond with exactly: "
+        "'This information is not available in the provided data.'\n"
+        "<|im_end|>\n"
+        f"<|im_start|>user\n{context}\n\nQuestion: {question}<|im_end|>\n"
+        "<|im_start|>assistant\n"
+        "This information is not available in the provided data.<|im_end|>"
+    )
+    # Force LF only — critical for JSONL compatibility
+    return {"text": text.replace("\r\n", "\n").replace("\r", "\n")}
+
+
+def _format_pair(context_fields: dict, question: str, answer: str) -> dict:
+    """
+    Format a positive Q&A pair in Qwen chat template format with context.
+    Forces LF line endings to prevent Windows CRLF corruption in JSONL.
+    """
+    context_block = _build_context_block(context_fields)
+    # If context has no real data (only name), make this a negative instead
+    lines = [l for l in context_block.split("\n") if l.strip() and l.strip() != "Context:"]
+    has_data = any(
+        not l.strip().startswith("name =") and not l.strip() == "(no data)"
+        for l in lines
+    )
+    if not has_data:
+        return _make_negative(question, context_fields.get("name", "this person"))
+
+    text = (
+        "<|im_start|>system\n"
+        "Answer questions using ONLY the data in the Context block. "
+        "Every number in your answer must appear in the Context. "
+        "If the answer is not in the Context, respond with exactly: "
+        "'This information is not available in the provided data.'\n"
+        "<|im_end|>\n"
+        f"<|im_start|>user\n{context_block}\n\nQuestion: {question}<|im_end|>\n"
+        f"<|im_start|>assistant\n{answer}<|im_end|>"
+    )
+    # Force LF only — critical for JSONL compatibility
+    return {"text": text.replace("\r\n", "\n").replace("\r", "\n")}
 
 def generate():
     pairs = []
@@ -144,11 +219,14 @@ def generate():
         pos   = m.get('position')   or 'lab user'
 
         # General identity
+        identity_ctx = {"name": name, "position": pos, "department": dept}
+        identity_answer = f"{name} is a {pos} in the {dept} department."
         for tpl in GENERAL_TEMPLATES:
-            pairs.append({
-                "instruction": tpl.format(name=name),
-                "response": f"{name} is a {pos} in the {dept} department."
-            })
+            question = tpl.format(name=name)
+            pairs.append(_format_pair(identity_ctx, question, identity_answer))
+            # Add negative ~30% of the time
+            if random.random() < 0.3:
+                pairs.append(_make_negative(question, name))
 
         # Per-year slot activity
         year_slot_data = {}
@@ -174,18 +252,33 @@ def generate():
                 tools   = safe_int(r['tools'])
                 year_slot_data[year] = r
 
-                answer = (
+                # Replace the answer construction for slot activity with this:
+                parts = [
                     f"In {year}, {name} submitted {total} equipment usage "
                     f"{'request' if total==1 else 'requests'} across {tools} "
-                    f"{'tool' if tools==1 else 'tools'}. "
-                    f"Of these, {booked} were slot-booked, "
-                    f"{pending} were pending, and {rejected} were rejected."
-                )
+                    f"{'tool' if tools==1 else 'tools'}."
+                ]
+                if booked:
+                    parts.append(f"{booked} {'was' if booked==1 else 'were'} slot-booked.")
+                if pending:
+                    parts.append(f"{pending} {'was' if pending==1 else 'were'} pending.")
+                if rejected:
+                    parts.append(f"{rejected} {'was' if rejected==1 else 'were'} rejected.")
+                answer = " ".join(parts)
+                slot_ctx = {
+                    "name": name,
+                    "year": year,
+                    "eq_requests": total,
+                    "eq_slot_booked": booked,
+                    "eq_pending": pending,
+                    "eq_rejected": rejected,
+                    "tools_used": tools,
+                }
                 for tpl in SLOT_TEMPLATES_YEAR:
-                    pairs.append({
-                        "instruction": tpl.format(name=name, year=year),
-                        "response": answer
-                    })
+                    question = tpl.format(name=name, year=year)
+                    pairs.append(_format_pair(slot_ctx, question, answer))
+                    if random.random() < 0.3:
+                        pairs.append(_make_negative(question, name))
 
         # Year-comparison slot
         available_years = sorted(year_slot_data.keys())
@@ -208,11 +301,17 @@ def generate():
                         f"In {y2}, {t2} requests. "
                         f"This represents {trend}."
                     )
+                    compare_ctx = {
+                        "name": name,
+                        f"eq_requests_{y1}": t1,
+                        f"eq_requests_{y2}": t2,
+                        "trend": trend,
+                    }
                     for tpl in COMPARE_SLOT_TEMPLATES:
-                        pairs.append({
-                            "instruction": tpl.format(name=name, y1=y1, y2=y2),
-                            "response": answer
-                        })
+                        question = tpl.format(name=name, y1=y1, y2=y2)
+                        pairs.append(_format_pair(compare_ctx, question, answer))
+                        if random.random() < 0.25:
+                            pairs.append(_make_negative(question, name))
 
         # Per-year reservations
         for year in years:
@@ -229,11 +328,16 @@ def generate():
                     f"{name} made {total} slot "
                     f"{'reservation' if total==1 else 'reservations'} in {year}."
                 )
+                reservation_ctx = {
+                    "name": name,
+                    "year": year,
+                    "reservations": total
+                }
                 for tpl in RESERVATION_TEMPLATES_YEAR:
-                    pairs.append({
-                        "instruction": tpl.format(name=name, year=year),
-                        "response": answer
-                    })
+                    question = tpl.format(name=name, year=year)
+                    pairs.append(_format_pair(reservation_ctx, question, answer))
+                    if random.random() < 0.3:
+                        pairs.append(_make_negative(question, name))
 
         # Tool usage
         tools = slots_query("""
@@ -253,11 +357,15 @@ def generate():
                 f"{name}'s most used equipment is {top_tool}. "
                 f"Tools used overall: {tool_list}."
             )
+            tool_ctx = {
+                "name": name,
+                "tools_used": tools
+            }
             for tpl in TOOL_TEMPLATES:
-                pairs.append({
-                    "instruction": tpl.format(name=name),
-                    "response": answer
-                })
+                question = tpl.format(name=name)
+                pairs.append(_format_pair(tool_ctx, question, answer))
+                if random.random() < 0.3:
+                    pairs.append(_make_negative(question, name))
 
         # Publications
         papers = slots_query("""
@@ -266,17 +374,21 @@ def generate():
             WHERE memberid=%s AND approve=1
         """, (uid,))
         paper_count = safe_int(papers[0]['total'] if papers and papers[0] else 0)
-        if paper_count >= 0:
+        if paper_count > 0:
             answer = (
                 f"{name} has {paper_count} approved "
                 f"{'publication' if paper_count==1 else 'publications'} "
                 f"associated with IITBNF."
             )
+            paper_ctx = {
+                "name": name,
+                "paper_count": paper_count
+            }
             for tpl in PAPER_TEMPLATES:
-                pairs.append({
-                    "instruction": tpl.format(name=name),
-                    "response": answer
-                })
+                question = tpl.format(name=name)
+                pairs.append(_format_pair(paper_ctx, question, answer))
+                if random.random() < 0.3:
+                    pairs.append(_make_negative(question, name))
 
         # Projects
         proj = slots_query("""
@@ -295,11 +407,16 @@ def generate():
                 f"of which {active} "
                 f"{'is' if active==1 else 'are'} currently active."
             )
+            project_ctx = {
+                "name": name,
+                "total_projects": total,
+                "active_projects": active
+            }
             for tpl in PROJECT_TEMPLATES:
-                pairs.append({
-                    "instruction": tpl.format(name=name),
-                    "response": answer
-                })
+                question = tpl.format(name=name)
+                pairs.append(_format_pair(project_ctx, question, answer))
+                if random.random() < 0.3:
+                    pairs.append(_make_negative(question, name))
 
     # ── Step 4: Generate pairs for staff members ──────────────────────────────
     print("Generating staff pairs...", file=sys.stderr)
@@ -326,13 +443,14 @@ def generate():
             name = f"Member {str(mid).zfill(4)}"
 
         # General identity
+        staff_identity_ctx = {"name": name, "designation": desig, "team": team}
+        staff_identity_answer = f"{name} is a {desig} in the {team} team at IITBNF."
         for tpl in GENERAL_TEMPLATES:
-            pairs.append({
-                "instruction": tpl.format(name=name),
-                "response": (
-                    f"{name} is a {desig} in the {team} team at IITBNF."
-                )
-            })
+            question = tpl.format(name=name)
+            answer = f"{name} is a {desig} in the {team} team at IITBNF."
+            pairs.append(_format_pair(staff_identity_ctx, question, staff_identity_answer))
+            if random.random() < 0.3:
+                pairs.append(_make_negative(question, name))
 
         # Per-year attendance (staff use hr_portal attendance)
         year_attend_data = {}
@@ -349,12 +467,12 @@ def generate():
                     f"In {year}, {name} was present for {days} working "
                     f"{'day' if days==1 else 'days'}."
                 )
+                att_ctx = {"name": name, "year": year, "days_present": days}
                 for tpl in ATTEND_TEMPLATES_YEAR:
-                    pairs.append({
-                        "instruction": tpl.format(name=name, year=year),
-                        "response": answer
-                    })
-
+                    question = tpl.format(name=name, year=year)
+                    pairs.append(_format_pair(att_ctx, question, answer))
+                    if random.random() < 0.3:
+                        pairs.append(_make_negative(question, name))
         # Year-comparison attendance
         available_att = sorted(year_attend_data.keys())
         if len(available_att) >= 2:
@@ -376,12 +494,17 @@ def generate():
                         f"{y2} — {d2} days. "
                         f"{trend}."
                     )
+                    attcompare_ctx = {
+                        "name": name,
+                        f"days_present_{y1}": d1,
+                        f"days_present_{y2}": d2,
+                        "trend": trend,
+                    }
                     for tpl in COMPARE_ATTEND_TEMPLATES:
-                        pairs.append({
-                            "instruction": tpl.format(name=name, y1=y1, y2=y2),
-                            "response": answer
-                        })
-
+                        question = tpl.format(name=name, y1=y1, y2=y2)
+                        pairs.append(_format_pair(attcompare_ctx, question, answer))
+                        if random.random() < 0.25:
+                            pairs.append(_make_negative(question, name))
         # Monthly reports (staff specific)
         mr = hr_query("""
             SELECT COUNT(*) AS submitted, AVG(star) AS avg_stars
@@ -391,14 +514,16 @@ def generate():
         if mr and mr[0] and safe_int(mr[0]['submitted']) > 0:
             submitted = safe_int(mr[0]['submitted'])
             avg_stars = round(float(mr[0]['avg_stars'] or 0), 1)
-            pairs.append({
-                "instruction": f"How many monthly reports has {name} submitted?",
-                "response": (
-                    f"{name} has submitted {submitted} monthly "
-                    f"{'report' if submitted==1 else 'reports'} "
-                    f"with an average rating of {avg_stars} stars."
+            mr_ctx = {"name": name, "monthly_reports_submitted": submitted, "monthly_report_avg_stars": avg_stars}
+            question = f"How many monthly reports has {name} submitted?"
+            mr_answer = (
+                f"{name} has submitted {submitted} monthly "
+                f"{'report' if submitted==1 else 'reports'} "
+                f"with an average rating of {avg_stars} stars."
                 )
-            })
+            pairs.append(_format_pair(mr_ctx, question, mr_answer))
+            if random.random() < 0.3:
+                pairs.append(_make_negative(question, name))    
 
     # ── Step 5: Shuffle and return ────────────────────────────────────────────
     random.shuffle(pairs)
@@ -417,8 +542,6 @@ def generate():
     )
 
     return pairs
-
-
 if __name__ == "__main__":
     pairs = generate()
 
@@ -426,14 +549,28 @@ if __name__ == "__main__":
         print("ERROR: No pairs generated. Check DB connection.", file=sys.stderr)
         sys.exit(1)
 
-    for p in pairs:
-        print(json.dumps(p))
+    # Write JSONL directly — avoids Windows stdout redirect issues
+    output_path = "training_data.jsonl"
+    written = 0
+    with open(output_path, "w", encoding="utf-8") as f:
+        for p in pairs:
+            if "text" in p:
+                p["text"] = p["text"].replace("\r\n", "\n").replace("\r", "\n")
+            line = json.dumps(p, ensure_ascii=False)
+            line = line.replace("\r\n", "\n").replace("\r", "\n")
+            f.write(line + "\n")
 
-    # Also save a readable sample for inspection
-    with open("training_sample.txt", "w") as f:
-        for p in pairs[:20]:
-            f.write(f"Q: {p['instruction']}\n")
-            f.write(f"A: {p['response']}\n")
-            f.write("-" * 60 + "\n")
+    print(f"Written {written} pairs to {output_path}", file=sys.stderr)
 
-    print("\nFirst 20 pairs saved to training_sample.txt", file=sys.stderr)
+    # Sample file for inspection
+    with open("training_sample.txt", "w", encoding="utf-8") as f:
+        for i, p in enumerate(pairs[:20]):
+            f.write(f"--- Example {i+1} ---\n")
+            if "text" in p:
+                f.write(p["text"])
+            else:
+                f.write(f"Q: {p.get('instruction', '')}\n")
+                f.write(f"A: {p.get('response', '')}\n")
+            f.write("\n" + "=" * 60 + "\n\n")
+
+    print("First 20 pairs saved to training_sample.txt", file=sys.stderr)

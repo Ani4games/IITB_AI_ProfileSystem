@@ -8,7 +8,7 @@ from datetime import timedelta
 DB_HR = {
     "host":     os.getenv("DB_HOST", "localhost"),
     "user":     os.getenv("DB_USER", "root"),
-    "password": os.getenv("DB_PASS", "password"),
+    "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "hr_portal",
     "charset":  "utf8mb4",
     "use_named_pipe": True,
@@ -17,7 +17,7 @@ DB_HR = {
 DB_SLOTS = {
     "host":     os.getenv("DB_HOST", "localhost"),
     "user":     os.getenv("DB_USER", "root"),
-    "password": os.getenv("DB_PASS", "password"),
+    "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "slotbooking",
     "charset":  "utf8mb4",
     "use_named_pipe": True,

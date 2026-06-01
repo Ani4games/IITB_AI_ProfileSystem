@@ -6,7 +6,7 @@ from transformers import TrainingArguments
 
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = "unsloth/Qwen2.5-0.5B-Instruct",
-    max_seq_length = 512,
+    max_seq_length = 1024,
     load_in_4bit = True,
 )
 model = FastLanguageModel.get_peft_model(
@@ -19,8 +19,8 @@ dataset = load_dataset("json", data_files="training_data.jsonl", split="train")
 trainer = SFTTrainer(
     model=model, tokenizer=tokenizer,
     train_dataset=dataset,
-    dataset_text_field="instruction",
-    max_seq_length=512,
+    dataset_text_field="text",
+    max_seq_length=1024,
     args=TrainingArguments(
         output_dir="./finetuned_model",
         num_train_epochs=3,

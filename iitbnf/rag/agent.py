@@ -22,6 +22,7 @@ from rag.pipeline import rag_stream, rag_generate, rag_chat
 from rag.tier0 import lookup as tier0_lookup
 from rag.query_router import route as structured_route
 from rag.facility_router import route_facility
+from rag.data_gatherer import gather
 logger = logging.getLogger(__name__)
 
 # ── Intent config ─────────────────────────────────────────────────────────────
@@ -108,7 +109,67 @@ def detect_intent(user_message: str) -> dict:
         "confidence":  confidence,
         "raw_message": user_message,
     }
+def _format_gathered(gathered: dict) -> str:
+    """
+    Pure Python fallback — formats pre-fetched data into
+    a readable sentence without any model call.
+    Used when the SLM fails to follow the formatting template.
+    """
+    t    = gathered["type"]
+    d    = gathered["data"]
+    name = d.get("name", "This person")
 
+    if t == "attendance_compare":
+        y1, y2 = d["years"][0], d["years"][1]
+        diff   = y2["days_present"] - y1["days_present"]
+        change = (f"{abs(diff)} more days" if diff > 0
+                  else f"{abs(diff)} fewer days" if diff < 0
+                  else "the same number of days")
+        return (
+            f"{name} attended {y1['days_present']} days in {y1['year']} "
+            f"and {y2['days_present']} days in {y2['year']} "
+            f"— {change} in {y2['year']}."
+        )
+
+    if t == "attendance_year":
+        return (
+            f"{name} was present for {d['days_present']} "
+            f"working days in {d['year']}."
+        )
+
+    if t == "slot_compare":
+        y1, y2 = d["years"][0], d["years"][1]
+        diff   = y2["total"] - y1["total"]
+        change = (f"{abs(diff)} more" if diff > 0
+                  else f"{abs(diff)} fewer" if diff < 0
+                  else "the same number of")
+        return (
+            f"{name} submitted {y1['total']} equipment requests in "
+            f"{y1['year']} and {y2['total']} in {y2['year']} "
+            f"— {change} requests in {y2['year']}."
+        )
+
+    if t == "ownership":
+        count = d["count"]
+        if count == 0:
+            return f"{name} is not currently assigned as system owner for any tools."
+        tools = ", ".join(d["tools"])
+        return (
+            f"{name} is currently assigned as system owner "
+            f"for {count} tool{'s' if count != 1 else ''}: {tools}."
+        )
+
+    if t == "leave":
+        total = d["total"]
+        yr    = d["year"]
+        bd    = d["breakdown"]
+        parts = ", ".join(f"{k}: {v}" for k, v in bd.items())
+        return (
+            f"{name} took {total} leave day{'s' if total != 1 else ''} "
+            f"in {yr}" + (f" ({parts})." if parts else ".")
+        )
+
+    return "Data retrieved but could not be formatted."
 # ── Public agent API ──────────────────────────────────────────────────────────
 
 def agent_stream(user_message: str, ctx: dict):
@@ -158,6 +219,38 @@ def agent_stream(user_message: str, ctx: dict):
             yield f"[MODE: Direct Lookup]\n\n"
             yield fast["answer"]
             return
+        # ── Tier 1: answer from structured data ───────────────────────────
+        structured_data = gather(clean_message, ctx)
+        if structured_data:
+            yield f"[MODE: Structured Data]\n\n"
+            yield structured_data["template"]
+            return
+        gathered = gather(clean_message, ctx)
+        if gathered:
+            # Build a tight formatting prompt — SLM only formats, never reasons
+            prompt = (
+                "You are a data formatter. "
+                "Copy the pattern from the example exactly. "
+                "Use only the data provided. "
+                "One sentence. No extra words.\n\n"
+                + gathered["template"]
+            )
+            from llm import llm_generate
+            answer = llm_generate(prompt, max_tokens=60).strip()
+            
+            # Validate — if answer looks like a hallucination, 
+            # fall back to building the sentence ourselves
+            if not answer or len(answer) < 10 or answer.startswith("EXAMPLE"):
+                answer = _format_gathered(gathered)
+            
+            return {
+                "answer":     answer,
+                "mode":       "data_formatted",
+                "label":      "Data + Format",
+                "confidence": "high",
+                "success":    True,
+                "tier":       1.8,
+            }
 
         # ── Tier 2: fall through to model ─────────────────────────────────
         result = rag_chat(clean_message, ctx)
