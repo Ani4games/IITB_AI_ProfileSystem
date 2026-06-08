@@ -18,11 +18,13 @@ Just import and use this in your routes or chat handler.
 
 import re
 import logging
+
 from rag.pipeline import rag_stream, rag_generate, rag_chat
 from rag.tier0 import lookup as tier0_lookup
 from rag.query_router import route as structured_route
 from rag.facility_router import route_facility
 from rag.data_gatherer import gather
+from rag.intent_router import classify_intent
 logger = logging.getLogger(__name__)
 
 # ── Intent config ─────────────────────────────────────────────────────────────
@@ -191,28 +193,44 @@ def agent_stream(user_message: str, ctx: dict):
     intent = detect_intent(user_message)
     yield f"[MODE: {intent['label']}]\n\n"
 
-    is_question = any(
-        user_message.strip().lower().startswith(w)
-        for w in ["what", "who", "when", "how", "why", "is", "does", "can", "tell me"]
-    ) or user_message.strip().endswith("?")
+    _q_lower = user_message.strip().lower()
+    is_question = (
+        any(_q_lower.startswith(w) for w in [
+            "what", "who", "when", "how", "why", "is", "does", "can", "tell me",
+            "show", "give", "list", "compare", "summarize", "describe", "find",
+            "check", "get", "display", "count", "which", "was", "were", "did",
+            "has", "have"
+        ])
+        or user_message.strip().endswith("?")
+        or "?" in user_message
+        or len(user_message.strip().split()) <= 8  # short queries are almost always questions
+    )
 
     if is_question:
         clean_message = normalize_question(user_message)
-        fast_answer = structured_route(clean_message, ctx)
-        if fast_answer:
-            yield f"[MODE: Direct Lookup]\n\n"
-            yield fast_answer
-            return
+        # Two-layer intent classification
+        _intent_label, _intent_method = classify_intent(clean_message)
+        logger.info(
+            "[Agent] intent=%s method=%s query=%r",
+            _intent_label, _intent_method, clean_message[:60]
+        )
+        if _intent_label not in ("general_profile"):
+            fast_answer = structured_route(clean_message, ctx)
+            if fast_answer:
+                yield f"[MODE: Direct Lookup]\n\n"
+                yield fast_answer
+                return
          # NEW: Year-comparison check (before Tier 0)
         year_answer = _answer_year_comparison(clean_message, ctx)
         if year_answer:
             yield year_answer  # for agent_stream
             return
-        facility_answer = route_facility(clean_message)
-        if facility_answer:
-            yield "[MODE: Facility Knowledge]\n\n"
-            yield facility_answer
-            return
+        if _intent_label in ("admin_stats"):
+            facility_answer = route_facility(clean_message)
+            if facility_answer:
+                yield "[MODE: Facility Knowledge]\n\n"
+                yield facility_answer
+                return
         # ── Tier 0: answer directly from ctx dict, no model call ──────────
         fast = tier0_lookup(clean_message, ctx)
         if fast:
@@ -222,35 +240,10 @@ def agent_stream(user_message: str, ctx: dict):
         # ── Tier 1: answer from structured data ───────────────────────────
         structured_data = gather(clean_message, ctx)
         if structured_data:
+            answer = _format_gathered(structured_data)
             yield f"[MODE: Structured Data]\n\n"
-            yield structured_data["template"]
+            yield answer
             return
-        gathered = gather(clean_message, ctx)
-        if gathered:
-            # Build a tight formatting prompt — SLM only formats, never reasons
-            prompt = (
-                "You are a data formatter. "
-                "Copy the pattern from the example exactly. "
-                "Use only the data provided. "
-                "One sentence. No extra words.\n\n"
-                + gathered["template"]
-            )
-            from llm import llm_generate
-            answer = llm_generate(prompt, max_tokens=60).strip()
-            
-            # Validate — if answer looks like a hallucination, 
-            # fall back to building the sentence ourselves
-            if not answer or len(answer) < 10 or answer.startswith("EXAMPLE"):
-                answer = _format_gathered(gathered)
-            
-            return {
-                "answer":     answer,
-                "mode":       "data_formatted",
-                "label":      "Data + Format",
-                "confidence": "high",
-                "success":    True,
-                "tier":       1.8,
-            }
 
         # ── Tier 2: fall through to model ─────────────────────────────────
         result = rag_chat(clean_message, ctx)
@@ -261,7 +254,7 @@ def agent_stream(user_message: str, ctx: dict):
     else:
         # For report-style requests, stream as before
         yield from rag_stream(ctx, mode=intent["mode"])
-
+_qa_response_cache = {} # module-level — survives across calls
 def agent_generate(user_message: str, ctx: dict) -> dict:
     """
     Autonomous non-streaming agent.
@@ -290,23 +283,38 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
 
     # Use rag_chat for question-style input, rag_generate for report-style
     # Detect if it's a question or a generation request
-    is_question = any(
-        user_message.strip().lower().startswith(w)
-        for w in ["what", "who", "when", "how", "why", "is", "does", "can", "tell me"]
-    ) or user_message.strip().endswith("?")
+    _q_lower = user_message.strip().lower()
+    is_question = (
+        any(_q_lower.startswith(w) for w in [
+            "what", "who", "when", "how", "why", "is", "does", "can", "tell me",
+            "show", "give", "list", "compare", "summarize", "describe", "find",
+            "check", "get", "display", "count", "which", "was", "were", "did",
+            "has", "have"
+        ])
+        or user_message.strip().endswith("?")
+        or "?" in user_message
+        or len(user_message.strip().split()) <= 8  # short queries are almost always questions
+    )
 
     if is_question:
         clean_message = normalize_question(user_message)
-        fast_answer = structured_route(clean_message, ctx)
-        if fast_answer:
-            return {
-                "answer": fast_answer,
-                "mode": "structured",
-                "label": "Direct Lookup",
-                "confidence": "high",
-                "success": True,
-                "tier": 1,
-            }
+        # Two-layer intent classification
+        _intent_label, _intent_method = classify_intent(clean_message)
+        logger.info(
+            "[Agent] intent=%s method=%s query=%r",
+            _intent_label, _intent_method, clean_message[:60]
+        )
+        if _intent_label not in ("general_profile"):
+            fast_answer = structured_route(clean_message, ctx)
+            if fast_answer:
+                return {
+                    "answer": fast_answer,
+                    "mode": "structured",
+                    "label": "Direct Lookup",
+                    "confidence": "high",
+                    "success": True,
+                    "tier": 1,
+                }
             # NEW: Year-comparison check (before Tier 0)
         year_answer = _answer_year_comparison(clean_message, ctx)
         if year_answer:
@@ -318,16 +326,17 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
                 "success": True,
                 "tier": 1.5,
             }
-        facility_answer = route_facility(clean_message)
-        if facility_answer:
-            return {
-                "answer": facility_answer,
-                "mode": "facility_knowledge",
-                "label": "Facility Knowledge",
-                "confidence": "high",
-                "success": True,
-                "tier": 1.5,
-            }
+        if _intent_label in ("admin_stats"):
+            facility_answer = route_facility(clean_message)
+            if facility_answer:
+                return {
+                    "answer": facility_answer,
+                    "mode": "facility_knowledge",
+                    "label": "Facility Knowledge",
+                    "confidence": "high",
+                    "success": True,
+                    "tier": 1.5,
+                }
         # ── Tier 0: answer directly from ctx dict, no model call ──────────
         fast = tier0_lookup(clean_message, ctx)
         if fast:
@@ -342,16 +351,24 @@ def agent_generate(user_message: str, ctx: dict) -> dict:
                 "latency_ms": fast.get("latency_ms"),
             }
 
+        # At module level:
+
+        # In agent_generate(), before result = rag_chat(...):
+        cache_key = f"{ctx.get('member_id')}:{clean_message}"
+        if cache_key in _qa_response_cache:
+            return _qa_response_cache[cache_key]
+
         # ── Tier 2: fall through to model ─────────────────────────────────
         result = rag_chat(clean_message, ctx)
-        return {
-            "answer":     result.get("answer", ""),
+        _qa_response_cache[cache_key] = {
+                        "answer":     result.get("answer", ""),
             "mode":       intent["mode"],
             "label":      intent["label"],
             "confidence": intent["confidence"],
             "success":    result.get("success", False),
-            "tier":       2,
+            "tier":     2,
         }
+        return _qa_response_cache[cache_key]
     else:
         answer = rag_generate(ctx, audience=(
             "management" if intent["mode"] == "executive" else "individual"

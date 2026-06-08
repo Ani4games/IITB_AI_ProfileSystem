@@ -439,7 +439,7 @@ class LlamaCppBackend(Backend):
                 t0 = time.perf_counter()
                 self._llm = Llama(
                     model_path    = self.model_path,
-                    n_ctx         = 8192,
+                    n_ctx         = 2048,
                     n_threads     = 4,        # adjust to your CPU core count
                     n_gpu_layers  = 0,        # 0 = CPU only
                     verbose       = False,

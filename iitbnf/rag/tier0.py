@@ -202,7 +202,24 @@ LOOKUP_RULES: list[dict] = [
             )
         ),
     },
-
+    {
+        "intent":   "attendance_regularity",
+        "patterns": [
+            r"\b(regular|irregular|consistent|punctual)\b",
+            r"\bwas.{0,15}(regular|present|attending)\b",
+            r"\bmore regular\b",
+        ],
+        "fields":   ["attendance_pct", "days_present"],
+        "formatter": lambda ctx: (
+            f"{_str(ctx, 'name')} had {_float(ctx, 'attendance_pct'):.1f}% attendance "
+            f"({_int(ctx, 'days_present')} of {_int(ctx, 'working_days')} working days). "
+            + (
+                "This meets the 75% mandatory threshold."
+                if _float(ctx, 'attendance_pct') >= 75
+                else "This is below the 75% mandatory threshold."
+            )
+        ),
+    },
     # ── Equipment / Slot activity ─────────────────────────────────────────────
 
     {
@@ -217,6 +234,7 @@ LOOKUP_RULES: list[dict] = [
             r"\b(machine|equipment).{0,15}(booked|booking|used)",
         ],
         "fields":   ["eq_requests"],
+        "skip_if": lambda q, ctx: bool(re.search(r'\b20\d{2}\b', q)),
         "formatter": lambda ctx: (
             f"{_str(ctx, 'name')} has submitted {_int(ctx, 'eq_requests')} equipment usage "
             f"{_pluralise(_int(ctx, 'eq_requests'), 'request')}. "
@@ -291,6 +309,7 @@ LOOKUP_RULES: list[dict] = [
         "patterns": [
             r"\b(paper|publication|research output|publish|published)\b",
             r"\bhow many.{0,20}(paper|publication)\b",
+            r"\btell me about.{0,20}(paper|publication)\b",
             r"\b(paper|publication).{0,10}(does|do|has|have)\b",
         ],
         "fields":   ["papers"],
@@ -377,10 +396,14 @@ LOOKUP_RULES: list[dict] = [
         "intent":   "department",
         "patterns": [
             r"\b(department|dept|which dept|which department)\b",
+            r"\bwhich team\b",
+            r"\bwhat team\b",
         ],
-        "fields":   ["department"],
+        "fields":   ["name"],   # changed from ["department"]
         "formatter": lambda ctx: (
-            f"{_str(ctx, 'name')} is from the {_str(ctx, 'department')} department."
+            f"{_str(ctx, 'name')} is from the "
+            f"{_str(ctx, 'department') if ctx.get('department') and ctx.get('department') not in ('N/A','') else _str(ctx, 'team', 'N/A')} "
+            f"{'department' if ctx.get('department') and ctx.get('department') not in ('N/A','') else 'team'}."
         ),
     },
 
@@ -497,10 +520,11 @@ LOOKUP_RULES: list[dict] = [
         r"\boverview\b",
         r"\bprofile (summary|overview)\b",
     ],
-    "fields":   ["name", "designation"],
+    "fields":   ["name"],
     "formatter": lambda ctx: (
-        f"{_str(ctx, 'name')} is a {_str(ctx, 'designation')} "
+        f"{_str(ctx, 'name')} is a {_str(ctx, 'category') or _str(ctx, 'designation')} "
         f"in the {_str(ctx, 'team')} team"
+        f"in the {_str(ctx, 'department', '')} department"
         + (f", joined {_str(ctx, 'joining_date')}" if ctx.get('joining_date') else "")
         + f". Attendance: {_float(ctx, 'attendance_pct'):.1f}%"
         + (f", {_int(ctx, 'eq_requests')} equipment requests"
@@ -528,6 +552,8 @@ LOOKUP_RULES: list[dict] = [
 # ══════════════════════════════════════════════════════════════════════════════
 # PUBLIC API
 # ══════════════════════════════════════════════════════════════════════════════
+# If question contains a year + activity keyword, skip Tier 0
+# Let query_router handle it with proper DB year filtering
 
 def lookup(question: str, ctx: dict) -> dict | None:
     """
@@ -554,6 +580,15 @@ def lookup(question: str, ctx: dict) -> dict | None:
     t0 = time.perf_counter()
     q  = question.lower().strip()
 
+    YEAR_ACTIVITY_PATTERNS = (
+        r"\b20\d{2}\b.{0,30}(slot|equipment|request|booking|reservation|attendance|present|active)",
+        r"(slot|equipment|request|booking|reservation|attendance|present|active).{0,30}\b20\d{2}\b",
+        r"(in|for|during)\s+20\d{2}",
+        r"(compare|comparison|change|differ).{0,30}\b20\d{2}\b",
+    )
+    if any(re.search(p, q) for p in YEAR_ACTIVITY_PATTERNS):
+        logger.debug("[Tier0] year-specific activity question — bypassing to query router: %r", q[:60])
+        return None
     # Questions that ask for explanation, analysis, comparison, or trends
     # should always go to the model — never answer from a dict lookup.
     ANALYSIS_PREFIXES = (

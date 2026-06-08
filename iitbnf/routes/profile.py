@@ -79,7 +79,7 @@ from models.staff import (
     get_permissions,
     get_attendance_trend, get_available_years,
     get_staff_system_owned, get_staff_owner_track,
-    get_staff_tool_perms_rich,
+    get_staff_tool_perms_rich, get_staff_logbook_stats, 
     _warmup_uid,
 )
 
@@ -227,6 +227,7 @@ def _generate_pdf_job(app, job_id: str, member_id: int, year: int):
             tool_perms = get_staff_tool_perms_rich(member_id)
             owned_c    = _owned_counts()
             track_c    = _track_counts()
+            logbook_stats = get_staff_logbook_stats(member_id)
 
             print(f"[PDF] DB queries done in {round((time.perf_counter()-t0)*1000)}ms")
 
@@ -254,7 +255,7 @@ def _generate_pdf_job(app, job_id: str, member_id: int, year: int):
                 person             = safe_dict(person),
                 att                = safe_json(attendance or {}),
                 slot_activity      = slot_activity,
-                projects           = {},
+                logbook_entries    = logbook_stats or {},
                 permissions        = perms or [],
                 system_owned       = system_owned,
                 system_owner_track = system_owner_track,
@@ -315,7 +316,8 @@ def prefetch_pdf(member_id):
 
         # Start a fresh job
         job_id = str(uuid.uuid4())
-        PDF_JOBS[job_id]   = {"status": "processing"}
+        import time as _t
+        PDF_JOBS[job_id]   = {"status": "processing", "created_at": _t.time()}
         PDF_PREFETCH[key]  = job_id
 
     t = threading.Thread(
@@ -363,7 +365,7 @@ def prefetch_pdf_all_years(member_id):
             return jsonify({"jobs": {str(default): existing_id}})
 
         job_id = str(uuid.uuid4())
-        PDF_JOBS[job_id]    = {"status": "processing"}
+        PDF_JOBS[job_id]    = {"status": "processing", "created_at": time.time()}
         PDF_PREFETCH[key]   = job_id
         result[str(default)] = job_id
 
@@ -401,7 +403,7 @@ def start_pdf(member_id):
 
         # No valid prefetch — start a fresh job
         job_id = str(uuid.uuid4())
-        PDF_JOBS[job_id]  = {"status": "processing"}
+        PDF_JOBS[job_id]  = {"status": "processing", "created_at": time.time()}
         PDF_PREFETCH[key] = job_id
 
     t = threading.Thread(

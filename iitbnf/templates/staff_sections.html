@@ -154,7 +154,7 @@
       <span class="card-title">Sys Own Track</span>
     </div>
     <div class="card-metric">
-      <div class="card-big" id="c-owner-track">-<span class="unit"> records</span></div>
+      <div class="card-big" id="c-owner-track"> 0 <span class="unit"> records</span></div>
       <div class="card-sub">Ownership history</div>
     </div>
     <div class="card-footer">
@@ -446,7 +446,17 @@
      _setPDFBtnState, _startBtnPoll, _prefetchJobs
 ════════════════════════════════════════════════════════════════ #}
 {% block page_js %}
+// Set AI chat person name
+const aiChatName = document.getElementById('ai-chat-person-name');
+if (aiChatName) aiChatName.textContent = '{{ person.display_name }}';
 
+// Set AI greeting
+const aiGreetEl = document.getElementById('ai-qa-greeting-headline');
+if (aiGreetEl) {
+  const hour = new Date().getHours();
+  const tod = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  aiGreetEl.textContent = `Good ${tod}. Ask me about {{ person.display_name }}.`;
+}
   // ── Register chart init hook (shared modal system calls this) ────
   const _chartInits = {};
   _modalOpenHooks['att-modal'] = function() {
@@ -626,7 +636,8 @@
   function _renderOwnerTrackModal(track) {
     const body = document.getElementById('owner-track-modal-body');
     if (!body) return;
-    if (!track.length) { body.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem;">No ownership history on record.</p>'; return; }
+    if (track.length > 0) { body.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem;">No ownership history on record.</p>'; return; }
+    else {return 0;}
     const active = track.filter(t=>t.is_active).length;
     body.innerHTML = `<div class="modal-metrics">
       <div class="mm-box"><div class="mm-val">${track.length}</div><div class="mm-key">Total</div></div>
@@ -736,8 +747,8 @@
     if (card) card.style.display = '';
     if (countEl) countEl.innerHTML = rows.length + '<span class="unit"> cancel</span>';
     if (body) body.innerHTML = `
-      <div class="table-scroll">
-        <table class="modal-table">
+      <div class="table-scroll" style="max-height:320px;overflow-y:auto;">
+        <table class="modal-table" style="width:100%; max-height:320px;overflow-y:auto;">
           <thead><tr><th>Start</th><th>Equipment</th><th>Reason</th><th>Cancelled</th></tr></thead>
           <tbody>${rows.map(r => `<tr>
             <td class="cell-mono">${r.start_dt||'—'}</td>
@@ -833,48 +844,68 @@ function loadRawLogbook(machid, toolName) {
 
 function loadAILogbook(machid, toolName) {
     const content = document.getElementById('logbook-entries-content');
-    // Fetch the raw session data
-    fetch(`/api/section/tool/${machid}/session_log?limit=200&member_id=${MEMBER_ID}`)
-      .then(r => r.json())
-      .then(data => {
-        if (!data.success || !data.rows?.length) {
-          content.innerHTML = '<p style="color:var(--muted);">No sessions found.</p>';
-          return;
+    
+    // Show loading state
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;gap:.6rem;padding:1rem 0;">
+        <div style="width:14px;height:14px;border:2px solid var(--border2);
+                    border-top-color:var(--amber);border-radius:50%;
+                    animation:spin .7s linear infinite;flex-shrink:0;"></div>
+        <span style="font-family:var(--font-mono);font-size:.7rem;color:var(--muted);">
+          Analysing logbook entries…
+        </span>
+      </div>
+      <div id="ai-logbook-stream-output" 
+           style="font-family:var(--font-body);font-size:.88rem;
+                  line-height:1.8;color:var(--fg);white-space:pre-wrap;">
+      </div>`;
+
+    const outputEl = document.getElementById('ai-logbook-stream-output');
+    let fullText = '';
+
+    // Call the existing logbook-explain SSE endpoint
+    const es = new EventSource(
+      `/api/ai/logbook-explain?member_id=${MEMBER_ID}&machid=${machid}&tool_name=${encodeURIComponent(toolName)}`
+    );
+
+    es.onmessage = event => {
+        const raw = event.data;
+        
+        if (raw === '[DONE]') {
+            es.close();
+            // Remove the spinner once streaming is complete
+            const spinner = content.querySelector('div:first-child');
+            if (spinner) spinner.remove();
+            return;
         }
-        const rows = data.rows;
-        const total = rows.length;
         
-        // Calculate date range
-        const starts = rows.map(r => r.booking_start).filter(Boolean).sort();
-        const first = starts[0]?.slice(0, 10);
-        const last  = starts[starts.length-1]?.slice(0, 10);
+        if (raw.startsWith('[ERROR]')) {
+            es.close();
+            content.innerHTML = `
+              <p style="color:var(--red);font-size:.8rem;padding:.5rem 0;">
+                ${raw.replace('[ERROR]', 'Error:')}
+              </p>`;
+            return;
+        }
         
-        // Calculate average duration in minutes
-        let totalMins = 0, counted = 0;
-        rows.forEach(r => {
-          if (r.booking_start && r.booking_end) {
-            const diff = (new Date(r.booking_end) - new Date(r.booking_start)) / 60000;
-            if (diff > 0 && diff < 1440) { totalMins += diff; counted++; }
-          }
-        });
-        const avgMins = counted ? Math.round(totalMins / counted) : null;
-        
-        // Build deterministic summary — no SLM needed
-        let summary = `${total} session${total !== 1 ? 's' : ''} recorded on ${toolName}`;
-        if (first && last && first !== last) summary += `, from ${first} to ${last}`;
-        else if (first) summary += ` on ${first}`;
-        if (avgMins) summary += `. Average session duration: ${avgMins} minutes.`;
-        
-        content.innerHTML = `
-          <div style="background:var(--surface2);border:1px solid var(--border);
-                      border-radius:8px;padding:.85rem 1rem;margin-bottom:.75rem;">
-            <div style="font-family:var(--font-mono);font-size:.6rem;color:var(--amber);
-                        letter-spacing:.1em;text-transform:uppercase;margin-bottom:.5rem;">
-              ◈ Session Summary — ${escapeHtml(toolName)}
-            </div>
-            <p style="font-size:.88rem;line-height:1.75;color:var(--fg);">${summary}</p>
-          </div>`;
-      });
+        try {
+            const token = JSON.parse(raw);
+            if (typeof token === 'string') {
+                fullText += token;
+                outputEl.textContent = fullText;
+            }
+        } catch(_) {}
+    };
+
+    es.onerror = () => {
+        es.close();
+        if (!fullText) {
+            content.innerHTML = `
+              <p style="color:var(--red);font-size:.8rem;padding:.5rem 0;">
+                Connection error. Please try again.
+              </p>`;
+        }
+    };
 }
 
   // ── Kick off loads ────────────────────────────────────────────────
@@ -929,5 +960,48 @@ function loadAILogbook(machid, toolName) {
     '/profile/{{ member_id }}',
     'staff'
   );
+// Auto-generate summary panel on page load
+(function _initSummaryPanel() {
+  const body   = document.getElementById('summary-panel-body');
+  const dot    = document.getElementById('summary-badge-dot');
+  const footer = document.getElementById('summary-panel-footer');
+  if (!body) return;
 
+  dot && (dot.className = 'summary-badge-dot pulsing');
+
+  fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=short`)
+    .then(r => {
+      const reader = r.body.getReader(), decoder = new TextDecoder();
+      let buffer = '';
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) return;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n'); buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') { dot && (dot.className = 'summary-badge-dot done'); if(footer) footer.style.display='block'; return; }
+            if (raw.startsWith('[ERROR]')) { body.innerHTML = `<p style="color:var(--red);font-size:.8rem;">${raw}</p>`; return; }
+            try {
+              const msg = JSON.parse(raw);
+              if (msg.type === 'text' && msg.content) {
+                body.innerHTML = '';
+                msg.content.split('\n\n').filter(p => p.trim()).forEach(para => {
+                  const div = document.createElement('div');
+                  div.className = 'summary-para';
+                  div.textContent = para.trim();
+                  body.appendChild(div);
+                  setTimeout(() => div.classList.add('visible'), 50);
+                });
+              }
+            } catch(e) {}
+          }
+          read();
+        });
+      }
+      read();
+    })
+    .catch(e => { if(body) body.innerHTML = `<p style="color:var(--red);">Error: ${e.message}</p>`; });
+})();
 {% endblock %}

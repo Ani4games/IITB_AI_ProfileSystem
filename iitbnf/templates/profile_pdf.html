@@ -362,7 +362,16 @@
 <!-- == LOGBOOK ENTRIES -->
 {% if logbook_entries %}
 <div class="section">
-  <div class="section-hdr">Logbook Entries</div>
+  <div class="section-hdr">Logbook Entries ({{ logbook_entries.total_entries }} across {{ logbook_entries.tools_with_logs }} tools)</div>
+  <table>
+    <thead><tr><th>Tool</th><th>Entries</th></tr></thead>
+    <tbody>
+    {% for t in logbook_entries.breakdown %}
+    <tr><td>{{ t.tool_name }}</td><td>{{ t.entries }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
   
 </div>
 {% endif %}

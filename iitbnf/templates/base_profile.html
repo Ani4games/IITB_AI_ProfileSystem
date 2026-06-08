@@ -152,7 +152,19 @@
             {{ initials }}
           </div>
           {# Slot for topbar-style action buttons inside the avatar row #}
-          {% block hero_actions %}{% endblock %}
+          {% block hero_actions %}
+          <button onclick="openAISummaryModal('qa')" 
+            style="margin-left:auto;display:inline-flex;align-items:center;gap:.4rem;
+                  font-family:var(--font-mono);font-size:.65rem;font-weight:700;
+                  letter-spacing:.06em;text-transform:uppercase;
+                  padding:.35rem .85rem;border-radius:999px;border:none;cursor:pointer;
+                  background:var(--amber-dim);border:1px solid rgba(245,166,35,.4);
+                  color:var(--amber);transition:all .2s;"
+            onmouseover="this.style.background='rgba(245,166,35,.2)'"
+            onmouseout="this.style.background='var(--amber-dim)'">
+            <span>✦</span> AI Assistant
+          </button>
+          {% endblock %}
         </div>
 
         <div class="hero-name">{{ display_name }}</div>
@@ -170,25 +182,37 @@
           {% endfor %}
         </div>
         {% endif %}
-
-        {# About / bio paragraph — each page builds this in its route or block #}
-        <div class="hero-about">
-          <p class="hero-about-text">
-            {% block hero_about %}{{ about_html | safe }}{% endblock %}
-          </p>
-        </div>
-
       </div>{# end .hero-body #}
     </div>{# end .hero-card #}
 
     {# ══════════════════════════════════════════════════════════
        CARD GRID — each page fills this block with its own cards
     ══════════════════════════════════════════════════════════ #}
+  <div class="profile-split-layout">
+    <!-- LEFT: AI Profile Summary -->
+    <div class="profile-summary-panel" id="profile-summary-panel">
+      <div class="summary-panel-header">
+        <span class="summary-panel-icon">◈</span>
+        <span class="summary-panel-title">Profile Summary</span>
+        <span class="summary-badge-dot" id="summary-badge-dot"></span>
+      </div>
+      <div class="summary-panel-body" id="summary-panel-body">
+        <div class="summary-idle">
+          <div class="summary-idle-icon">◈</div>
+          <div class="summary-idle-text">Generating summary…</div>
+        </div>
+      </div>
+      <div class="summary-panel-footer" id="summary-panel-footer" style="display:none;">
+        ◈ AI · Data-driven
+      </div>
+    </div>
+
+    <!-- RIGHT: Section cards -->
     <div class="card-grid">
       {% block sections %}{% endblock %}
     </div>
-
-  </div>{# end .profile-root #}
+  </div>
+</div>{# end .profile-root #}
 
   {% if show_tabs %}
   </div>{# end #panel-dashboard #}
@@ -228,7 +252,7 @@
   {# ══════════════════════════════════════════════════════════════
      AI VOICE PANEL (shared include — identical on both pages)
   ══════════════════════════════════════════════════════════════ #}
-  {% include 'ai_panel.html' %}
+{% include 'ai_panel.html' %}
 
   {# ══════════════════════════════════════════════════════════════
      JAVASCRIPT

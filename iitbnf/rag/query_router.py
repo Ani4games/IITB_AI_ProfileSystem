@@ -41,12 +41,33 @@ MONTH_DISPLAY = {
 }
 
 # ── Keyword groups ────────────────────────────────────────────────────────────
-SLOT_KEYWORDS        = ['slot activity','equipment request','usage request','slot booking']
+SLOT_KEYWORDS = [
+    'slot activity', 'equipment request', 'usage request', 'slot booking',
+    'equipment usage', 'how active', 'usage in', 'activity in',
+    'equipment summary', 'compare slot', 'compare equipment',
+    'compare booking', 'compare usage', 'slot comparison',
+    'equipment comparison', 'booking comparison', 'activity comparison',
+    'equipment booking', 'slot.*2', 'equipment.*2',
+    'how many times', 'request equipment', 'equipment in',
+    'booking of', 'usage of',
+]
 RESERVATION_KEYWORDS = ['reservation','booked slot','slot reserved','booking']
-ATTEND_KEYWORDS      = ['attendance','present','working day','mandatory day']
+ATTEND_KEYWORDS = [
+    'attendance', 'present', 'working day', 'mandatory day',
+    'compare attendance', 'attendance comparison', 'attendance change',
+    'more regular', 'less regular', 'regular in', 'regular',
+    'attendance in', 'how often', 'come to',
+    'show attendance', 'attendance for',
+]
 LEAVE_KEYWORDS       = ['leave','casual leave','earned leave','sick leave','medical leave']
-TOOL_KEYWORDS        = ['which tool','what tool','which machine','what machine',
-                        'which equipment','what equipment','used tool','used machine']
+TOOL_KEYWORDS = [
+    'which tool', 'what tool', 'which machine', 'what machine',
+    'which equipment', 'what equipment', 'used tool', 'used machine',
+    'list the machine', 'list the tool', 'list the equipment',
+    'list machine', 'list tool', 'list equipment', 'requests approved',
+    'most used', 'most used equipment', 'most used tool',
+    'has requested', 'has worked with', 'worked with', 'most booked', 'cancelled', 'rejected'
+]
 MONTHLY_KEYWORDS     = ['month by month','monthly breakdown','each month',
                         'month wise','monthwise','per month']
 PAPER_KEYWORDS       = ['paper','publication','research paper','published']
@@ -130,10 +151,10 @@ def route(question: str, ctx: dict) -> str | None:
 
         # ── 3. Multi-year comparisons ─────────────────────────────────────────
         if len(years) >= 2:
+            if _has_any(q, RESERVATION_KEYWORDS) and not _has_any(q, SLOT_KEYWORDS):
+                return _compare_reservations(uid, name, years)
             if _has_any(q, SLOT_KEYWORDS + ['slot','equipment request']):
                 return _compare_slot_activity(uid, name, years)
-            if _has_any(q, RESERVATION_KEYWORDS):
-                return _compare_reservations(uid, name, years)
             if _has_any(q, ATTEND_KEYWORDS):
                 return _compare_attendance(mid, name, years)
             if _has_any(q, LEAVE_KEYWORDS):
@@ -144,10 +165,12 @@ def route(question: str, ctx: dict) -> str | None:
         # ── 4. Single-year specific queries ───────────────────────────────────
         if len(years) == 1:
             yr = years[0]
-            if _has_any(q, SLOT_KEYWORDS + ['slot','equipment request']):
-                return _slot_activity_year(uid, name, yr)
+            # Reservations BEFORE slot — more specific, "slot reservation count"
+            # would otherwise match SLOT_KEYWORDS first
             if _has_any(q, RESERVATION_KEYWORDS):
                 return _reservations_year(uid, name, yr)
+            if _has_any(q, SLOT_KEYWORDS + ['slot','equipment request']):
+                return _slot_activity_year(uid, name, yr)
             if _has_any(q, ATTEND_KEYWORDS):
                 return _attendance_year(mid, name, yr)
             if _has_any(q, LEAVE_KEYWORDS):
@@ -484,6 +507,66 @@ def _attendance_year(mid, name, year) -> str:
     if not days:
         return f"{name} has no attendance records for {year}."
     return f"In {year}, {name} was present for {days} working days."
+
+def _attendance_percentage_value(mid, name, year):
+    if not mid:
+        return None
+    rows = hr_query("""
+        SELECT
+            COUNT(*) AS days_present,
+            (SELECT COUNT(*) FROM working_days WHERE YEAR(date)=%s) AS total_working_days
+        FROM user_attendance
+        WHERE memberid=%s AND YEAR(date)=%s
+    """, (year, mid, year))
+    if not rows or not rows[0] or not rows[0]['total_working_days']:
+        return None
+    days_present = int(rows[0]['days_present'] or 0)
+    total_days = int(rows[0]['total_working_days'] or 0)
+    return (days_present / total_days * 100) if total_days else 0
+
+
+def _attendance_percentage(mid, name, year) -> str:
+    if not mid:
+        return f"Attendance data is not available for {name}."
+    rows = hr_query("""
+        SELECT
+            COUNT(*) AS days_present,
+            (SELECT COUNT(*) FROM working_days WHERE YEAR(date)=%s) AS total_working_days
+        FROM user_attendance
+        WHERE memberid=%s AND YEAR(date)=%s
+    """, (year, mid, year))
+    if not rows or not rows[0] or not rows[0]['total_working_days']:
+        return f"{name} has no attendance records for {year}."
+    days_present = int(rows[0]['days_present'] or 0)
+    total_days = int(rows[0]['total_working_days'] or 0)
+    percentage = (days_present / total_days * 100) if total_days else 0
+    return f"In {year}, {name} attended {percentage:.1f}% of working days ({days_present}/{total_days})."
+
+
+def _attendance_pct_change(mid, name, y1, y2) -> str:
+    if not mid:
+        return f"Attendance data is not available for {name}."
+    rows = hr_query("""
+        SELECT
+            YEAR(date) AS year,
+            COUNT(*) AS days_present
+        FROM user_attendance
+        WHERE memberid=%s AND YEAR(date) IN (%s, %s)
+        GROUP BY YEAR(date)
+    """, (mid, y1, y2))
+    data = {r['year']: int(r['days_present'] or 0) for r in rows} if rows else {}
+    d1 = data.get(y1, 0)
+    d2 = data.get(y2, 0)
+    pct1 = _attendance_percentage_value(mid, name, y1)
+    pct2 = _attendance_percentage_value(mid, name, y2)
+    pct1_str = _attendance_percentage(mid, name, y1)
+    pct2_str = _attendance_percentage(mid, name, y2)
+    change_str = f"{pct2_str} vs {pct1_str}"
+    if d1 and d2 and pct1 is not None and pct2 is not None:
+        diff = pct2 - pct1
+        trend = "increased" if diff > 0 else "decreased" if diff < 0 else "no change"
+        change_str += f" → {trend} by {abs(diff):.1f} percentage points"
+    return f"Attendance percentage comparison for {name}: {change_str}."
 
 
 def _compare_attendance(mid, name, years) -> str:

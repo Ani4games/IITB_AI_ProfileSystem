@@ -197,7 +197,7 @@ def generate():
         LEFT JOIN role_master rm ON rm.role_id  = r.role
         WHERE (p.leaving_date IS NULL
                OR p.leaving_date = '0000-00-00'
-               OR p.leaving_date >= CURDATE())
+               OR p.leaving_date >= '2026-01-01')
           AND (p.taken_clearance IS NULL OR p.taken_clearance = 0)
         ORDER BY p.member_id
     """) or []
@@ -559,6 +559,7 @@ if __name__ == "__main__":
             line = json.dumps(p, ensure_ascii=False)
             line = line.replace("\r\n", "\n").replace("\r", "\n")
             f.write(line + "\n")
+            written += 1
 
     print(f"Written {written} pairs to {output_path}", file=sys.stderr)
 

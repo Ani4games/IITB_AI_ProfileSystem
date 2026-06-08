@@ -43,6 +43,7 @@ Public API (unchanged):
     warm_up()                   → None  (call once at startup)
 """
 
+from datetime import date
 import re
 import logging
 import pickle
@@ -509,7 +510,22 @@ def _enrich_ctx(ctx: dict) -> dict:
             return max(0, int(c.get(key) or 0))
         except (TypeError, ValueError):
             return 0
-
+        # Add to _enrich_ctx():
+    joining_date = c.get("joining_date") or c.get("iitb_joining_date")
+    if joining_date:
+        try:
+            from datetime import datetime as _dt
+            if isinstance(joining_date, str):
+                jd = _dt.strptime(joining_date[:10], "%Y-%m-%d").date()
+            else:
+                jd = joining_date
+            years = (date.today() - jd).days // 365
+            c["tenure_years"] = years
+            c["tenure_prefix"] = f"In a tenure of {years} year{'s' if years != 1 else ''}, " if years > 0 else ""
+        except Exception:
+            c["tenure_prefix"] = ""
+    else:
+        c["tenure_prefix"] = ""
     # ── Slot reservations ─────────────────────────────────────────────────────
     n = _int("total_bookings")
     c["total_bookings_word"] = str(n)

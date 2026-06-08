@@ -235,7 +235,18 @@ def start_pdf_cleanup(jobs_dicts: list, tmp_dir: str = "tmp",
                     ]
                     for k in stale_keys:
                         jobs.pop(k, None)
-
+                    stale_processing = [
+                        k for k, v in list(jobs.items())
+                        if isinstance(v, dict) and v.get("status") == "processing"
+                    ]
+                    # We can't easily check age of processing jobs without timestamps,
+                    # so just cap total job dict size
+                    if len(jobs) > 500:
+                        # Remove oldest done/error entries first
+                        removable = [k for k, v in list(jobs.items()) 
+                                    if isinstance(v, dict) and v.get("status") in ("done", "error")]
+                        for k in removable[:200]:
+                            jobs.pop(k, None)
                 if deleted_files:
                     print(f"[PDF cleanup] Pruned {len(deleted_files)} job entries")
 

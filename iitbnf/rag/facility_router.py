@@ -51,13 +51,26 @@ def _has_any(question: str, keywords: list) -> bool:
 
 
 def route_facility(question: str) -> str | None:
-    """
-    Returns a direct answer for facility-knowledge questions.
-    Returns None if the question is profile-specific or not covered.
-    """
     q = question.lower().strip()
 
     try:
+        # ── Live DB stats FIRST — before keyword groups ────────────────────
+        # These must come before TEAM_KEYWORDS (which contains 'staff') and
+        # PROCESS_KEYWORDS (which contains 'register') to avoid being
+        # shadowed by those broader keyword matches.
+        if 'how many staff' in q or 'total staff' in q or 'active staff' in q or 'how many staff member' in q:
+            return _live_staff_count()
+
+        if 'how many user' in q or 'total user' in q or 'how many lab user' in q or 'active user' in q or 'how many registered' in q:
+            return _live_user_count()
+
+        if 'how many equipment' in q or 'total equipment' in q or 'how many tool' in q:
+            return _live_equipment_count()
+
+        if 'active announcement' in q or 'any announcement' in q:
+            return _live_announcements()
+
+        # ── Keyword groups after ───────────────────────────────────────────
         if _has_any(q, ABOUT_KEYWORDS):
             return _about_facility()
 
@@ -78,19 +91,6 @@ def route_facility(question: str) -> str | None:
 
         if _has_any(q, USER_CAT_KEYWORDS):
             return _user_categories()
-
-        # Live DB queries for facility-wide stats
-        if 'how many staff' in q or 'total staff' in q:
-            return _live_staff_count()
-
-        if 'how many user' in q or 'total user' in q or 'how many lab user' in q:
-            return _live_user_count()
-
-        if 'how many equipment' in q or 'total equipment' in q or 'how many tool' in q:
-            return _live_equipment_count()
-
-        if 'active announcement' in q or 'any announcement' in q:
-            return _live_announcements()
 
     except Exception as e:
         logger.error("[FacilityRouter] Error: %s", e)

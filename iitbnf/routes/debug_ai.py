@@ -423,3 +423,42 @@ def debug_lab(memberid):
 
     return jsonify(report)
 
+@bp.route("/debug/ai/intent")
+@login_required
+def debug_intent():
+    """Test intent classification for a given query."""
+    if not is_full_access():
+        return jsonify({"error": "Access restricted."}), 403
+
+    q = request.args.get("q", "")
+    if not q:
+        return jsonify({"error": "Pass ?q=your+question"}), 400
+
+    from rag.intent_router import classify_intent, _regex_route, _minilm_route
+    regex_result  = _regex_route(q)
+    final, method = classify_intent(q)
+
+    result = {
+        "query":        q,
+        "regex_match":  regex_result,
+        "final_intent": final,
+        "method":       method,
+    }
+
+    # Also show MiniLM top-5 if available
+    try:
+        from rag.intent_router import _minilm_model, _anchor_vecs, _anchor_labels
+        if _minilm_model and _anchor_vecs is not None:
+            import numpy as np
+            from sklearn.metrics.pairwise import cosine_similarity
+            q_vec = _minilm_model.encode([q])
+            sims  = cosine_similarity(q_vec, _anchor_vecs)[0]
+            top5  = np.argsort(sims)[::-1][:5]
+            result["minilm_top5"] = [
+                {"intent": _anchor_labels[i], "score": round(float(sims[i]), 3)}
+                for i in top5
+            ]
+    except Exception:
+        pass
+
+    return jsonify(result)

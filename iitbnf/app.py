@@ -9,7 +9,6 @@ Redundant blueprints (hub, dashboard, admin) have been removed.
 """
 import os
 import atexit
-import time
 from datetime import datetime, timedelta
 from flask.json.provider import DefaultJSONProvider
 import threading
@@ -147,16 +146,22 @@ def _startup_tasks():
         print(f"[warmup] Composer warm-up failed (non-fatal): {e}")
     
     # In app.py, _startup_tasks(), after the composer warmup:
-
-    # Step 5: PDF cleanup (NEW)
+    # Step 5: Intent router (MiniLM)
+    try:
+        from rag.intent_router import warm_up as ir_warmup
+        ir_warmup()
+        print("[warmup] Intent router ready.")
+    except Exception as e:
+        print(f"[warmup] Intent router warm-up failed (non-fatal): {e}")
+    # Step 6: PDF cleanup (NEW)
     try:
         from routes.profile     import PDF_JOBS
         from routes.lab_profile import LAB_PDF_JOBS
         start_pdf_cleanup(
             jobs_dicts       = [PDF_JOBS, LAB_PDF_JOBS],
             tmp_dir          = os.path.join(os.getcwd(), "tmp"),
-            max_age_seconds  = 3600,   # 1 hour
-            interval_seconds = 1800,   # run every 30 minutes
+            max_age_seconds  = 900,   # 15 minutes
+            interval_seconds = 300,   # run every 5 minutes
         )
         print("[warmup] PDF cleanup thread started.")
     except Exception as e:

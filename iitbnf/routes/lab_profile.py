@@ -287,7 +287,7 @@ def prefetch_lab_pdf(memberid):
                 })
 
         job_id = str(uuid.uuid4())
-        LAB_PDF_JOBS[job_id]   = {"status": "processing"}
+        LAB_PDF_JOBS[job_id]   = {"status": "processing", "created_at": time.time()}
         LAB_PDF_PREFETCH[key]  = job_id
 
     threading.Thread(
@@ -323,7 +323,7 @@ def start_lab_pdf(memberid):
                 return jsonify({"job_id": existing_id, "prefetched": True})
 
         job_id = str(uuid.uuid4())
-        LAB_PDF_JOBS[job_id]  = {"status": "processing"}
+        LAB_PDF_JOBS[job_id]  = {"status": "processing", "created_at": time.time()}
         LAB_PDF_PREFETCH[key] = job_id
 
     threading.Thread(

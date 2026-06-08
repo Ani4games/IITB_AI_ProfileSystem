@@ -634,6 +634,15 @@ document.querySelectorAll('[data-name]').forEach(el => el.textContent = '{{ user
      _writeRecentProfile
 ════════════════════════════════════════════════════════════════ #}
 {% block page_js %}
+const aiChatName = document.getElementById('ai-chat-person-name');
+if (aiChatName) aiChatName.textContent = '{{ user.fname }} {{ user.lname }}';
+
+const aiGreetEl = document.getElementById('ai-qa-greeting-headline');
+if (aiGreetEl) {
+  const hour = new Date().getHours();
+  const tod = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  aiGreetEl.textContent = `Good ${tod}. Ask me about {{ user.fname }} {{ user.lname }}.`;
+}
   // ── Register open-modal hook: populate reservation metrics on open ──
   _modalOpenHooks['res-modal'] = function() { initResMetrics(); };
 
@@ -851,5 +860,48 @@ document.querySelectorAll('[data-name]').forEach(el => el.textContent = '{{ user
 
     if (window.location.hash === '#ai') switchTab('ai');
   })();
+// Auto-generate summary panel on page load
+(function _initSummaryPanel() {
+  const body   = document.getElementById('summary-panel-body');
+  const dot    = document.getElementById('summary-badge-dot');
+  const footer = document.getElementById('summary-panel-footer');
+  if (!body) return;
 
+  dot && (dot.className = 'summary-badge-dot pulsing');
+
+  fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=short`)
+    .then(r => {
+      const reader = r.body.getReader(), decoder = new TextDecoder();
+      let buffer = '';
+      function read() {
+        reader.read().then(({ done, value }) => {
+          if (done) return;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n'); buffer = lines.pop();
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') { dot && (dot.className = 'summary-badge-dot done'); if(footer) footer.style.display='block'; return; }
+            if (raw.startsWith('[ERROR]')) { body.innerHTML = `<p style="color:var(--red);font-size:.8rem;">${raw}</p>`; return; }
+            try {
+              const msg = JSON.parse(raw);
+              if (msg.type === 'text' && msg.content) {
+                body.innerHTML = '';
+                msg.content.split('\n\n').filter(p => p.trim()).forEach(para => {
+                  const div = document.createElement('div');
+                  div.className = 'summary-para';
+                  div.textContent = para.trim();
+                  body.appendChild(div);
+                  setTimeout(() => div.classList.add('visible'), 50);
+                });
+              }
+            } catch(e) {}
+          }
+          read();
+        });
+      }
+      read();
+    })
+    .catch(e => { if(body) body.innerHTML = `<p style="color:var(--red);">Error: ${e.message}</p>`; });
+})();
 {% endblock %}

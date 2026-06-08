@@ -305,7 +305,8 @@ def _build_chat_prompt(question: str, ctx: dict) -> str:
             facts_lines.append(f"  {key} = {val}")
 
     facts_block = "\n".join(facts_lines) if facts_lines else "  (no relevant data found)"
-
+    # Hard cap facts to prevent slow inference
+    facts_lines = facts_lines[:8]  # max 8 facts for speed
     return (
         "Answer the question using ONLY the facts below.\n"
         "Rules:\n"

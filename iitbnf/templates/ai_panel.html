@@ -1,23 +1,4 @@
 <style>
-/* ── Trigger Bubble ──────────────────────────────────────────────── */
-#ai-bubble {
-  position: fixed; bottom: 1.75rem; right: 1.75rem; z-index: 300;
-  background: var(--amber, #f5a623); color: #000;
-  font-family: var(--font-mono, 'Space Mono', monospace);
-  font-size: .72rem; font-weight: 700;
-  padding: .6rem 1.1rem; border-radius: 999px; border: none;
-  cursor: pointer; user-select: none;
-  box-shadow: 0 4px 20px rgba(245,166,35,.45);
-  transition: transform .2s ease, box-shadow .2s ease;
-  display: flex; align-items: center; gap: .45rem;
-}
-#ai-bubble:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 32px rgba(245,166,35,.6);
-}
-.ai-bubble-icon { font-size: .85rem; }
-.ai-bubble-label { letter-spacing: .06em; }
-
 /* ── Modal Box ───────────────────────────────────────────────────── */
 .ai-modal-box {
   background: var(--surface, #0c0f18);
@@ -643,11 +624,6 @@
     <span class="ai-picker-icon">?</span> Ask AI
   </button>
 </div>
-<!-- ── Trigger Bubble ─────────────────────────────────────────────── -->
-<button id="ai-bubble" onclick="toggleAIPicker()" aria-label="Open AI Voice Assistant" title="IITBNF AI Assistant">
-  <span class="ai-bubble-icon">✦</span>
-  <span class="ai-bubble-label">AI Assistant</span>
-</button>
 
 <!-- AI SUMMARY MODAL (Brief + Executive) -->
   <div class="modal-backdrop" id="ai-summary-modal" role="dialog" aria-modal="true">
@@ -796,6 +772,15 @@
       if (ans) ans.innerHTML = '<span style="color:var(--faint);font-style:italic;font-size:.85rem;">Your answer will appear here…</span>';
       const inp = document.getElementById('ai-qa-input');
       if (inp) inp.value = '';
+      _buildProfileChips();   // ← ADD THIS LINE
+      const nameEl = document.getElementById('ai-chat-person-name');
+      if (nameEl) nameEl.setAttribute('data-name', '');  // triggers data-name update
+      openModal('ai-qa-modal');
+      setTimeout(() => {
+        _buildProfileChips();  // ← also call here as safety
+        document.getElementById('ai-qa-input-greeting')?.focus();
+      }, 80);
+      return;
       openModal('ai-qa-modal');
       setTimeout(() => { if (inp) inp.focus(); }, 200);
       return;
@@ -826,7 +811,7 @@
       const div = document.createElement('div');
       div.className = 'ai-summary-para';
       div.style.fontFamily = 'var(--font-body)';
-      div.style.fontSize   = '.88rem';
+      div.style.fontSize   = '1.25rem';
       div.style.lineHeight = '1.8';
       div.style.color      = 'var(--fg)';
       div.style.marginBottom = '.75rem';

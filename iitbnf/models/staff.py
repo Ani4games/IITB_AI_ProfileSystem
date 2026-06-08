@@ -395,13 +395,20 @@ def _resolve_uid_uncached(member_id: int) -> int | None:
         return None
 
     email = (p[0].get("email") or "").strip()
+    # Step 1 — same numeric memberid exists in slotbooking
+    r = slots_query(
+        "SELECT memberid FROM login WHERE memberid = %s LIMIT 1",
+        (member_id,)
+    )
+    if r:
+        return r[0]["memberid"]
 
-    # Step 1 — exact email match (indexed on slotbooking side)
+    # Step 2 — exact email match (indexed on slotbooking side)
     uid = _get_uid_from_member_cached(email)
     if uid is not None:
         return uid
 
-    # Step 2 — same email username, any domain (abc@iitb vs abc@gmail)
+    # Step 3 — same email username, any domain (abc@iitb vs abc@gmail)
     email_user = email.split("@")[0] if "@" in email else ""
     if email_user:
         r = slots_query(
@@ -423,13 +430,7 @@ def _resolve_uid_uncached(member_id: int) -> int | None:
             best = max(r, key=lambda c: count_map.get(c["memberid"], 0))
             return best["memberid"]
 
-    # Step 3 — same numeric memberid exists in slotbooking
-    r = slots_query(
-        "SELECT memberid FROM login WHERE memberid = %s LIMIT 1",
-        (member_id,)
-    )
-    if r:
-        return r[0]["memberid"]
+
 
     # Step 4 — name-based match (last resort)
     if email:

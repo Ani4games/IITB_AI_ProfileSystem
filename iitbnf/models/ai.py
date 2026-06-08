@@ -25,7 +25,6 @@ Pipeline
 import logging
 from datetime import date
 
-from flask import ctx
 from db import hr_query, slots_query
 from utils import calc_mandatory_days
 
