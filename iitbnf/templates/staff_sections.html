@@ -365,18 +365,17 @@
         <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
       </div>
     </div>
-
-    {# Nested session-log detail modal inside logbook #}
-    <div class="modal-backdrop" id="logbook-entries-modal" role="dialog" aria-modal="true">
-      <div class="modal-box">
-        <div class="modal-head">
-          <span class="modal-icon" style="color:var(--green);">▤</span>
-          <span class="modal-title" id="logbook-entries-title">Session Log</span>
-          <button class="modal-close-btn" onclick="closeModal('logbook-entries-modal')">✕</button>
-        </div>
-        <div class="modal-body" id="logbook-entries-body">
-          <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
-        </div>
+  </div>
+  {# session-log detail modal inside logbook #}
+  <div class="modal-backdrop" id="logbook-entries-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <span class="modal-icon" style="color:var(--green);">▤</span>
+        <span class="modal-title" id="logbook-entries-title">Session Log</span>
+        <button class="modal-close-btn" onclick="closeModal('logbook-entries-modal')">✕</button>
+      </div>
+      <div class="modal-body" id="logbook-entries-body">
+        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
       </div>
     </div>
   </div>
@@ -438,7 +437,7 @@
 
 {# ════════════════════════════════════════════════════════════════
    STAFF-SPECIFIC JAVASCRIPT
-   Everything here was previously in profile.html's inline <script>.
+   Everything here was previously in profile.html's inline "<script>".
    profile_shared.js has already loaded by this point, providing:
      toggleTheme, openModal, closeModal, escapeHtml, _statusTag,
      _humanCol, _loadSessionLog, _writeRecentProfile,
@@ -457,98 +456,131 @@ if (aiGreetEl) {
   const tod = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
   aiGreetEl.textContent = `Good ${tod}. Ask me about {{ person.display_name }}.`;
 }
-  // ── Register chart init hook (shared modal system calls this) ────
-  const _chartInits = {};
-  _modalOpenHooks['att-modal'] = function() {
-    if (!_chartInits['att-modal']) {
-      _chartInits['att-modal'] = true;
-      setTimeout(initAttChart, 60);
-    }
-  };
+// ── Register chart init hook (shared modal system calls this) ────
+
+_modalOpenHooks['att-modal'] = function() {
+  // Always fetch fresh data for the currently selected year when modal opens
+  const sel = document.querySelector('.card-year-sel[onchange*="attendance"]');
+  const year = sel ? sel.value : _initialYear;
+  _ensureAttChart(year);
+};
 
   // ── Attendance chart ──────────────────────────────────────────────
-  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  let _attChart;
-
-  function initAttChart() {
-    if (!window.Chart) return;
+const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let _attChart;
+function _ensureAttChart(year) {
+  if (!window.Chart) {
+    // Load Chart.js if not present, then build
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
-    s.onload = _buildAttChart;
+    s.onload = () => _buildAttChartFromData(_currentAttTrend);
     document.head.appendChild(s);
+  } else {
+    _buildAttChartFromData(_currentAttTrend);
   }
-  function _buildAttChart()
-  {
-    const ctx = document.getElementById('att-trend-chart');
-    if (!ctx) return;
-    const dark = document.documentElement.getAttribute('data-theme') !== 'light';
-    const grid = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-    const tick = dark ? '#7c859e' : '#556074';
-    const grad = ctx.getContext('2d').createLinearGradient(0, 0, 0, 220);
-    grad.addColorStop(0, 'rgba(245,166,35,0.45)');
-    grad.addColorStop(1, 'rgba(245,166,35,0.04)');
-    const pctData = Array(12).fill(null);
-    _currentAttTrend.forEach(d => {
-      const idx = (d.month || 0) - 1;
-      if (idx >= 0 && idx < 12) pctData[idx] = d.attendance_pct ?? null;
-    });
-    if (_attChart) _attChart.destroy();
-    _attChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: MONTH_LABELS,
-        datasets: [
-          { label:'Attendance %', data:pctData,
-            backgroundColor: pctData.map(v => v===null?'transparent':v>=75?grad:'rgba(244,63,94,0.4)'),
-            borderColor:      pctData.map(v => v===null?'transparent':v>=75?'rgba(245,166,35,0.8)':'rgba(244,63,94,0.8)'),
-            borderWidth:1, borderRadius:{topLeft:4,topRight:4}, barPercentage:0.6 },
-          { label:'75% Threshold', data:Array(12).fill(75), type:'line',
-            borderColor:'rgba(100,116,139,0.5)', backgroundColor:'transparent',
-            pointRadius:0, borderDash:[4,3], borderWidth:1.5, tension:0 }
-        ]
-      },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:false},
-          tooltip:{ mode:'index', intersect:false,
-            callbacks:{ label: ctx => ctx.datasetIndex===0?`${ctx.parsed.y??0}%`:`${ctx.parsed.y}% threshold` }}},
-        scales:{
-          x:{ ticks:{color:tick,font:{size:10}}, grid:{color:grid} },
-          y:{ min:0, max:100, ticks:{color:tick,font:{size:10},callback:v=>v+'%'}, grid:{color:grid} }
-        }
-      }
-    });
-  }
+}
+// Replace _buildAttChartFromData() with this version:
+function _buildAttChartFromData(trend) {
+  if (!window.Chart) return;
+  const ctx = document.getElementById('att-trend-chart');
+  if (!ctx) return;
 
-  function _refreshAttChart(trend) {
-    if (!trend?.length || !_attChart) return;
-    _currentAttTrend = trend;
-    const pctData = Array(12).fill(null);
-    trend.forEach(d => { const i=(d.month||0)-1; if(i>=0&&i<12) pctData[i]=d.attendance_pct??null; });
-    const grad = _attChart.ctx.createLinearGradient(0,0,0,220);
-    grad.addColorStop(0,'rgba(245,166,35,0.45)'); grad.addColorStop(1,'rgba(245,166,35,0.04)');
-    _attChart.data.datasets[0].data = pctData;
-    _attChart.data.datasets[0].backgroundColor = pctData.map(v=>v===null?'transparent':v>=75?grad:'rgba(244,63,94,0.4)');
-    _attChart.data.datasets[0].borderColor      = pctData.map(v=>v===null?'transparent':v>=75?'rgba(245,166,35,0.8)':'rgba(244,63,94,0.8)');
-    _attChart.update();
-  }
+  // trend can be {data, start_month, end_month} or a plain array (legacy)
+  const trendData  = Array.isArray(trend) ? trend : (trend.data || []);
+  const startMonth = Array.isArray(trend) ? 1  : (trend.start_month || 1);
+  const endMonth   = Array.isArray(trend) ? 12 : (trend.end_month   || 12);
+
+  // Build label array only for the months in range
+  const ALL_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const labels  = ALL_MONTHS.slice(startMonth - 1, endMonth);   // e.g. June(6)→Dec = indices 5..11
+  const pctData = labels.map((_, i) => {
+    const month = startMonth + i;
+    const found = trendData.find(d => d.month === month);
+    return found ? (found.attendance_pct ?? null) : null;
+  });
+
+  const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const grid = dark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+  const tick = dark ? '#7c859e' : '#556074';
+  const grad = ctx.getContext('2d').createLinearGradient(0, 0, 0, 220);
+  grad.addColorStop(0, 'rgba(245,166,35,0.45)');
+  grad.addColorStop(1, 'rgba(245,166,35,0.04)');
+
+  if (_attChart) _attChart.destroy();
+  _attChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Attendance %',
+          data: pctData,
+          backgroundColor: pctData.map(v => v === null ? 'transparent' : v >= 75 ? grad : 'rgba(244,63,94,0.4)'),
+          borderColor:     pctData.map(v => v === null ? 'transparent' : v >= 75 ? 'rgba(245,166,35,0.8)' : 'rgba(244,63,94,0.8)'),
+          borderWidth: 1, borderRadius: {topLeft:4,topRight:4}, barPercentage: 0.6
+        },
+        {
+          label: '75% Threshold', data: Array(labels.length).fill(75), type: 'line',
+          borderColor: 'rgba(100,116,139,0.5)', backgroundColor: 'transparent',
+          pointRadius: 0, borderDash: [4,3], borderWidth: 1.5, tension: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index', intersect: false,
+          callbacks: { label: ctx => ctx.datasetIndex === 0 ? `${ctx.parsed.y ?? 0}%` : `${ctx.parsed.y}% threshold` }
+        }
+      },
+      scales: {
+        x: { ticks: {color:tick, font:{size:10}}, grid: {color:grid} },
+        y: { min:0, max:100, ticks:{color:tick, font:{size:10}, callback: v => v+'%'}, grid:{color:grid} }
+      }
+    }
+  });
+}
+function _refreshAttChart(trend) {
+  _buildAttChartFromData(trend);
+}
 
   // ── Attendance card + modal AJAX ──────────────────────────────────
-  function loadCardData(section, year) {
-    if (section !== 'attendance') return;
-    const cardPct  = document.getElementById('c-att-pct');
-    const cardDays = document.getElementById('c-att-days');
-    if (cardPct)  { cardPct.style.opacity = '0.4'; cardPct.innerHTML = '...<span class="unit">%</span>'; }
-    if (cardDays)   cardDays.textContent = 'Loading...';
-    fetch(`/api/section/staff/${MEMBER_ID}/attendance?year=${year}`)
-      .then(r => r.json()).then(data => {
-        if (cardPct) cardPct.style.opacity = '';
-        if (!data.success) return;
-        _updateAttCard(data.data); _updateAttModal(data.data);
-        if (data.data?.trend)        _refreshAttChart(data.data.trend);
-        if (data.data?.leave_summary) _updateLeaveTable(data.data.leave_summary);
-      }).catch(e => { if (cardPct) cardPct.style.opacity = ''; console.error(e); });
-  }
+ function loadCardData(section, year) {
+  if (section !== 'attendance') return;
+  const cardPct  = document.getElementById('c-att-pct');
+  const cardDays = document.getElementById('c-att-days');
+  if (cardPct)  { cardPct.style.opacity = '0.4'; cardPct.innerHTML = '...<span class="unit">%</span>'; }
+  if (cardDays)   cardDays.textContent = 'Loading...';
+
+  // Update modal title immediately
+  const title = document.getElementById('att-modal-title');
+  if (title) title.textContent = `Attendance — ${year}`;
+
+  fetch(`/api/section/staff/${MEMBER_ID}/attendance?year=${year}`)
+    .then(r => r.json()).then(data => {
+      if (cardPct) cardPct.style.opacity = '';
+      if (!data.success) return;
+        _updateAttCard(data.data);
+        _updateAttModal(data.data);
+      // In loadCardData(), change the trend update lines to:
+      if (data.data?.trend !== undefined) {
+        const trendDict = {
+            data:        data.data.trend,
+            start_month: data.data.trend_start || 1,
+            end_month:   data.data.trend_end   || 12,
+        };
+          _currentAttTrend = trendDict; // now stores the dict {data, start_month, end_month}
+          if (_attChart) _refreshAttChart(trendDict);
+          const modal = document.getElementById('att-modal');
+          if (modal && modal.classList.contains('open')) {
+              _buildAttChartFromData(trendDict);
+          }
+      }
+      if (data.data?.leave_summary) _updateLeaveTable(data.data.leave_summary);
+    }).catch(e => { if (cardPct) cardPct.style.opacity = ''; console.error(e); });
+}
 
   function _updateAttCard(d) {
     if (!d) return;
@@ -609,6 +641,8 @@ if (aiGreetEl) {
   function loadSlotActivity(year) {
     const title = document.getElementById('slot-modal-title');
     if (title) title.textContent = `Slot Activity — ${year}`;
+    const tbody = document.getElementById('eq-activity-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:1.5rem;color:var(--muted);">Loading…</td></tr>';
     const cardEl = document.getElementById('c-eq-total');
     if (cardEl) cardEl.innerHTML = '…<span class="unit"> loading</span>';
     fetch(`/api/section/staff/${MEMBER_ID}/slot_activity?year=${year}`)
@@ -636,8 +670,10 @@ if (aiGreetEl) {
   function _renderOwnerTrackModal(track) {
     const body = document.getElementById('owner-track-modal-body');
     if (!body) return;
-    if (track.length > 0) { body.innerHTML='<p style="color:var(--muted);text-align:center;padding:2rem;">No ownership history on record.</p>'; return; }
-    else {return 0;}
+    if (!track || track.length === 0) {
+        body.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem;">No ownership history on record.</p>';
+        return;
+    }
     const active = track.filter(t=>t.is_active).length;
     body.innerHTML = `<div class="modal-metrics">
       <div class="mm-box"><div class="mm-val">${track.length}</div><div class="mm-key">Total</div></div>
@@ -662,10 +698,18 @@ if (aiGreetEl) {
       attRes.json(),slotRes.json(),sysRes.json(),trackRes.json(),permsRes.json()
     ]);
 
-    if (attData.success&&attData.data) {
-      _updateAttCard(attData.data); _updateAttModal(attData.data);
-      if (attData.data.trend)        { _currentAttTrend=attData.data.trend; if(_attChart) _refreshAttChart(attData.data.trend); }
-      if (attData.data.leave_summary) _updateLeaveTable(attData.data.leave_summary);
+    if (attData.success && attData.data) {
+    _updateAttCard(attData.data);
+    _updateAttModal(attData.data);
+    if (attData.data.trend !== undefined) {
+        const trendDict = {
+            data:        attData.data.trend,
+            start_month: attData.data.trend_start || 1,
+            end_month:   attData.data.trend_end   || 12,
+        };
+        _currentAttTrend = trendDict;
+        if (_attChart) _refreshAttChart(trendDict);
+    }
     }
     if (slotData.success&&slotData.data)  _applySlotData(slotData.data);
     if (sysData.success)   
@@ -699,7 +743,7 @@ if (aiGreetEl) {
       const body=document.getElementById('logbook-modal-body');
         if (body) {
           body.innerHTML = lb.breakdown?.length
-            ? `<div class="modal-metrics">...</div>
+            ? `
                <div class="table-scroll"><table class="modal-table">
                  <thead><tr><th>Tool</th><th>Entries</th></tr></thead>
                  <tbody>${lb.breakdown.map(t => `<tr>

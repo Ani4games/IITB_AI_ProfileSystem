@@ -9,21 +9,21 @@
     font-size: 10px;
     color: #111;
     background: #fff;
-    padding: 18px 24px 24px;
-    line-height: 1.4;
+    padding: 12px 18px 18px;
+    line-height: 1.3;
   }
 
   /* ── SECTION ── */
-  .section { margin-bottom: 12px; page-break-inside: avoid; }
+  .section { margin-bottom: 8px; page-break-inside: avoid; }
   .section-hdr {
     font-size: 8px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 1.1px;
+    letter-spacing: 1.0px;
     color: #111;
     border-left: 3px solid #111;
-    padding: 3px 0 2px 6px;
-    margin-bottom: 6px;
+    padding: 2px 0 1px 5px;
+    margin-bottom: 4px;
   }
 
   /* ── ALL TABLES: fixed layout to prevent negative width crashes ── */
@@ -38,9 +38,9 @@
     font-size: 7px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.5px;
     color: #555;
-    padding: 4px 5px;
+    padding: 2px 4px;
     border-bottom: 1px solid #111;
     text-align: left;
     background: #f5f5f5;
@@ -48,7 +48,7 @@
     word-break: break-word;
   }
   td {
-    padding: 4px 5px;
+    padding: 2px 4px;
     border-bottom: 1px solid #ebebeb;
     font-size: 9px;
     vertical-align: middle;
@@ -74,11 +74,11 @@
   .badge-blue   { color: #1e40af; border-color: #bfdbfe; background: #eff6ff; }
   .badge-muted  { color: #6b7280; border-color: #e5e7eb; background: #f9fafb; }
 
-  .m-val { font-size: 13px; font-weight: 700; color: #111; }
+  .m-val { font-size: 12px; font-weight: 700; color: #111; }
   .m-val.good { color: #166534; }
   .m-val.warn { color: #92400e; }
   .m-val.bad  { color: #991b1b; }
-  .m-key { font-size: 7px; text-transform: uppercase; letter-spacing: 0.7px; color: #888; }
+  .m-key { font-size: 7px; text-transform: uppercase; letter-spacing: 0.6px; color: #888; }
 </style>
 </head>
 <body>
@@ -100,12 +100,12 @@
 <table style="width:100%; border-collapse:collapse; table-layout:fixed; border-top:1px solid #ddd; border-bottom:1px solid #ddd; margin-bottom:12px;">
   <colgroup><col style="width:50%;"><col style="width:50%;"></colgroup>
   <tr>
-    <td style="padding:8px 12px 8px 0; border:none; vertical-align:top;">
+    <td style="padding:5px 8px 5px 0; border:none; vertical-align:top;">
       <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:2px;">{{ user.fname }} {{ user.lname }}</div>
       <div style="font-size:11px; font-weight:600; color:#555; text-transform:uppercase; letter-spacing:0.5px;">{{ user.position or 'Lab User' }}</div>
       {% if user.department %}<div style="font-size:10px; color:#333;">{{ user.department }}</div>{% endif %}
     </td>
-    <td style="padding:8px 0; border:none; vertical-align:top;">
+    <td style="padding:5px 0; border:none; vertical-align:top;">
       <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
         <colgroup><col style="width:80px;"><col style="width:auto;"></colgroup>
         {% if user.email %}

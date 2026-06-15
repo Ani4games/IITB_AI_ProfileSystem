@@ -47,7 +47,7 @@
   <strong>{{ user.position or 'lab user' }}</strong>
   {%- if user.department %} in the <strong>{{ user.department }}</strong> department{%- endif -%}.
   {% if user.research_area and user.research_area not in ('', 'NA', 'N/A') %}
-    Research focus: <strong>{{ user.research_area }}</strong>.
+     {% set _ = meta_items.append({'icon': '🔬', 'text': 'Research: ' ~ user.research_area}) %}
   {% endif %}
 {% endset %}
 

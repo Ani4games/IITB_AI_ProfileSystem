@@ -32,18 +32,20 @@ def get_lab_user(memberid):
     start = time.perf_counter()
     rows = slots_query("""
         SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.is_admin,
-               l.rollno, l.department, l.supervisor, l.research_area,
-               l.expiry_date, l.mobile, l.project_first,
-               TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,''))) AS supervisor_name
+           l.rollno, l.department, l.supervisor, l.research_area AS research_area_id,
+           COALESCE(ra.name, l.research_area) AS research_area,
+           l.expiry_date, l.mobile, l.project_first,
+           TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,''))) AS supervisor_name
         FROM login l
         LEFT JOIN login s ON s.memberid = l.supervisor
+        LEFT JOIN research_areas ra ON ra.id = l.research_area
         LEFT JOIN hr_portal.profile p ON p.member_id = l.memberid
         WHERE l.memberid = %s
-          AND (p.member_id IS NULL
-               OR p.leaving_date IS NULL
-               OR p.leaving_date = '00-00-0000'
-               OR p.leaving_date >= CURDATE())
-          AND STR_TO_DATE(l.expiry_date, '%m/%d/%Y') >= CURDATE()
+        AND (p.member_id IS NULL
+            OR p.leaving_date IS NULL
+            OR p.leaving_date = '00-00-0000'
+            OR p.leaving_date >= CURDATE())
+        AND STR_TO_DATE(l.expiry_date, '%m/%d/%Y') >= CURDATE()
         LIMIT 1
     """, (memberid,))
     elapsed = (time.perf_counter() - start) * 1000
@@ -62,11 +64,13 @@ def get_all_lab_users():
     """
     start = time.perf_counter()
     rows = slots_query("""
-        SELECT memberid, email, fname, lname, position, department,
-               expiry_date, is_admin
-        FROM login
+        SELECT l.memberid, l.email, l.fname, l.lname, l.position, l.department,
+           l.expiry_date, l.is_admin,
+           COALESCE(ra.name, l.research_area) AS research_area
+        FROM login l
+        LEFT JOIN research_areas ra ON ra.id = l.research_area
         WHERE STR_TO_DATE(expiry_date, '%m/%d/%Y') >= CURDATE()
-            AND (position IS NULL OR position NOT IN ('IITBNF Staff', 'Faculty', 'Institute Facility'))
+        AND (position IS NULL OR position NOT IN ('IITBNF Staff'))
         ORDER BY fname, lname
     """) or []
 
@@ -135,24 +139,6 @@ def get_lab_stats(memberid):
         "projects":     lambda: cnt("SELECT COUNT(*) AS cnt FROM faculty_projects WHERE memberid=%s", (memberid,)),
     })
 
-
-def get_announcements():
-    import time as _time
-    now = int(_time.time())
-    return slots_query("""
-        SELECT announcementid, announcement, start_datetime, end_datetime
-        FROM announcements WHERE start_datetime <= %s AND end_datetime >= %s
-        ORDER BY announcementid DESC
-    """, (now, now)) or []
-
-@cached(ttl_seconds=60)
-def get_announcements_all():
-    return slots_query("""
-        SELECT announcementid, announcement, start_datetime, end_datetime
-        FROM announcements ORDER BY announcementid DESC
-    """) or []
-
-
 @cached(ttl_seconds=300)
 def get_lab_cancellations(memberid):
     return slots_query("""
@@ -191,9 +177,9 @@ def get_lab_registration(memberid):
     start = time.perf_counter()
     rows = slots_query("""
         SELECT r.course, r.project_first, r.project_second,
-               r.status, r.date as reg_date,
-               NULLIF(NULLIF(TRIM(r.cosupervisor), 'NA'), '') AS cosupervisor_raw,
-               TRIM(CONCAT(COALESCE(co.fname,''), ' ', COALESCE(co.lname,''))) AS cosupervisor_name
+           r.status, r.date as reg_date,
+           NULLIF(NULLIF(TRIM(r.cosupervisor), 'NA'), '') AS cosupervisor_raw,
+           TRIM(CONCAT(COALESCE(co.fname,''), ' ', COALESCE(co.lname,''))) AS cosupervisor_name
         FROM registration r
         LEFT JOIN login co ON co.memberid = CAST(r.cosupervisor AS UNSIGNED)
         WHERE r.memberid = %s LIMIT 1
@@ -268,7 +254,11 @@ def get_member_tool_permissions(memberid: int) -> list:
                r.operator_name1,
                r.operator_name2,
                TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS faculty_name,
-               DATE_FORMAT(STR_TO_DATE(p.date, '%%m/%%d/%%Y'), '%%d-%%m-%%Y') AS permission_date
+               COALESCE(
+                DATE_FORMAT(STR_TO_DATE(p.date, '%%m/%%d/%%Y'), '%%d-%%m-%%Y'),
+                DATE_FORMAT(STR_TO_DATE(p.date, '%%c/%%e/%%Y'), '%%d-%%m-%%Y'),
+                p.date
+                ) AS permission_date
         FROM permissions p
         JOIN resources r    ON r.machid = p.machid
         LEFT JOIN login l   ON l.memberid = r.faculty_incharge

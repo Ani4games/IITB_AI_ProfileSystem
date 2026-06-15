@@ -33,7 +33,7 @@ LOCAL_MODEL_DEVICE = os.getenv("LOCAL_MODEL_DEVICE",  "cpu")
 LOCAL_MODEL_TEMP   = float(os.getenv("LOCAL_MODEL_TEMP", "0.15"))
 # ── Flask ─────────────────────────────────────────────────────────────────────
 SECRET_KEY              = os.getenv("SECRET_KEY", "iitbnf-dev-secret-change-in-prod")
-SESSION_COOKIE_SECURE   = False
+SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV") == "production"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 PERMANENT_SESSION_LIFETIME = timedelta(hours=2)

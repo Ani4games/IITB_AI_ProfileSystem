@@ -29,7 +29,10 @@ import re
 import logging
 import threading
 import numpy as np
-
+# At the top of intent_router.py, BEFORE the sentence_transformers import:
+import os
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
 logger = logging.getLogger(__name__)
 
 # ── Layer 1: Regex Rules ──────────────────────────────────────────────────────
@@ -38,6 +41,21 @@ logger = logging.getLogger(__name__)
 
 _RULES = [
     # ── Compare patterns (must come before single-year patterns) ──────────────
+    # Replace the existing compare rule with two more specific ones:
+
+    (re.compile(
+        r"(\bcompare\b|\bvs\b|\bversus\b|\bdifference between\b|\bchange from\b)"
+        r".{0,40}(attend|present|day|regular)",
+        re.I
+    ), "compare_attend"),
+
+    (re.compile(
+        r"(\bcompare\b|\bvs\b|\bversus\b|\bdifference between\b|\bchange from\b|\bmore regular\b|\bless regular\b)"
+        r".{0,40}(slot|equipment|request|booking|reservation)",
+        re.I
+    ), "compare_slot"),
+
+    # Generic compare fallback (no keyword after compare verb):
     (re.compile(
         r"(\bcompare\b|\bvs\b|\bversus\b|\bdifference between\b|\bchange from\b|\bmore regular\b|\bless regular\b)",
         re.I
@@ -52,7 +70,15 @@ _RULES = [
         r"(slot|equipment|request|booking|reservation|active|usage).{0,40}\b20\d{2}\b",
         re.I
     ), "equipment_year"),
-
+    # ADD to _RULES, before the attendance rule:
+    (re.compile(
+        r"\b20\d{2}\b.{0,40}(attend|present|days?|working day)",
+        re.I
+    ), "attendance_year"),
+    (re.compile(
+        r"(attend|present|days?|working day).{0,40}\b20\d{2}\b",
+        re.I
+    ), "attendance_year"),
     # ── Attendance ────────────────────────────────────────────────────────────
     (re.compile(
         r"\b(attend|present|absent|days? (present|in|at)|working day|mandatory|regular|irregular|punctual|came to|come to|how often)\b",
@@ -60,8 +86,9 @@ _RULES = [
     ), "attendance"),
 
     # ── Equipment list / tool usage ───────────────────────────────────────────
+    # In _RULES, update equipment_list rule:
     (re.compile(
-        r"\b(which (tool|machine|equipment)|what (tool|machine|equipment)|list.{0,10}(tool|machine|equipment)|most used|worked with|has used|used)\b",
+        r"\b(which (tool|machine|equipment)|what (tool|machine|equipment)|list.{0,10}(tool|machine|equipment)|most used|worked with|has used|used|top \d+|list \d+|show \d+)\b",
         re.I
     ), "equipment_list"),
 
@@ -94,7 +121,17 @@ _RULES = [
         r"\b(cancel|cancellation|cancelled)\b",
         re.I
     ), "cancellation"),
+    # In _RULES list, add after the existing cancellation rule:
 
+    (re.compile(
+        r"\b(session report|equipment report|usage report|session filed|report filed|lab report)\b",
+        re.I
+    ), "session_report"),
+
+    (re.compile(
+        r"\b(reservation|booked slot|slot reserved|how many slot|slots? (made|book))\b",
+        re.I
+    ), "reservation"),
     # ── Permissions ───────────────────────────────────────────────────────────
     (re.compile(
         r"\b(permission|authoris|authoriz|access permission|tool access)\b",
@@ -112,7 +149,10 @@ _RULES = [
         r"\b(monthly report|report submitted|report star|report rating)\b",
         re.I
     ), "monthly_report"),
-
+    (re.compile(
+        r"\b(where is|located|location|address|about iitbnf|what is iitbnf)\b",
+        re.I
+    ), "facility_info"),
     # ── Admin / facility-level stats ──────────────────────────────────────────
     (re.compile(
         r"\b(how many (staff|user|member|lab user)|total (staff|user|member)|active (staff|user)|headcount)\b",
@@ -121,7 +161,7 @@ _RULES = [
 
     # ── Leaves ───────────────────────────────────────────────────────────────
     (re.compile(
-        r"\b(leave|casual leave|earned leave|sick leave|medical leave|days on leave)\b",
+        r"\b(leaves?|casual leave|earned leave|sick leave|medical leave|days on leave)\b",
         re.I
     ), "leave"),
     # ── Logbook entries ─────────────────────────────────────────────────────
@@ -170,6 +210,33 @@ _ANCHORS = {
         "was X more regular in 2024 or 2025",
         "difference between X attendance 2024 2025",
         "compare X equipment usage 2024 vs 2025",
+    ],
+    "compare_attend": [
+    "compare X attendance in 2024 and 2025",
+    "was X more regular in 2024 or 2025",
+    "how did X attendance change from 2024 to 2025",
+    "difference in attendance between 2024 and 2025 for X",
+    ],
+    "compare_slot": [
+        "compare X slot activity in 2024 and 2025",
+        "how did X equipment usage change from 2024 to 2025",
+        "X vs 2024 equipment requests",
+        "difference in bookings between 2024 and 2025",
+    ],
+    "reservation": [
+        "how many reservations does X have",
+        "total slot bookings for X",
+        "how many slots did X book",
+        "X reservation count",
+    ],
+    "session_report": [
+        "how many session reports has X filed",
+        "session reports submitted by X",
+        "equipment usage reports for X",
+        "lab reports filed by X",
+        "how many lab reports does X have",
+        "report submission count for X",
+        "how many usage reports did X submit",
     ],
     "equipment_year": [
         "how many equipment requests did X make in 2025",
@@ -252,6 +319,17 @@ _ANCHORS = {
         "what is X designation",
         "which team does X belong to",
         "what department is X in",
+    ],
+    # a new intent:
+    "facility_info": [
+        "where is IITBNF located",
+        "what is the address of IITBNF",
+        "where is IIT Bombay nanofabrication facility",
+        "location of IITBNF",
+        "where is the facility",
+        "what is IITBNF",
+        "tell me about IITBNF",
+        "about the facility",
     ],
 }
 

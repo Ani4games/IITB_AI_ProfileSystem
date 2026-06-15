@@ -79,7 +79,10 @@ def staff_attendance(member_id):
             "trend": lambda: get_attendance_trend(member_id, year=year),
         })
         att         = results.get("att") or {}
-        att["trend"] = results.get("trend") or []
+        trend_result = results.get("trend") or {}
+        att["trend"]       = trend_result.get("data", []) if isinstance(trend_result, dict) else trend_result
+        att["trend_start"] = trend_result.get("start_month", 1) if isinstance(trend_result, dict) else 1
+        att["trend_end"]   = trend_result.get("end_month", 12)  if isinstance(trend_result, dict) else 12
         # ADD THIS DEBUG PRINT:
         print(f"=== Returning data: days_present={att.get('days_present')}, mandatory={att.get('mandatory_days')} ===")
 

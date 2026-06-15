@@ -19,12 +19,57 @@ Just import and use this in your routes or chat handler.
 import re
 import logging
 
+from flask import ctx
+
 from rag.pipeline import rag_stream, rag_generate, rag_chat
 from rag.tier0 import lookup as tier0_lookup
 from rag.query_router import route as structured_route
 from rag.facility_router import route_facility
 from rag.data_gatherer import gather
 from rag.intent_router import classify_intent
+# Add near top of agent.py, after imports:
+from llm import is_llm_available
+
+SLM_UNAVAILABLE_MSG = (
+    "⚠ SLM not available at the moment — switching to direct lookup mode.\n\n"
+)
+def _answer_without_slm(question: str, ctx: dict) -> str:
+    """
+    Best-effort answer using only the 4 tiers (no SLM).
+    Returns a string answer or a 'not found' message.
+    """
+    clean = normalize_question(question)
+    
+    # Tier 1a: structured route (DB queries, year-specific)
+    ans = structured_route(clean, ctx)
+    if ans:
+        return ans
+    
+    # Tier 1b: year comparison
+    ans = _answer_year_comparison(clean, ctx)
+    if ans:
+        return ans
+    
+    # Tier 1c: facility knowledge
+    ans = route_facility(clean)
+    if ans:
+        return ans
+    
+    # Tier 0: ctx dict lookup
+    fast = tier0_lookup(clean, ctx)
+    if fast:
+        return fast["answer"]
+    
+    # Tier 1d: structured data gather (template-based formatting without SLM)
+    gathered = gather(clean, ctx)
+    if gathered:
+        return _format_gathered(gathered)
+    
+    return (
+        "I couldn't find a specific answer to that question in the available data. "
+        "Please try rephrasing or ask about a specific field like attendance, "
+        "equipment requests, publications, or projects."
+    )
 logger = logging.getLogger(__name__)
 
 # ── Intent config ─────────────────────────────────────────────────────────────
@@ -174,214 +219,300 @@ def _format_gathered(gathered: dict) -> str:
     return "Data retrieved but could not be formatted."
 # ── Public agent API ──────────────────────────────────────────────────────────
 
+# REPLACE agent_stream() in agent.py:
 def agent_stream(user_message: str, ctx: dict):
     """
-    Autonomous streaming agent.
-    Detects intent from user_message, then streams tokens from pipeline.
-
-    Usage (in your route/chat handler):
-        for token in agent_stream(user_message, ctx):
-            emit(token)   # SSE / websocket / print
-
-    Args:
-        user_message : raw string from the chat interface
-        ctx          : context dict (staff or lab profile)
-
-    Yields:
-        str tokens as they are generated
+    Streaming wrapper around agent_generate.
+    Yields string tokens suitable for SSE consumption.
+    Called by ai_routes.py ai_stream() and admin_chat() endpoints.
     """
-    intent = detect_intent(user_message)
-    yield f"[MODE: {intent['label']}]\n\n"
-
-    _q_lower = user_message.strip().lower()
-    is_question = (
-        any(_q_lower.startswith(w) for w in [
-            "what", "who", "when", "how", "why", "is", "does", "can", "tell me",
-            "show", "give", "list", "compare", "summarize", "describe", "find",
-            "check", "get", "display", "count", "which", "was", "were", "did",
-            "has", "have"
-        ])
-        or user_message.strip().endswith("?")
-        or "?" in user_message
-        or len(user_message.strip().split()) <= 8  # short queries are almost always questions
-    )
-
-    if is_question:
-        clean_message = normalize_question(user_message)
-        # Two-layer intent classification
-        _intent_label, _intent_method = classify_intent(clean_message)
-        logger.info(
-            "[Agent] intent=%s method=%s query=%r",
-            _intent_label, _intent_method, clean_message[:60]
-        )
-        if _intent_label not in ("general_profile"):
-            fast_answer = structured_route(clean_message, ctx)
-            if fast_answer:
-                yield f"[MODE: Direct Lookup]\n\n"
-                yield fast_answer
-                return
-         # NEW: Year-comparison check (before Tier 0)
-        year_answer = _answer_year_comparison(clean_message, ctx)
-        if year_answer:
-            yield year_answer  # for agent_stream
-            return
-        if _intent_label in ("admin_stats"):
-            facility_answer = route_facility(clean_message)
-            if facility_answer:
-                yield "[MODE: Facility Knowledge]\n\n"
-                yield facility_answer
-                return
-        # ── Tier 0: answer directly from ctx dict, no model call ──────────
-        fast = tier0_lookup(clean_message, ctx)
-        if fast:
-            yield f"[MODE: Direct Lookup]\n\n"
-            yield fast["answer"]
-            return
-        # ── Tier 1: answer from structured data ───────────────────────────
-        structured_data = gather(clean_message, ctx)
-        if structured_data:
-            answer = _format_gathered(structured_data)
-            yield f"[MODE: Structured Data]\n\n"
-            yield answer
-            return
-
-        # ── Tier 2: fall through to model ─────────────────────────────────
-        result = rag_chat(clean_message, ctx)
-        answer =  result.get("answer", "[No answer generated]")
+    result = agent_generate(user_message, ctx)
+    answer = result.get("answer", "")
+    mode   = result.get("mode", "unknown")
+    
+    # Emit mode tag so the frontend can show which tier answered
+    yield f"[MODE: {mode}]"
+    
+    # Stream word by word to give typewriter effect
+    # For structured/factual answers this is near-instant
+    if answer:
         words = answer.split(" ")
         for word in words:
             yield word + " "
     else:
-        # For report-style requests, stream as before
-        yield from rag_stream(ctx, mode=intent["mode"])
+        yield "(No response generated.)"
 _qa_response_cache = {} # module-level — survives across calls
-def agent_generate(user_message: str, ctx: dict) -> dict:
-    """
-    Autonomous non-streaming agent.
-    Detects intent, generates full response, returns structured result.
 
-    Usage:
-        result = agent_generate(user_message, ctx)
-        print(result["answer"])
+# REPLACE agent_generate() in agent.py:
 
-    Args:
-        user_message : raw string from the chat interface
-        ctx          : context dict (staff or lab profile)
-
-    Returns:
-        {
-            "answer":     str,
-            "mode":       str,
-            "label":      str,
-            "confidence": str,
-            "success":    bool
-        }
-    """
+def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
     intent = detect_intent(user_message)
+    slm_ok = is_llm_available()
 
-    logger.info("Agent generating mode='%s' for: %s", intent["mode"], user_message[:60])
+    logger.info("Agent generating mode='%s' slm_available=%s for: %s",
+                intent["mode"], slm_ok, user_message[:60])
+        # For non-question report-style requests with no SLM, use composer
 
-    # Use rag_chat for question-style input, rag_generate for report-style
-    # Detect if it's a question or a generation request
-    _q_lower = user_message.strip().lower()
-    is_question = (
-        any(_q_lower.startswith(w) for w in [
-            "what", "who", "when", "how", "why", "is", "does", "can", "tell me",
-            "show", "give", "list", "compare", "summarize", "describe", "find",
-            "check", "get", "display", "count", "which", "was", "were", "did",
-            "has", "have"
-        ])
-        or user_message.strip().endswith("?")
-        or "?" in user_message
-        or len(user_message.strip().split()) <= 8  # short queries are almost always questions
+    # Replace the current is_question detection in agent_generate() with:
+    QUESTION_STARTERS = (
+        "what", "who", "when", "how", "why", "is", "does", "can",
+        "tell me", "give me", "show me", "list", "find", "get",
+        "explain", "describe", "summarize", "what's", "who's",
+        "share", "do", "are", "any", "which", "compare", "difference",
     )
-
-    if is_question:
-        clean_message = normalize_question(user_message)
-        # Two-layer intent classification
-        _intent_label, _intent_method = classify_intent(clean_message)
-        logger.info(
-            "[Agent] intent=%s method=%s query=%r",
-            _intent_label, _intent_method, clean_message[:60]
-        )
-        if _intent_label not in ("general_profile"):
-            fast_answer = structured_route(clean_message, ctx)
-            if fast_answer:
-                return {
-                    "answer": fast_answer,
-                    "mode": "structured",
-                    "label": "Direct Lookup",
-                    "confidence": "high",
-                    "success": True,
-                    "tier": 1,
-                }
-            # NEW: Year-comparison check (before Tier 0)
-        year_answer = _answer_year_comparison(clean_message, ctx)
-        if year_answer:
+    clean_message = normalize_question(user_message)
+    # After: clean_message = normalize_question(user_message)
+    # ADD:
+    person_name = ctx.get("name", "")
+    if person_name and person_name.lower() not in clean_message.lower():
+        # Inject name for pronouns and short follow-up questions
+        if clean_message.strip().lower().startswith(("what about", "and in", "how about")):
+            clean_message = clean_message + f" for {person_name}"
+    # Detect compound questions with "and" joining two intents
+    # In agent_generate(), BEFORE the compound question check, add:
+    # Don't split if the question contains two years (it's a comparison, not compound)
+    year_count = len(re.findall(r'\b20\d{2}\b', clean_message))
+    has_compound_marker = bool(re.search(r'\band\b|\balso\b', clean_message, re.I))
+    if has_compound_marker and year_count < 2:
+        parts = re.split(r'\band\b|\balso\b', clean_message, flags=re.I)
+        if len(parts) == 2:
+            answers = []
+            person_name = ctx.get("name", "")
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+                if person_name and person_name.lower() not in part.lower():
+                    part += f"{person_name}'s {part.lstrip('the').lstrip('their')}"
+                # Try all tiers for each part
+                a = structured_route(part, ctx)
+                if not a:
+                    fast = tier0_lookup(part, ctx)
+                    if fast:
+                        a = fast["answer"]
+                if not a and len(part.split()) > 2:  # only call facility for substantive parts
+                    a = route_facility(part)
+                if not a:
+                    a = route_facility(part)    
+                if not a:
+                # Return explicit "not found" so both parts always surface
+                    a = f"No data found for: '{part.strip()}'" 
+                if a:
+                    answers.append(a)
+            if len(answers) >= 1:
+                return {"answer": answers[0] + "\n\n" + answers[1],
+                        "mode": "compound", "label": "Compound Question",
+                        "confidence": "medium", "success": True,
+                        "tier": 1, "slm_available": slm_ok}
+            elif len(answers) == 1:
+                # Only one part answered — return it but don't claim compound success
+                pass  # fall through to normal processing
+    is_question = (
+        any(clean_message.strip().lower().startswith(w) for w in QUESTION_STARTERS)
+        or clean_message.strip().endswith("?")
+        or bool(re.search(r'\b(attendance|equipment|request|slot|activity|usage|project|publication|permission|training|cancel|logbook|reservation|leave|report)\b', clean_message, re.I))
+    )
+    if not is_question and not slm_ok:
+        try:
+            from rag.composer import compose_staff_summary, compose_lab_summary
+            is_lab = ctx.get("category") is not None
+            summary = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
             return {
-                "answer": year_answer,
-                "mode": "year_comparison",
-                "label": "Year Comparison",
+                "answer": SLM_UNAVAILABLE_MSG + summary,
+                "mode": "composer_fallback",
+                "label": "Direct Summary",
                 "confidence": "high",
-                "success": True,
-                "tier": 1.5,
+                "success": bool(summary),
+                "slm_available": False,
             }
-        if _intent_label in ("admin_stats"):
-            facility_answer = route_facility(clean_message)
-            if facility_answer:
-                return {
-                    "answer": facility_answer,
-                    "mode": "facility_knowledge",
-                    "label": "Facility Knowledge",
-                    "confidence": "high",
-                    "success": True,
-                    "tier": 1.5,
-                }
-        # ── Tier 0: answer directly from ctx dict, no model call ──────────
+        except Exception as e:
+            logger.warning("Composer fallback failed: %s", e)
+    if is_question:        
+        intent_label, intent_method = classify_intent(clean_message)
+        logger.info("[Agent] intent=%s method=%s query=%r", intent_label, intent_method, clean_message[:60])
+
+        # ── MiniLM WIRING ────────────────────────────────────────────────────────
+        # MiniLM only fires when regex failed — meaning the question used unusual
+        # phrasing that keyword matching missed. We inject a canonical keyword into
+        # a synthetic query so the existing tier handlers fire correctly.
+        # This avoids duplicating any handler logic.
+        # NOTE: we only act on MiniLM results, not regex results — if method is
+        # "regex" the label is already implicit in the question text and the
+        # normal tier waterfall below handles it fine.
+
+        if intent_method == "minilm":
+            _aug = clean_message   # default: pass question unchanged
+
+            if intent_label == "attendance":
+                # MiniLM caught phrasing like "how punctual is X" — inject "attendance"
+                _aug = clean_message + " attendance"
+
+            elif intent_label == "compare_attend":
+                _aug = clean_message + " compare attendance"
+
+            elif intent_label in ("equipment_year", "equipment_count"):
+                _aug = clean_message + " equipment requests"
+
+            elif intent_label == "equipment_list":
+                _aug = clean_message + " which tools"
+
+            elif intent_label == "publication":
+                _aug = clean_message + " publications papers"
+
+            elif intent_label == "project":
+                _aug = clean_message + " projects"
+
+            elif intent_label == "training":
+                _aug = clean_message + " training sessions"
+
+            elif intent_label == "cancellation":
+                _aug = clean_message + " cancellations"
+
+            elif intent_label == "permission":
+                _aug = clean_message + " tool permissions"
+
+            elif intent_label == "system_owner":
+                _aug = clean_message + " system owner"
+
+            elif intent_label == "monthly_report":
+                _aug = clean_message + " monthly report"
+
+            elif intent_label == "leave":
+                _aug = clean_message + " leave days"
+
+            elif intent_label == "admin_stats":
+                # Route immediately to facility router — don't wait for tier waterfall
+                fac = route_facility(clean_message)
+                if fac:
+                    return {"answer": fac, "mode": "facility_knowledge",
+                            "label": "Facility Knowledge", "confidence": "high",
+                            "success": True, "tier": 1.5, "slm_available": slm_ok}
+
+            elif intent_label == "general_profile":
+                _aug = clean_message + " designation role"
+            elif intent_label == "attendance_year":
+                _aug = clean_message + " attendance days present"
+            elif intent_label == "logbook":
+                # Logbook needs a direct DB call — tier0 and structured_route
+                # don't have keyword coverage for unusual logbook phrasing
+                from models.staff import get_staff_logbook_stats, _get_uid_from_member
+                uid = ctx.get("slot_uid") or _get_uid_from_member(ctx.get("member_id"))
+                if uid:
+                    stats = get_staff_logbook_stats(uid)
+                    if stats and stats.get("total_entries", 0) > 0:
+                        answer = (
+                            f"{ctx.get('name', 'This person')} has {stats['total_entries']} "
+                            f"logbook {'entry' if stats['total_entries'] == 1 else 'entries'} "
+                            f"across {stats['tools_with_logs']} "
+                            f"{'tool' if stats['tools_with_logs'] == 1 else 'tools'}."
+                        )
+                        return {"answer": answer, "mode": "logbook_direct",
+                                "label": "Logbook Stats", "confidence": "high",
+                                "success": True, "tier": 1, "slm_available": slm_ok}
+                    elif stats:
+                        return {"answer": f"{ctx.get('name', 'This person')} has no logbook entries on record.",
+                                "mode": "logbook_direct", "label": "Logbook Stats",
+                                "confidence": "high", "success": True,
+                                "tier": 1, "slm_available": slm_ok}
+            elif intent_label == "session_report":
+                _aug = clean_message + " session reports filed"
+
+            elif intent_label == "reservation":
+                _aug = clean_message + " slot reservations total"
+            elif intent_label == "facility_info":
+                fac = route_facility(clean_message)
+                if fac:
+                    return {"answer": fac, "mode": "facility_knowledge",
+                            "label": "Facility Knowledge", "confidence": "high",
+                            "success": True, "tier": 1.5, "slm_available": slm_ok}
+            # For all non-logbook, non-admin_stats labels: try augmented question
+            # through the same tier waterfall. If augmentation helped, it fires here.
+            # If it still misses (very unusual query), falls through to SLM as before.
+            if _aug != clean_message:
+                aug_answer = structured_route(_aug, ctx)
+                if aug_answer:
+                    return {"answer": aug_answer, "mode": "structured_minilm",
+                            "label": f"Direct Lookup (MiniLM:{intent_label})",
+                            "confidence": "high", "success": True,
+                            "tier": 1, "slm_available": slm_ok}
+                aug_fast = tier0_lookup(_aug, ctx)
+                if aug_fast:
+                    return {"answer": aug_fast["answer"], "mode": "factual_minilm",
+                            "label": f"Direct Lookup (MiniLM:{intent_label})",
+                            "confidence": "high", "success": True,
+                            "tier": 0, "slm_available": slm_ok}
+                # Augmentation didn't help — fall through to normal waterfall below
+                # with the original clean_message (not the augmented one)
+        if ctx.get("facility") and not ctx.get("slot_uid"):
+            fac = route_facility(clean_message)
+            if fac:
+                return {"answer": fac, "mode": "facility_knowledge", 
+                        "label": "Facility Knowledge", "confidence": "high",
+                        "success": True, "tier": 1.5, "slm_available": slm_ok}
+        # Always try 4-tier first (these don't need SLM)
+        fast_answer = structured_route(clean_message, ctx)
+        if fast_answer:
+            return {"answer": fast_answer, "mode": "structured", "label": "Direct Lookup",
+                    "confidence": "high", "success": True, "tier": 1, "slm_available": slm_ok}
         fast = tier0_lookup(clean_message, ctx)
         if fast:
+            return {"answer": fast["answer"], "mode": "factual", "label": "Direct Lookup",
+                    "confidence": "high", "success": True, "tier": 0,
+                    "intent": fast.get("intent"), "latency_ms": fast.get("latency_ms"),
+                    "slm_available": slm_ok}
+        year_answer = _answer_year_comparison(clean_message, ctx)
+        if year_answer:
+            return {"answer": year_answer, "mode": "year_comparison", "label": "Year Comparison",
+                    "confidence": "high", "success": True, "tier": 1.5, "slm_available": slm_ok}
+
+        facility_answer = route_facility(clean_message)
+        if facility_answer:
+            return {"answer": facility_answer, "mode": "facility_knowledge",
+                    "label": "Facility Knowledge", "confidence": "high",
+                    "success": True, "tier": 1.5, "slm_available": slm_ok}
+
+        # Tier 1.8: template-based formatting (no SLM)
+        gathered = gather(clean_message, ctx)
+        if gathered:
+            answer = _format_gathered(gathered)
+            return {"answer": answer, "mode": "data_formatted", "label": "Data + Format",
+                    "confidence": "high", "success": True, "tier": 1.8, "slm_available": slm_ok}
+
+        # Tier 2: SLM — only if available
+        if not slm_ok:
+            answer = _answer_without_slm(clean_message, ctx)
             return {
-                "answer":     fast["answer"],
-                "mode":       "factual",
-                "label":      "Direct Lookup",
-                "confidence": "high",
-                "success":    True,
-                "tier":       0,
-                "intent":     fast.get("intent"),
-                "latency_ms": fast.get("latency_ms"),
+                "answer": SLM_UNAVAILABLE_MSG + answer,
+                "mode": "no_slm_fallback",
+                "label": "Direct Lookup",
+                "confidence": "low",
+                "success": True,
+                "slm_available": False,
             }
 
-        # At module level:
-
-        # In agent_generate(), before result = rag_chat(...):
-        cache_key = f"{ctx.get('member_id')}:{clean_message}"
-        if cache_key in _qa_response_cache:
-            return _qa_response_cache[cache_key]
-
-        # ── Tier 2: fall through to model ─────────────────────────────────
         result = rag_chat(clean_message, ctx)
-        _qa_response_cache[cache_key] = {
-                        "answer":     result.get("answer", ""),
-            "mode":       intent["mode"],
-            "label":      intent["label"],
-            "confidence": intent["confidence"],
-            "success":    result.get("success", False),
-            "tier":     2,
-        }
-        return _qa_response_cache[cache_key]
+        return {"answer": result.get("answer", ""), "mode": intent["mode"],
+                "label": intent["label"], "confidence": intent["confidence"],
+                "success": result.get("success", False), "tier": 2, "slm_available": True}
     else:
+        if not slm_ok:
+            try:
+                from rag.composer import compose_staff_summary, compose_lab_summary
+                is_lab = ctx.get("category") is not None
+                summary = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
+                return {
+                    "answer": SLM_UNAVAILABLE_MSG + summary,
+                    "mode": "composer_fallback", "label": "Direct Summary",
+                    "confidence": "high", "success": bool(summary), "slm_available": False,
+                }
+            except Exception:
+                pass
+
         answer = rag_generate(ctx, audience=(
             "management" if intent["mode"] == "executive" else "individual"
         ))
-        print(f"[AGENT] Mode selected: {intent['mode']}")
-        print(f"[AGENT] Is question: {is_question}")
-        return {
-            "answer":     answer,
-            "mode":       intent["mode"],
-            "label":      intent["label"],
-            "confidence": intent["confidence"],
-            "success":    bool(answer),
-        }
+        return {"answer": answer, "mode": intent["mode"], "label": intent["label"],
+                "confidence": intent["confidence"], "success": bool(answer), "slm_available": slm_ok}
 # Add this function:
 def _extract_years(question: str) -> list[int]:
     return [int(y) for y in re.findall(r'\b(20\d{2})\b', question)]
@@ -394,8 +525,24 @@ def _answer_year_comparison(question: str, ctx: dict) -> str | None:
     # Detect what they're comparing
     if any(kw in q_lower for kw in ['slot', 'equipment', 'booking', 'request', 'reservation']):
         return _fetch_slot_comparison(ctx, years)
+    if any(kw in q_lower for kw in ['attend', 'present', 'days', 'regular']):
+        return _fetch_attendance_comparison(ctx, years)
     return None
-
+# ADD this function to agent.py:
+def _fetch_attendance_comparison(ctx: dict, years: list[int]) -> str:
+    from db import hr_query
+    mid = ctx.get("member_id")
+    if not mid:
+        return None  # Can't fetch attendance without member ID
+    results = []
+    for year in sorted(years):
+        rows = hr_query(
+            "SELECT COUNT(*) AS days FROM user_attendance WHERE memberid=%s AND YEAR(date)=%s",
+            (mid, year)
+        )
+        days = int(rows[0]['days'] if rows and rows[0] else 0)
+        results.append(f"{year}: {days} days present.")
+    return " | ".join(results)
 def _fetch_slot_comparison(ctx: dict, years: list[int]) -> str:
     from db import slots_query
     memberid = ctx.get("slot_uid") or ctx.get("memberid")

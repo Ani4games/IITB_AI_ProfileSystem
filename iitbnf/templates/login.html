@@ -21,12 +21,16 @@
     }
 
     body.login-page {
+      background-image: url('/static/images/Nano-Lab.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: radial-gradient(circle at 20% 30%, #0a0f1c, #03060c);
       position: relative;
       overflow-x: hidden;
     }
@@ -59,43 +63,6 @@
     }
 
     /* Blurred shape blobs */
-    .shape-blob {
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(80px);
-      opacity: 0.5;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    .blob-1 {
-      width: 400px;
-      height: 400px;
-      background: radial-gradient(circle, #3b82f6, #1e40af);
-      top: -150px;
-      left: -100px;
-      animation: floatBlob 18s ease-in-out infinite;
-    }
-
-    .blob-2 {
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, #8b5cf6, #6d28d9);
-      bottom: -150px;
-      right: -100px;
-      animation: floatBlob 22s ease-in-out infinite reverse;
-    }
-
-    .blob-3 {
-      width: 300px;
-      height: 300px;
-      background: radial-gradient(circle, #06b6d4, #0891b2);
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      animation: floatBlob 25s ease-in-out infinite;
-      opacity: 0.3;
-    }
 
     @keyframes floatBlob {
       0%, 100% {
@@ -348,9 +315,6 @@
 </head>
 <body class="login-page">
   <!-- Animated background blobs -->
-  <div class="shape-blob blob-1"></div>
-  <div class="shape-blob blob-2"></div>
-  <div class="shape-blob blob-3"></div>
   <div class="grid-bg"></div>
   <div class="grain"></div>
 

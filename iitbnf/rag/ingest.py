@@ -414,19 +414,21 @@ def serialize_lab_users() -> str:
         return ""
     try:
         rows = slots_query("""
-            SELECT l.memberid, l.fname, l.lname, l.email,
-                   l.position, l.department, l.research_area,
-                   l.rollno,
-                   TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,''))) AS supervisor_name
-            FROM login l
-            LEFT JOIN login s ON s.memberid = l.supervisor
-            WHERE (
-                l.expiry_date IS NULL
-                OR l.expiry_date = ''
-                OR l.expiry_date = '0000-00-00'
-                OR COALESCE(STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y'), CURDATE()) >= CURDATE()
-            )
-            ORDER BY l.memberid
+        SELECT l.memberid, l.fname, l.lname, l.email,
+           l.position, l.department,
+           COALESCE(ra.name, l.research_area) AS research_area,
+           l.rollno,
+           TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,''))) AS supervisor_name
+        FROM login l
+        LEFT JOIN login s ON s.memberid = l.supervisor
+        LEFT JOIN research_areas ra ON ra.id = l.research_area
+        WHERE (
+            l.expiry_date IS NULL
+            OR l.expiry_date = ''
+            OR l.expiry_date = '0000-00-00'
+            OR COALESCE(STR_TO_DATE(l.expiry_date, '%%m/%%d/%%Y'), CURDATE()) >= CURDATE()
+        )
+        ORDER BY l.memberid
         """)
     except Exception as e:
         logger.error("serialize_lab_users DB error: %s", e)

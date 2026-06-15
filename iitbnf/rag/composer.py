@@ -1,7 +1,7 @@
 """
 rag/composer.py — TF-IDF + Logistic Regression narrative composer.
 ===================================================================
-Replaces the LLM for summary generation with a retrieval-and-compose
+Replaces the SLM for summary generation with a retrieval-and-compose
 approach:
 
   1. A curated sentence template library covers every data scenario.
@@ -277,12 +277,13 @@ STAFF_TEMPLATES = [
     # The "no data" template is removed — the SectionClassifier excludes the
     # section when eq_requests == 0, so a "none recorded" sentence is never reached.
     {
-        "text":      "{name} has recieved {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked, demonstrating consistent and active use of facility resources.",
+        "text": "{tenure_activity_prefix}has recieved {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked, demonstrating consistent and active use of facility resources. Lab reservation records show {total_bookings_word} {reservation_plural} across {tools_used_word} distinct {piece_plural} of equipment.",
         "slot":      "equipment",
-        "condition": lambda c: _eq(c) >= 10 and _slot(c) > 0,
+        "condition": lambda c: _eq(c) >= 1 and _slot(c) > 0 and _pos(c, "total_bookings") > 0,
         "priority":  1,
-        "tags":      "equipment usage requests slot booked active facility high volume",
+        "tags":      "equipment usage requests slot booked reservations tenure active facility",
     },
+
     {
         "text":      "Equipment usage records show {eq_requests_word} {eq_request_verb} submitted, with {eq_slot_booked_word} resulting in confirmed slot bookings.",
         "slot":      "equipment",
@@ -297,6 +298,14 @@ STAFF_TEMPLATES = [
         "condition": lambda c: _eq(c) >= 1 and _slot(c) == 0,
         "priority":  2,
         "tags":      "equipment usage request submitted period no booking",
+    },
+    # Fallback when no reservations
+    {
+        "text": "{tenure_activity_prefix}has recieved {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked.",
+        "slot":      "equipment",
+        "condition": lambda c: _eq(c) >= 1 and _slot(c) > 0 and _pos(c, "total_bookings") == 0,
+        "priority":  2,
+        "tags":      "equipment usage requests slot booked active facility tenure",
     },
 ]
 
@@ -459,6 +468,23 @@ SHARED_TEMPLATES = [
         "priority":  1,
         "tags":      "projects faculty active associated research linked facility",
     },
+    # Session reports — applies to both staff (via slot_uid) and lab users
+    {
+        "text": "{session_reports_word} equipment session {session_report_verb} been filed following equipment usage.",
+        "slot":      "session_reports",
+        "condition": lambda c: _pos(c, "session_reports") > 0,
+        "priority":  1,
+        "tags":      "session reports filed equipment usage",
+    },
+
+    # Cancellations
+    {
+        "text": "{cancellations_word} reservation {cancellation_verb} been recorded.",
+        "slot":      "cancellations",
+        "condition": lambda c: _pos(c, "cancellations") > 0,
+        "priority":  2,
+        "tags":      "cancellations reservation recorded",
+    },
 ]
 
 
@@ -472,6 +498,7 @@ STAFF_SECTION_ORDER = [
     "equipment", "reservations", "pending",
     "ownership", "ownership_history", "permissions",
     "reports", "training",
+    "session_reports", "cancellations",
     "research", "projects",
 ]
 
@@ -511,7 +538,11 @@ def _enrich_ctx(ctx: dict) -> dict:
         except (TypeError, ValueError):
             return 0
         # Add to _enrich_ctx():
-    joining_date = c.get("joining_date") or c.get("iitb_joining_date")
+    joining_date = c.get("iitb_joining_date") or c.get("joining_date")
+    # Strip "N/A" and empty strings
+    if joining_date and str(joining_date).strip() in ("N/A", "None", "", "0000-00-00"):
+        joining_date = None
+
     if joining_date:
         try:
             from datetime import datetime as _dt
@@ -520,17 +551,52 @@ def _enrich_ctx(ctx: dict) -> dict:
             else:
                 jd = joining_date
             years = (date.today() - jd).days // 365
-            c["tenure_years"] = years
-            c["tenure_prefix"] = f"In a tenure of {years} year{'s' if years != 1 else ''}, " if years > 0 else ""
+            if 0 < years < 60:
+                c["tenure_years"] = years
+                c["tenure_prefix"] = f"In {c['pronoun_possessive']} tenure of {years} year{'s' if years != 1 else ''}, "
+            else:
+                c["tenure_years"] = 0
+                c["tenure_prefix"] = ""
         except Exception:
+            c["tenure_years"] = 0
             c["tenure_prefix"] = ""
     else:
+        c["tenure_years"] = 0
         c["tenure_prefix"] = ""
     # ── Slot reservations ─────────────────────────────────────────────────────
     n = _int("total_bookings")
     c["total_bookings_word"] = str(n)
     c["reservation_plural"]  = "reservations" if n != 1 else "reservation"
 
+    # Add inside _enrich_ctx(), after the tenure_prefix block:
+
+    # ── Gender-aware pronouns ─────────────────────────────────────────────────
+    # We don't store gender in the DB, so we infer from designation/name.
+    # Fallback to gender-neutral "they/their/their" if unknown.
+    # For now, default to neutral — the SLM will handle gender in executive mode.
+    c["pronoun_subject"]    = "they"    # she / he / they
+    c["pronoun_possessive"] = "their"   # her / his / their
+    c["pronoun_verb"]       = "have"    # has / has / have
+
+    # ── Leave breakdown clause (inline format) ────────────────────────────────
+    breakdown = (c.get("leave_breakdown") or "").strip()
+    if breakdown:
+        c["leave_breakdown_clause"] = (
+            f", with the leave breakdown being as follows: {breakdown}"
+        )
+    else:
+        c["leave_breakdown_clause"] = ""
+
+    # ── Tenure + activity inline clause ──────────────────────────────────────
+    tenure_years = c.get("tenure_years", 0)
+    if tenure_years and tenure_years > 0:
+        c["tenure_activity_prefix"] = (
+            f"In {c['pronoun_possessive']} tenure of {tenure_years} "
+            f"year{'s' if tenure_years != 1 else ''}, "
+            f"{c.get('name', 'they')} "
+        )
+    else:
+        c["tenure_activity_prefix"] = f"{c.get('name', 'They')} "
     n = _int("tools_used")
     c["tools_used_word"] = str(n)
     c["piece_plural"]    = "pieces" if n != 1 else "piece"
@@ -564,7 +630,7 @@ def _enrich_ctx(ctx: dict) -> dict:
     breakdown = (c.get("leave_breakdown") or "").strip()
     c["leave_breakdown_clause"] = f", with breakdown: {breakdown}" if breakdown else ""
 
-    # ── Training ──────────────────────────────────────────────────────────────
+        # ── Training ──────────────────────────────────────────────────────────────
     n = _int("trainings")
     c["trainings_word"]        = str(n)
     c["training_session_verb"] = "sessions have" if n != 1 else "session has"

@@ -12,7 +12,7 @@ import threading
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 from auth import login_required, is_full_access
 from models.ai import generate_llm_report, _build_staff_context, _build_lab_context
-
+from llm import is_llm_available
 bp = Blueprint("ai", __name__)
 
 
@@ -81,7 +81,13 @@ def ai_stream():
     if not ctx:
         return Response("data: [ERROR] Could not load profile data.\n\n",
                         mimetype="text/event-stream"), 404
-
+    # In ai_routes.py, ai_stream(), add history param:
+    history_json = request.args.get("history", "[]")
+    try:
+        import json
+        history = json.loads(history_json)[-6:]  # last 3 exchanges = 6 messages
+    except Exception:
+        history = []
     # Queue for passing tokens from inference thread to SSE generator
     token_queue = queue.Queue()
     SENTINEL    = object()   # signals end of stream
@@ -202,7 +208,7 @@ def ai_compose():
                 # "Connection":        "keep-alive",
             }
         )
-
+    
     # ── EXECUTIVE mode: composer + LLM, streamed ──────────────────────────
     token_queue = queue.Queue()
     SENTINEL    = object()
@@ -510,3 +516,21 @@ def logbook_explain():
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+@bp.route("/api/voice/transcribe", methods=["POST"])
+@login_required
+def transcribe_audio():
+    """
+    Proxy endpoint for Bhashini ASR.
+    Receives audio blob from browser, forwards to Bhashini API,
+    returns transcript. This keeps API keys server-side.
+    """
+    audio_data = request.files.get('audio')
+    language   = request.form.get('language', 'hi')  # BCP-47 code
+    
+    # Call Bhashini ULCA API
+    # POST to https://asr-api.bhashini.gov.in/asr/v1/recognize/{language}
+    # with audio/wav content
+    # Returns: {"transcript": "...", "confidence": 0.95}
+    
+    # For now: stub that returns empty
+    return jsonify({"transcript": "", "success": False, "error": "Bhashini not configured"})

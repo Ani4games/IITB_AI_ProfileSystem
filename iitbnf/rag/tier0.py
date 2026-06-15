@@ -119,7 +119,7 @@ LOOKUP_RULES: list[dict] = [
             r"\b(designation|title|position|role|post)\b",
             r"\bwhat.{0,10}(job|work|do)\b",
         ],
-        "fields":   ["name"],
+        "fields":   ["name", "designation"],   # ADD designation to required fields
         "formatter": lambda ctx: (
             f"{_str(ctx, 'name')} holds the designation of "
             f"{_str(ctx, 'designation')} in the {_str(ctx, 'team')} team."
@@ -301,6 +301,20 @@ LOOKUP_RULES: list[dict] = [
             )
         ),
     },
+    {
+        "intent": "ownership_history",
+            "patterns": [
+                r"\b(given|assigned|added).{0,15}(ownership|system|tool)\b",
+                r"\b(removed|no longer|taken).{0,15}(ownership|system|tool)\b",
+                r"\bhow many.{0,15}ownership.{0,15}(given|removed|changed)\b",
+            ],
+            "fields": ["systems_owned_ever"],
+            "formatter": lambda ctx: (
+                f"{_str(ctx, 'name')} has been given ownership of "
+                f"{_int(ctx, 'systems_owned_ever')} tools in total, "
+                f"of which {_int(ctx, 'systems_ownership_removed')} have since been removed."
+            ),
+    },
 
     # ── Research output ───────────────────────────────────────────────────────
 
@@ -312,10 +326,12 @@ LOOKUP_RULES: list[dict] = [
             r"\btell me about.{0,20}(paper|publication)\b",
             r"\b(paper|publication).{0,10}(does|do|has|have)\b",
         ],
-        "fields":   ["papers"],
+        "fields":   ["name"],
         "formatter": lambda ctx: (
             f"{_str(ctx, 'name')} has {_int(ctx, 'papers')} approved research "
             f"{_pluralise(_int(ctx, 'papers'), 'publication')} associated with IITBNF."
+            if ctx.get("papers") is not None
+            else f"{_str(ctx, 'name')}: publication data is not on record."
         ),
     },
 
@@ -326,7 +342,7 @@ LOOKUP_RULES: list[dict] = [
             r"\bhow many.{0,20}project",
             r"\bproject.{0,10}(count|total|number)",
         ],
-        "fields":   ["projects"],
+        "fields":   ["name"],
         "formatter": lambda ctx: (
             f"{_str(ctx, 'name')} is associated with {_int(ctx, 'projects')} "
             f"faculty {_pluralise(_int(ctx, 'projects'), 'project')}"
@@ -336,6 +352,8 @@ LOOKUP_RULES: list[dict] = [
                 if _int(ctx, "active_projects")
                 else "."
             )
+            if ctx.get("projects") is not None
+            else f"{_str(ctx, 'name')}: project data is not on record."
         ),
     },
 
@@ -389,6 +407,9 @@ LOOKUP_RULES: list[dict] = [
         "fields":   ["research_area"],
         "formatter": lambda ctx: (
             f"{_str(ctx, 'name')}'s research focus is: {_str(ctx, 'research_area', 'not specified')}."
+            if _str(ctx, 'research_area', 'N/A') not in ('N/A', 'not specified')
+            and not _str(ctx, 'research_area', '').isdigit()
+            else f"{_str(ctx, 'name')}'s research area is not specified in text form."
         ),
     },
 
@@ -423,9 +444,9 @@ LOOKUP_RULES: list[dict] = [
     {
         "intent":   "session_reports",
         "patterns": [
-            r"\b(session report|equipment report|usage report)",
-            r"\bhow many.{0,20}session.{0,10}report",
-            r"\bsession report.{0,10}filed",
+            r"\b(session report|session record|equipment report|usage report|lab session)",
+            r"\bhow many.{0,20}session.{0,10}(report|record)",
+            r"\bsession (report|record).{0,10}filed",
         ],
         "fields":   ["session_reports"],
         "formatter": lambda ctx: (

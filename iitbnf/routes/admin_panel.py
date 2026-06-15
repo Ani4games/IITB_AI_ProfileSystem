@@ -5,11 +5,11 @@ Cleaned + scalable admin panel blueprint
 """
 
 import traceback
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, jsonify
 from auth import staff_required
 from utils import run_parallel
 from models.staff import get_all_members
-from models.lab import get_all_lab_users, get_announcements_all
+from models.lab import get_all_lab_users
 
 def _build_search_index(members, lab_users):
     """
@@ -45,30 +45,42 @@ def _build_search_index(members, lab_users):
             "s":    f"{name} {desig} {team} {mid:04d}".lower(),
         })
 
+    FACULTY_POSITIONS = {'Faculty', 'Institute Facility', 'NCPRE Academic', 'Project Staff'}
+
     for u in lab_users:
         uid = u.get("memberid", 0)
-        # Skip lab users who are already represented as staff entries
+        pos = u.get("position") or ""
+
+        # Skip if already represented as a staff entry
         if uid in staff_ids:
             continue
+
         fname = u.get("fname") or ""
         lname = u.get("lname") or ""
         name  = f"{fname} {lname}".strip()
-        pos   = u.get("position") or ""
         dept  = u.get("department") or ""
         parts = name.split()
         init  = "".join(p[0].upper() for p in parts[:2]) if parts else "??"
+
+        # Faculty-type positions link to /profile/ not /lab/
+        if pos in FACULTY_POSITIONS:
+            url  = f"/profile/{uid}"
+            kind = "staff"
+        else:
+            url  = f"/lab/{uid}"
+            kind = "lab"
+
         people.append({
             "id":   f"{uid:04d}",
             "name": name,
             "sub":  f"{pos} · {dept}".strip(" ·"),
-            "url":  f"/lab/{uid}",
+            "url":  url,
             "init": init,
-            "kind": "lab",
+            "kind": kind,
             "s":    f"{name} {pos} {dept} {uid:04d}".lower(),
         })
 
     return people
-
 
 bp = Blueprint("admin_panel", __name__, url_prefix="/admin-panel")
 
@@ -83,7 +95,6 @@ def admin_panel_page():
         results = run_parallel({
             "members":       get_all_members,
             "lab_users":     get_all_lab_users,
-            "announcements": get_announcements_all,
         })
 
         members   = results.get("members", [])
@@ -97,7 +108,6 @@ def admin_panel_page():
             "admin_panel.html",
             members              = members,
             lab_users            = lab_users,
-            announcements        = results.get("announcements", []),
             members_count        = len(members),
             lab_users_count      = len(lab_users),
 
@@ -160,55 +170,3 @@ def api_field_options():
         "departments": [""]
     })
 
-
-# ── Announcement CRUD (aliased under /admin-panel prefix) ─────────────────────
-
-from datetime import datetime as _dt
-from db import slots_execute as _se
-
-@bp.route("/announcement/add", methods=["POST"])
-@staff_required
-def panel_announcement_add():
-    f = request.form
-    text, start_str, end_str = f.get("announcement","").strip(), f.get("start_datetime",""), f.get("end_datetime","")
-    if not text or not start_str or not end_str:
-        flash("All fields are required.", "error")
-        return redirect(url_for("admin_panel.index") + "#announcements")
-    try:
-        start_ts = int(_dt.strptime(start_str, "%Y-%m-%dT%H:%M").timestamp())
-        end_ts   = int(_dt.strptime(end_str,   "%Y-%m-%dT%H:%M").timestamp())
-        _se("INSERT INTO announcements (announcement, start_datetime, end_datetime) VALUES (%s,%s,%s)",
-            (text, start_ts, end_ts))
-        flash("Announcement added.", "success")
-    except Exception as e:
-        flash(f"Error: {e}", "error")
-    return redirect(url_for("admin_panel.index") + "#announcements")
-
-@bp.route("/announcement/edit/<int:aid>", methods=["POST"])
-@staff_required
-def panel_announcement_edit(aid):
-    f = request.form
-    text, start_str, end_str = f.get("announcement","").strip(), f.get("start_datetime",""), f.get("end_datetime","")
-    if not text or not start_str or not end_str:
-        flash("All fields are required.", "error")
-        return redirect(url_for("admin_panel.index") + "#announcements")
-    try:
-        start_ts = int(_dt.strptime(start_str, "%Y-%m-%dT%H:%M").timestamp())
-        end_ts   = int(_dt.strptime(end_str,   "%Y-%m-%dT%H:%M").timestamp())
-        _se("UPDATE announcements SET announcement=%s, start_datetime=%s, end_datetime=%s WHERE announcementid=%s",
-            (text, start_ts, end_ts, aid))
-        flash("Announcement updated.", "success")
-    except Exception as e:
-        flash(f"Error: {e}", "error")
-    return redirect(url_for("admin_panel.index") + "#announcements")
-
-
-@bp.route("/announcement/delete/<int:aid>", methods=["POST"])
-@staff_required
-def panel_announcement_delete(aid):
-    try:
-        _se("DELETE FROM announcements WHERE announcementid=%s", (aid,))
-        flash("Announcement deleted.", "success")
-    except Exception as e:
-        flash(f"Error: {e}", "error")
-    return redirect(url_for("admin_panel.index") + "#announcements")

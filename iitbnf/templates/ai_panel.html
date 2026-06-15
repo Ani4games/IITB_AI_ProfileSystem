@@ -693,6 +693,8 @@
               placeholder="Ask anything about this profile…"
               autocomplete="off"
               onkeydown="if(event.key==='Enter')sendAIQuestion()" />
+              <button type="button" class="ai-voice-btn" style="background:transparent; 
+            border:none; font-size:1.1rem; cursor:pointer; padding:0 0.25rem;">🎤</button>
             <button onclick="sendAIQuestion()" class="ai-chat-send-btn">↑</button>
           </div>
         </div>
@@ -713,6 +715,8 @@
               placeholder="Ask another question…"
               autocomplete="off"
               onkeydown="if(event.key==='Enter')sendAIQuestion()" />
+            <button type="button" class="ai-voice-btn" style="background:transparent; 
+            border:none; font-size:1.1rem; cursor:pointer; padding:0 0.25rem;">🎤</button>
             <button onclick="sendAIQuestion()" class="ai-chat-send-btn">↑</button>
           </div>
         </div>
@@ -947,14 +951,19 @@
     ]
   };
 
-  function _buildProfileChips() {
+function _buildProfileChips() {
     const container = document.getElementById('ai-qa-chips');
     if (!container) return;
     const chips = _PROFILE_CHIPS[PROFILE_TYPE] || _PROFILE_CHIPS.staff;
-    container.innerHTML = chips.map(c =>
-      `<button class="ai-profile-chip" onclick="_sendProfileChip(${JSON.stringify(c.q)})">${c.label}</button>`
-    ).join('');
-  }
+    container.innerHTML = '';
+    chips.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'ai-profile-chip';
+        btn.textContent = c.label;
+        btn.addEventListener('click', () => _sendProfileChip(c.q));
+        container.appendChild(btn);
+    });
+}
 
   function _sendProfileChip(q) {
     const inp = document.getElementById('ai-qa-input-greeting');
@@ -1056,10 +1065,12 @@
     if (bubble) bubble.innerHTML = `<div class="ai-prf-typing"><span></span><span></span><span></span></div>`;
 
     let full = '', firstToken = true;
+    // In sendAIQuestion(), replace the EventSource line:
+    const historyToSend = _pChatMsgs.slice(-6).map(m => ({role: m.role, text: m.text}));
+    const historyParam = encodeURIComponent(JSON.stringify(historyToSend));
     const es = new EventSource(
-      `/api/ai/stream?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&message=${encodeURIComponent(q)}`
+      `/api/ai/stream?profile_type=${PROFILE_TYPE}&profile_id=${MEMBER_ID}&message=${encodeURIComponent(q)}&history=${historyParam}`
     );
-
     es.onmessage = event => {
       const raw = event.data;
       if (raw === '[DONE]') {
@@ -1112,149 +1123,261 @@
       if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') sendAIQuestion(); });
     });
   });
-    const SPEED = {
-      short:     { char_base:16, char_variance:10, comma_pause:80, period_pause:140, newline_pause:240, word_end:6 },
-      executive: { char_base:22, char_variance:14, comma_pause:100, period_pause:180, newline_pause:320, word_end:8 },
-    };
-    let _mode='short', _animFrame=null, _currentText='', _isTyping=false, _tokenBuffer='';
+    
+  function speakSummary(lang = 'en-IN') {
+  const text = document.getElementById('summary-panel-body').innerText;
+  if (!text || !window.speechSynthesis) return;
+  
+  window.speechSynthesis.cancel(); // stop any ongoing speech
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;  // 'hi-IN', 'mr-IN', 'ta-IN', 'en-IN', etc.
+  utterance.rate = 0.85;
+  
+  window.speechSynthesis.speak(utterance);
+}
+</script>
+<script type="module">
+/* ── Whisper.js local speech recognition ──────────────────────────
+   Uses @xenova/transformers running entirely in-browser via ONNX.
+   No internet required after first load. No HTTPS required.
+   Model: Whisper tiny (~40MB, downloads once, cached in IndexedDB)
+──────────────────────────────────────────────────────────────────── */
+import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
 
-    const outputEl = () => document.getElementById('about-body');
-    const footerEl = () => document.getElementById('about-footer');
-    const badgeDot = () => document.getElementById('ai-badge-dot');
-    const copyBtn  = () => document.getElementById('about-copy-btn');
+let _whisperPipe   = null;
+let _whisperReady  = false;
+let _isRecording   = false;
+let _mediaRecorder = null;
+let _audioChunks   = [];
+let _loadPromise   = null;
 
-    function spd() { return SPEED[_mode]||SPEED.short; }
-    function rand(a,b){ return Math.random()*(b-a)+a; }
-    function charDelay(c){
-      let d=spd().char_base+rand(0,spd().char_variance);
-      if(',;:'.includes(c)) d+=spd().comma_pause;
-      if('.!?'.includes(c)) d+=spd().period_pause;
-      if(c===' ') d+=spd().word_end;
-      return d;
-    }
-    function setBadge(state){
-      const dot=badgeDot(); if(!dot) return;
-      dot.className=state==='generating'?'ai-badge-dot pulsing':state==='done'?'ai-badge-dot done':'ai-badge-dot';
-    }
-    function setFooter(text){
-      const f=footerEl(); if(!f) return;
-      const words=text.split(/\s+/).filter(Boolean).length;
-      const wc=document.getElementById('about-word-count');
-      if(wc)wc.textContent=`${words} words`;
-      f.style.display='flex';
-    }
-    function showIdle(msg){
-      const o=outputEl(); if(!o) return;
-      o.innerHTML=`<div class="about-idle"><div class="about-idle-icon">◈</div><div class="about-idle-text">${msg}</div></div>`;
-    }
-    function buildParagraphNodes(text){
-      const o=outputEl(); if(!o) return [];
-      o.innerHTML='';
-      if(_mode==='executive'){
-        const b=document.createElement('div'); b.className='ai-executive-badge';
-        b.textContent='◈ Executive Summary · AI Generated'; o.appendChild(b);
+// Pre-load model in background so first click is fast
+async function _loadWhisper() {
+  if (_whisperPipe) return _whisperPipe;
+  if (_loadPromise)  return _loadPromise;
+
+  _loadPromise = pipeline(
+    'automatic-speech-recognition',
+    'Xenova/whisper-medium',           // ~460MB, fast on CPU
+    {
+      progress_callback: (p) => {
+        if (p.status === 'downloading') {
+          _setVoiceBtnLabel(`⬇ ${Math.round(p.progress || 0)}%`);
+        }
       }
-      const paragraphs=text.split('\n\n').filter(p=>p.trim());
-      const nodes=[];
-      paragraphs.forEach(para=>{
-        const div=document.createElement('div'); div.className='about-para'; o.appendChild(div);
-        nodes.push({el:div,text:para.trim()});
-      });
-      const cursor=document.createElement('span'); cursor.className='about-cursor'; cursor.id='about-cursor';
-      if(nodes.length>0) nodes[0].el.appendChild(cursor);
-      return nodes;
     }
-    function typeIntoNode(node,charIndex,onComplete){
-      if(!node.el.classList.contains('visible')) setTimeout(()=>node.el.classList.add('visible'),50);
-      if(charIndex>=node.text.length){onComplete();return;}
-      const char=node.text[charIndex];
-      _animFrame=setTimeout(()=>{
-        if(!_isTyping) return;
-        const cursor=document.getElementById('about-cursor');
-        if(cursor&&cursor.parentNode===node.el) node.el.insertBefore(document.createTextNode(char),cursor);
-        else node.el.appendChild(document.createTextNode(char));
-        typeIntoNode(node,charIndex+1,onComplete);
-      },charDelay(char));
+  );
+
+  try {
+    _whisperPipe  = await _loadPromise;
+    _whisperReady = true;
+    _setVoiceBtnLabel('🎤');
+    console.log('[Whisper] Model ready');
+  } catch(e) {
+    console.error('[Whisper] Load failed:', e);
+    _setVoiceBtnLabel('🎤✗');
+  }
+  return _whisperPipe;
+}
+
+function _setVoiceBtnLabel(text) {
+  document.querySelectorAll('.ai-voice-btn').forEach(b => b.textContent = text);
+}
+
+function _getActiveInput() {
+  const greetingScreen = document.getElementById('ai-qa-greeting-screen');
+  const isGreeting = greetingScreen && greetingScreen.style.display !== 'none';
+  return isGreeting
+    ? document.getElementById('ai-qa-input-greeting')
+    : document.getElementById('ai-qa-input-chat');
+}
+
+// Replace startWhisperVoice() with this improved version
+async function startWhisperVoice() {
+    if (_isRecording) {
+        _mediaRecorder?.stop();
+        return;
     }
-    function typeSequentially(nodes,nodeIndex,onAllDone){
-      if(nodeIndex>=nodes.length){onAllDone();return;}
-      const node=nodes[nodeIndex],cursor=document.getElementById('about-cursor');
-      if(cursor) node.el.appendChild(cursor);
-      setTimeout(()=>{
-        typeIntoNode(node,0,()=>{setTimeout(()=>typeSequentially(nodes,nodeIndex+1,onAllDone),nodeIndex<nodes.length-1?spd().newline_pause:0);});
-      },nodeIndex===0?0:spd().newline_pause);
+
+    if (!_whisperReady) {
+        _setVoiceBtnLabel('⏳ Loading…');
+        await _loadWhisper();
+        if (!_whisperReady) {
+            alert('Speech model failed to load. Please type your question.');
+            _setVoiceBtnLabel('🎤');
+            return;
+        }
     }
-    function _startTypewriter(text){
-      _isTyping=true; _currentText=text;
-      const nodes=buildParagraphNodes(text); if(!nodes.length){setBadge('done');return;}
-      typeSequentially(nodes,0,()=>{
-        _isTyping=false;
-        const cursor=document.getElementById('about-cursor'); if(cursor)cursor.remove();
-        document.querySelectorAll('.about-para').forEach(p=>p.classList.add('visible'));
-        setBadge('done'); setFooter(text);
-        const cb=copyBtn(); if(cb)cb.style.display='inline-flex';
-      });
+
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+                  echoCancellation: true,
+                  noiseSuppression: true,
+                  autoGainControl: true,   // ADD THIS — normalizes quiet voices
+                  sampleRate: { ideal: 16000 },  // hint, not guarantee
+                  channelCount: 1,              // mono — Whisper doesn't need stereo
+              }
+        });
+    } catch(e) {
+        alert('Microphone access denied.');
+        return;
     }
-    function runShortMode(){
-      showIdle('Generating profile summary…'); setBadge('generating');
-      const f=footerEl(); if(f)f.style.display='none';
-      const cb=copyBtn(); if(cb)cb.style.display='none';
-      fetch(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=short`)
-        .then(r=>{
-          const reader=r.body.getReader(),decoder=new TextDecoder();let buffer='';
-          function read(){reader.read().then(({done,value})=>{
-            if(done) return;
-            buffer+=decoder.decode(value,{stream:true});
-            const lines=buffer.split('\n'); buffer=lines.pop();
-            for(const line of lines){
-              if(!line.startsWith('data: ')) continue;
-              const raw=line.slice(6).trim();
-              if(raw==='[DONE]') return;
-              if(raw.startsWith('[ERROR]')){const o=outputEl();if(o)o.innerHTML=`<p style="color:var(--red);font-size:.8rem;">${raw}</p>`;setBadge('idle');return;}
-              try{const msg=JSON.parse(raw);if(msg.type==='text'&&msg.content)_startTypewriter(msg.content);}catch(e){}
+
+    _isRecording  = true;
+    _audioChunks  = [];
+    _setVoiceBtnLabel('🔴 Stop');
+    
+    // ADD: visual countdown so user knows when to stop
+    const input = _getActiveInput();
+    if (input) {
+        input.placeholder = 'Recording… speak clearly, then click 🔴 Stop';
+        input.style.borderColor = '#38bdf8';
+    }
+
+    // ADD: auto-stop after 10 seconds to prevent long noise recordings
+    const autoStopTimer = setTimeout(() => {
+        if (_isRecording && _mediaRecorder?.state === 'recording') {
+            _mediaRecorder.stop();
+        }
+    }, 10000);
+
+    _mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+                  ? 'audio/webm;codecs=opus' 
+                  : 'audio/webm'
+    });
+    
+    _mediaRecorder.ondataavailable = e => {
+        if (e.data.size > 0) _audioChunks.push(e.data);
+    };
+
+    _mediaRecorder.onstop = async () => {
+        clearTimeout(autoStopTimer);
+        _isRecording = false;
+        _setVoiceBtnLabel('⏳ Processing…');
+        stream.getTracks().forEach(t => t.stop());
+
+        if (input) {
+            input.placeholder = 'Transcribing…';
+            input.style.borderColor = '';
+        }
+
+        // ADD: minimum audio length check — reject very short clips (likely noise)
+        const totalSize = _audioChunks.reduce((s, c) => s + c.size, 0);
+        if (totalSize < 1000) {  // less than ~1KB = basically silence
+            _setVoiceBtnLabel('🎤');
+            if (input) input.placeholder = _getPlaceholder();
+            return;
+        }
+
+        try {
+            const blob    = new Blob(_audioChunks, { type: 'audio/webm' });
+            const arrBuf  = await blob.arrayBuffer();
+            const float32 = await _decodeAudio(arrBuf);
+
+            // ADD: check audio has enough energy (not just silence)
+            const rms = Math.sqrt(float32.reduce((s, v) => s + v*v, 0) / float32.length);
+            if (rms < 0.005) {  // silence threshold
+                console.log('[Whisper] Audio too quiet, skipping transcription');
+                _setVoiceBtnLabel('🎤');
+                if (input) input.placeholder = _getPlaceholder();
+                return;
             }
-            read();
-          });}
-          read();
-        }).catch(e=>{const o=outputEl();if(o)o.innerHTML=`<p style="color:var(--red);">Error: ${e.message}</p>`;setBadge('idle');});
-    }
-    function runExecutiveMode(){
-      _tokenBuffer=''; setBadge('generating');
-      const f=footerEl(); if(f)f.style.display='none';
-      const cb=copyBtn(); if(cb)cb.style.display='none';
-      const o=outputEl(); if(o)o.innerHTML=`<div class="about-idle"><div class="about-idle-icon" style="animation:about-pulse 1s ease-in-out infinite;">◈</div><div class="about-idle-text" id="about-loading-msg">Connecting to AI model…</div></div>`;
-      const es=new EventSource(`/api/ai/compose?profile_type=${PROFILE_TYPE}&profile_id=${PROFILE_ID}&mode=executive`);
-      es.onmessage=event=>{
-        const raw=event.data;
-        if(raw==='[DONE]'){es.close();const clean=_tokenBuffer.trim().replace(/\*\*/g,'').replace(/\*/g,'').replace(/#{1,6}\s/g,'');if(clean)_startTypewriter(clean);else{const out=outputEl();if(out)out.innerHTML='<p style="color:var(--red);">No content received.</p>';setBadge('idle');}return;}
-        if(raw.startsWith('[ERROR]')){es.close();const out=outputEl();if(out)out.innerHTML=`<p style="color:var(--red);font-size:.8rem;">${raw}</p>`;setBadge('idle');return;}
-        if(raw.startsWith(':')||raw==='') return;
-        try{const msg=JSON.parse(raw);if(msg.type==='token'&&msg.content){_tokenBuffer+=msg.content;const lm=document.getElementById('about-loading-msg');if(lm)lm.textContent=`Writing… ${_tokenBuffer.split(/\s+/).filter(Boolean).length} words`;}}catch(_){}
-      };
-      es.onerror=()=>{es.close();if(_tokenBuffer.trim())_startTypewriter(_tokenBuffer.trim());else{const o=outputEl();if(o)o.innerHTML='<p style="color:var(--red);">Connection error. Is Ollama running?</p>';setBadge('idle');}};
-    }
 
-    window.startAbout = function(){
-      _isTyping=false; _tokenBuffer=''; _currentText='';
-      if(_animFrame) clearTimeout(_animFrame);
-      _mode==='short' ? runShortMode() : runExecutiveMode();
-    };
-    window.setAboutMode = function(mode){
-      _mode=mode;
-      document.querySelectorAll('.about-mode-btn').forEach(b=>{
-        b.classList.toggle('active', b.id===`btn-mode-${mode}`);
-      });
-      _currentText=''; startAbout();
-    };
-    window.copyAbout = function(){
-      const text=_currentText||_tokenBuffer; if(!text) return;
-      navigator.clipboard.writeText(text).then(()=>{
-        const cb=copyBtn(); if(!cb) return;
-        const orig=cb.textContent; cb.textContent='✓ Copied';
-        setTimeout(()=>{cb.textContent=orig;},1800);
-      });
+            const result  = await _whisperPipe(float32, {
+                language:                    'english',
+                task:                        'transcribe',
+                initial_prompt: 'IITBNF equipment names: PECVD, LPCVD, RIE, AFM, SEM, XRD. Staff names and member IDs.',
+                chunk_length_s:              30,
+                return_timestamps:           false,
+                condition_on_prev_tokens:    true,
+                compression_ratio_threshold: 1.5,
+                no_speech_threshold:         0.3,
+            });
+
+            const text = result.text?.trim();
+            
+            // ADD: sanity check — reject suspiciously short or nonsensical results
+            if (text && text.length > 2 && !_looksLikeHallucination(text)) {
+                if (input) {
+                    input.value = text;
+                    input.focus();
+                    setTimeout(() => {
+                        if (input.value.trim()) sendAIQuestion();
+                    }, 1500);
+                }
+            } else {
+                console.log('[Whisper] Rejected transcription:', text);
+            }
+        } catch(e) {
+            console.error('[Whisper] Transcription failed:', e);
+        } finally {
+            _setVoiceBtnLabel('🎤');
+            if (input) input.placeholder = _getPlaceholder();
+        }
     };
 
-    // Auto-start on load
-    requestAnimationFrame(()=>setTimeout(startAbout, 300));
+    _mediaRecorder.start();
+}
+
+// ADD: simple hallucination detector
+function _looksLikeHallucination(text) {
+    // Common Whisper hallucination patterns on silence/noise
+    const hallucinations = [
+        /thank you for (watching|listening)/i,
+        /i am sure this is not/i,
+        /please subscribe/i,
+        /^\s*\.\s*$/,                    // just a period
+        /subbed by/i,
+        /subtitles by/i,
+        /www\./i,
+        /copyright/i,
+    ];
+    return hallucinations.some(p => p.test(text));
+}
+
+function _getPlaceholder() {
+  const gs = document.getElementById('ai-qa-greeting-screen');
+  return (gs && gs.style.display !== 'none')
+    ? 'Ask anything about this profile…'
+    : 'Ask another question…';
+}
+
+async function _decodeAudio(arrayBuffer) {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+  const decoded  = await audioCtx.decodeAudioData(arrayBuffer);
+  const channel  = decoded.getChannelData(0);
+  audioCtx.close();
+  return channel;
+}
+
+// Wire up all voice buttons
+function _attachWhisperButtons() {
+  document.querySelectorAll('.ai-voice-btn').forEach(btn => {
+    const fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
+    fresh.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      startWhisperVoice();
+    });
+  });
+}
+
+// Init
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    _attachWhisperButtons();
+    setTimeout(_loadWhisper, 3000);  // pre-load 3s after page ready
+  });
+} else {
+  _attachWhisperButtons();
+  setTimeout(_loadWhisper, 3000);
+}
+
+// Expose for manual testing
+window.testWhisper = startWhisperVoice;
 </script>

@@ -25,6 +25,8 @@ Pipeline
 import logging
 from datetime import date
 
+from distro import name
+
 from db import hr_query, slots_query
 from utils import calc_mandatory_days
 
@@ -112,7 +114,7 @@ def _build_staff_context(member_id: int) -> dict | None:
 
     # ── Identity ──────────────────────────────────────────────────────────────
     rows = hr_query("""
-        SELECT p.designation, p.email, p.joining_date, p.team,
+        SELECT p.designation, p.email, p.iitb_joining_date, p.team,
                p.type_of_appointment, p.qualification, p.p_project_code,
                COALESCE(rm.role_name, 'Staff') AS role_name,
                TRIM(CONCAT(COALESCE(l.fname,''), ' ', COALESCE(l.lname,''))) AS full_name
@@ -155,11 +157,11 @@ def _build_staff_context(member_id: int) -> dict | None:
     ctx["designation"]      = row.get("designation")         or "N/A"
     ctx["role"]             = row.get("role_name")           or "N/A"
     ctx["team"]             = row.get("team")                or "N/A"
-    ctx["joining_date"]     = str(row.get("joining_date")    or "N/A")
+    ctx["iitb_joining_date"] = str(row.get("iitb_joining_date") or "N/A")
     ctx["appointment_type"] = row.get("type_of_appointment") or "N/A"
     ctx["qualification"]    = row.get("qualification")       or "N/A"
     ctx["project_code"]     = row.get("p_project_code")      or "N/A"
-
+    
     # ── Attendance ────────────────────────────────────────────────────────────
     try:
         year         = date.today().year
@@ -314,8 +316,29 @@ def _build_staff_context(member_id: int) -> dict | None:
             if lb:
                 ctx["logbook_total_entries"] = lb.get("total_entries", 0)
                 ctx["logbook_tools_count"] = lb.get("tools_with_logs", 0)
+                ctx["logbook_breakdown"] = lb.get("breakdown", [])[:3]  # top 3 tools
         except Exception as e:
             logger.warning("Logbook context failed for uid %s: %s", slot_uid, e)
+        
+        # ── Session reports ──────────────────────────────────────────────────
+        try:
+            sr = slots_query(
+                "SELECT COUNT(*) AS session_reports FROM reporting WHERE memberid=%s",
+                (slot_uid,),
+            )
+            ctx["session_reports"] = int(sr[0]["session_reports"] or 0) if sr else 0
+        except Exception as e:
+            logger.warning("Session reports context failed for uid %s: %s", slot_uid, e)
+
+        # ── Cancellations ─────────────────────────────────────────────────────
+        try:
+            cc = slots_query(
+                "SELECT COUNT(*) AS cancellations FROM cancel_reservation WHERE memberid=%s",
+                (slot_uid,),
+            )
+            ctx["cancellations"] = int(cc[0]["cancellations"] or 0) if cc else 0
+        except Exception as e:
+            logger.warning("Cancellations context failed for uid %s: %s", slot_uid, e)
         # ── Publications ──────────────────────────────────────────────────
         try:
             pp = slots_query(
@@ -358,19 +381,20 @@ def _build_lab_context(memberid: int) -> dict | None:
     ctx["member_id"] = memberid    # kept consistent for router and potential future use
     rows = slots_query("""
         SELECT
-            l.fname, l.lname, l.email,
-            l.position       AS category,
-            l.department,
-            l.rollno,
-            l.research_area,
-            l.expiry_date,
-            l.mobile,
-            TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,'')))
-                             AS supervisor_name
-        FROM login l
-        LEFT JOIN login s ON s.memberid = l.supervisor
-        WHERE l.memberid = %s
-        LIMIT 1
+        l.fname, l.lname, l.email,
+        l.position       AS category,
+        l.department,
+        l.rollno,
+        COALESCE(ra.name, l.research_area) AS research_area,
+        l.expiry_date,
+        l.mobile,
+        TRIM(CONCAT(COALESCE(s.fname,''), ' ', COALESCE(s.lname,'')))
+                         AS supervisor_name
+    FROM login l
+    LEFT JOIN login s ON s.memberid = l.supervisor
+    LEFT JOIN research_areas ra ON ra.id = l.research_area
+    WHERE l.memberid = %s
+    LIMIT 1
     """, (memberid,))
 
     if not rows:
@@ -532,6 +556,7 @@ def _build_lab_context(memberid: int) -> dict | None:
         ctx["active_projects"] = int(fp[0]["active_projects"] or 0) if fp else 0
     except Exception as e:
         logger.warning("Projects context failed for %s: %s", memberid, e)
+
 
     return ctx
 

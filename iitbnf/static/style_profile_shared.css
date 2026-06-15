@@ -107,13 +107,13 @@ body {
 .topbar-divider { width: 1px; height: 18px; background: var(--border2); }
 
 .back-link {
-  font-family: var(--font-mono); font-size: .95rem; color: var(--muted);
+  font-family: var(--font-mono); font-size: 1.05rem; color: var(--muted);
   text-decoration: none; letter-spacing: .04em; transition: color var(--tr);
 }
 .back-link:hover { color: var(--amber); }
 
 .util-btn {
-  font-family: var(--font-mono); font-size: .65rem; font-weight: 700;
+  font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700;
   letter-spacing: .05em; text-transform: uppercase;
   padding: .32rem .75rem; border-radius: var(--radius);
   border: 1px solid var(--border2); background: var(--surface2);
@@ -130,7 +130,7 @@ body {
 /* PDF split button */
 .pdf-split-btn   { position: relative; display: inline-flex; flex-shrink: 0; }
 .pdf-split-main {
-  font-family: var(--font-mono); font-size: .65rem; font-weight: 700;
+  font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700;
   letter-spacing: .05em; text-transform: uppercase;
   padding: .32rem .65rem; border-radius: var(--radius) 0 0 var(--radius);
   border: 1px solid rgba(245,166,35,.35); border-right: none;
@@ -140,7 +140,7 @@ body {
 }
 .pdf-split-main:hover { background: rgba(245,166,35,.2); }
 .pdf-split-caret {
-  font-size: .65rem; padding: .32rem .45rem;
+  font-size: 1.05rem; padding: .32rem .45rem;
   border-radius: 0 var(--radius) var(--radius) 0;
   border: 1px solid rgba(245,166,35,.35);
   background: var(--amber-dim); color: var(--amber);
@@ -157,7 +157,7 @@ body {
 }
 .pdf-year-picker.open { display: flex; }
 .pdf-year-opt {
-  font-family: var(--font-mono); font-size: .68rem;
+  font-family: var(--font-mono); font-size: 1.05rem;
   padding: .45rem .75rem; text-align: left;
   background: none; border: none; color: var(--fg); cursor: pointer;
   display: flex; align-items: center; justify-content: space-between; gap: .5rem;
@@ -248,12 +248,12 @@ body {
 
 .hero-top-actions { display: flex; gap: .4rem; align-items: center; padding-top: 36px; }
 .hero-name {
-  font-family: var(--font-display); font-size: 1.5rem; font-weight: 700;
+  font-family: var(--font-display); font-size: 1.75rem; font-weight: 700;
   color: var(--fg); line-height: 1.2; margin-bottom: .3rem;
 }
 .hero-role {
   display: inline-flex; align-items: center;
-  font-family: var(--font-mono); font-size: .68rem; font-weight: 700;
+  font-family: var(--font-mono); font-size: 1.0rem; font-weight: 700;
   letter-spacing: .08em; text-transform: uppercase;
   padding: .18rem .6rem; border-radius: 999px;
   border: 1px solid rgba(245,166,35,.35); color: var(--amber);
@@ -264,8 +264,17 @@ body {
   background: var(--blue-dim);
 }
 .hero-meta { display: flex; flex-wrap: wrap; gap: .65rem; margin-top: .45rem; }
-.hero-meta-item { display: flex; align-items: center; gap: .3rem; font-size: .8rem; color: var(--muted); }
-.hero-meta-icon  { font-size: .72rem; color: var(--faint); }
+.hero-meta-item 
+{ 
+  display: flex; 
+  align-items: center; 
+  gap: .3rem; font-size: .8rem; color: var(--muted);  
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; }
+.hero-meta-icon  { font-size: 1.0rem; color: var(--faint); }
 /* ── PROFILE ROOT / LAYOUT ──────────────────────────────────────── */
 .profile-root {
     width: calc(100% - 32px);
@@ -277,8 +286,8 @@ body {
 /* ── CARD GRID ──────────────────────────────────────────────────── */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: .7rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: .55rem;
 }
 
 /* ── PRF-CARD (shared card component) ──────────────────────────── */
@@ -375,14 +384,15 @@ body {
 .modal-box {
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: var(--radius-xl); box-shadow: var(--shadow-modal);
-  width: 100%; height: 50%;
+  width: 100%;max-width: 1200px;  height: auto; max-height: 85vh; min-height: 300px;
   display: flex; flex-direction: column;
   transform: scale(.96) translateY(10px); transition: transform var(--tr); overflow: hidden;
 }
 .modal-box-min {
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: var(--radius-xl); box-shadow: var(--shadow-modal);
-  width: 50%; display: flex; flex-direction: column;
+  width: 100%; max-width: 680px;  height: auto; max-height: 90vh; min-height: 200px;
+  display: flex; flex-direction: column;
   transform: scale(.96) translateY(10px); transition: transform var(--tr); overflow: hidden;
 }
 .modal-backdrop.open .modal-box,
@@ -408,6 +418,11 @@ body {
 }
 .modal-body::-webkit-scrollbar       { width: 4px; }
 .modal-body::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 2px; }
+.modal-body .table-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
 .modal-section       { margin-bottom: 1rem; }
 .modal-section:last-child { margin-bottom: 0; }
 .modal-section-title {
@@ -457,6 +472,7 @@ body {
 .modal-table td {
   padding: .38rem .55rem; border-bottom: 1px solid var(--border);
   color: var(--fg); vertical-align: middle;
+  white-space: nowrap; min-width: 0;
 }
 .modal-table tr:last-child td { border-bottom: none; }
 .modal-table tr:hover td      { background: var(--surface2); }
@@ -565,10 +581,14 @@ body {
 /* Two-column split layout */
 .profile-split-layout {
   display: grid;
-  grid-template-columns: 1024px 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
+  align-items: start;
 }
-
+/* ADD: cap card grid height independently */
+.profile-split-layout > .card-grid {
+  align-self: start;
+}
 .profile-summary-panel {
   background: var(--surface);
   border: 1px solid var(--border2);
@@ -671,16 +691,55 @@ body {
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
 @media (max-width: 1000px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) {
+  .profile-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 860px) {
   .card-grid          { grid-template-columns: repeat(2, 1fr); }
   .hero-highlights    { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 600px) {
-  .card-grid          { grid-template-columns: 1fr; }
-  .hero-highlights    { grid-template-columns: repeat(2, 1fr); }
-  .modal-backdrop     { padding: .5rem; align-items: flex-end; }
-  .modal-box          { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
-  .topbar-title       { display: none; }
+    .modal-backdrop {
+        padding: 0;
+        align-items: flex-end;      /* anchor to bottom */
+    }
+    .modal-box {
+        border-radius: 18px 18px 0 0;
+        max-height: 88vh;           /* don't cover full screen */
+        width: 100%;
+    }
+    .modal-box-min {
+        border-radius: 18px 18px 0 0;
+        max-height: 88vh;
+        width: 100%;
+    }
+    .modal-head {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--surface);  /* prevent content scrolling under header */
+    }
+     .topbar-right .util-btn[onclick="window.print()"] {
+        display: none;
+    }
+    /* Shorten PDF button label */
+    #pdf-btn-label::after {
+        content: none;
+    }
+    /* Shrink topbar buttons */
+    .util-btn, .pdf-split-main, .pdf-split-caret {
+        padding: .28rem .5rem;
+        font-size: .9rem;
+    }
+}
+@media (max-width: 480px) {
+  .modal-metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .mm-val { font-size: 1.2rem; }
+  .mm-key { font-size: .55rem; }
 }
 @media print {
   .topbar, .bg-grid, .bg-glow, .modal-backdrop, .card-footer,

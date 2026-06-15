@@ -41,6 +41,8 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +59,7 @@ class Backend(ABC):
         """Return the full response as a string."""
 
     @abstractmethod
-    def stream(self, prompt: str, max_tokens: int):
+    def stream(self, prompt: str, max_tokens: int) -> Iterator[str]:
         """Yield response tokens one at a time."""
 
 
@@ -109,7 +111,7 @@ class LocalBackend(Backend):
                     trust_remote_code=True,
                 )
                 # Load model — use 4-bit quantization if bitsandbytes available
-                model_kwargs = {
+                model_kwargs: dict[str, Any] = {
                     "trust_remote_code": True,
                     "low_cpu_mem_usage": True,
                 }
@@ -607,3 +609,29 @@ def llm_stream(prompt: str, max_tokens: int = 500):
     Drop-in replacement for _call_ollama_stream().
     """
     yield from _get_backend().stream(prompt, max_tokens)
+# Add to llm.py after the _get_backend() factory
+
+def is_llm_available() -> bool:
+    """
+    Quick non-blocking check: is the SLM loaded and ready?
+    Returns False if the backend failed to load or is unavailable.
+    """
+    try:
+        backend = _get_backend()
+        if isinstance(backend, MockBackend):
+            return False  # Mock = no real SLM
+        if isinstance(backend, LlamaCppBackend):
+            return backend._llm is not None and backend._load_error is None
+        if isinstance(backend, LocalBackend):
+            return backend._pipe is not None and backend._load_error is None
+        if isinstance(backend, OllamaBackend):
+            # Quick connectivity check
+            import requests
+            try:
+                requests.get(f"{backend.url}/api/tags", timeout=1)
+                return True
+            except Exception:
+                return False
+        return False
+    except Exception:
+        return False

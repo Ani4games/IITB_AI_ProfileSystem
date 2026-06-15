@@ -15,12 +15,17 @@ from db import slots_query
 logger = logging.getLogger(__name__)
 
 # ── Keyword groups ────────────────────────────────────────────────────────────
-ABOUT_KEYWORDS    = ['what is iitbnf','about iitbnf','about the facility',
-                     'what is this facility','tell me about iitbnf',
-                     'where is iitbnf','iitbnf located','facility location']
+ABOUT_KEYWORDS = ['what is iitbnf','about iitbnf','about the facility',
+                  'what is this facility','tell me about iitbnf',
+                  'where is iitbnf','iitbnf located','facility location',
+                  'where is iit bombay nanofabrication',   
+                  'where is the facility',                 
+                  'location of iitbnf',                    
+                  'address of iitbnf',                     
+                  'iit bombay nanofabrication facility']   
 
 TEAM_KEYWORDS     = ['team','staff','who works','roles','positions',
-                     'hr team','it team','system owner','faculty incharge',
+                     'hr team','it team','faculty incharge',
                      'who manages','who is responsible']
 
 PROCESS_KEYWORDS  = ['how to book','booking process','how do i request',
@@ -67,9 +72,6 @@ def route_facility(question: str) -> str | None:
         if 'how many equipment' in q or 'total equipment' in q or 'how many tool' in q:
             return _live_equipment_count()
 
-        if 'active announcement' in q or 'any announcement' in q:
-            return _live_announcements()
-
         # ── Keyword groups after ───────────────────────────────────────────
         if _has_any(q, ABOUT_KEYWORDS):
             return _about_facility()
@@ -103,13 +105,12 @@ def route_facility(question: str) -> str | None:
 
 def _about_facility() -> str:
     return (
-        "IITBNF (IIT Bombay Nanofabrication Facility) is a state-of-the-art "
-        "Class 100/1000 cleanroom facility at IIT Bombay, Powai, Mumbai. "
-        "It provides fabrication and characterization services to researchers "
+        "IITBNF (IIT Bombay Nanofabrication Facility) is located at "
+        "IIT Bombay, Powai, Mumbai — 400076, Maharashtra, India. "
+        "It is a state-of-the-art Class 100/1000 cleanroom facility "
+        "providing fabrication and characterization services to researchers "
         "from IIT Bombay and external institutions under programs like NPMASS "
-        "and NCPRE. The facility operates Monday to Friday, 9:00 AM to 6:00 PM. "
-        "It houses equipment for deposition, lithography, etching, thermal "
-        "processing, and characterization."
+        "and NCPRE. The facility operates Monday to Friday, 9:00 AM to 6:00 PM."
     )
 
 
@@ -236,20 +237,3 @@ def _live_equipment_count() -> str:
         f"{r['working'] or 0} currently operational, "
         f"{r['down'] or 0} currently down for maintenance."
     )
-
-
-def _live_announcements() -> str:
-    import time as _t
-    now = int(_t.time())
-    rows = slots_query("""
-        SELECT announcement FROM announcements
-        WHERE start_datetime <= %s AND end_datetime >= %s
-        ORDER BY announcementid DESC
-        LIMIT 5
-    """, (now, now))
-    if not rows:
-        return "There are no active announcements at this time."
-    lines = [f"Active announcements ({len(rows)}):"]
-    for i, r in enumerate(rows, 1):
-        lines.append(f"  {i}. {r['announcement']}")
-    return "\n".join(lines)

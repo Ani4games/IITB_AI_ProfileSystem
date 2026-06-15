@@ -8,13 +8,12 @@ from auth import staff_required
 from flask import session
 from cache import cache
 from db import hr_pool, slots_pool, hr_query, slots_query
-from utils import run_parallel
 
 # Import at module level so the debug route shares the SAME cached instances
 # as the rest of the app.  Using __import__() inside the route creates a
 # separate module object and bypasses the @cached decorator.
 from models.staff import get_all_members
-from models.lab   import get_all_lab_users, get_announcements_all  # type: ignore[attr-defined]
+from models.lab   import get_all_lab_users  # type: ignore[attr-defined]
 
 bp = Blueprint("debug", __name__)
 
@@ -85,7 +84,6 @@ def timings():
     t("slots SELECT 1",           lambda: slots_query("SELECT 1"))
     t("get_all_members",          lambda: get_all_members())
     t("get_all_lab_users",        lambda: get_all_lab_users())
-    t("get_announcements_all",    lambda: get_announcements_all())
 
     # ── Profile-specific functions ────────────────────────────────────────────
     if member_id:

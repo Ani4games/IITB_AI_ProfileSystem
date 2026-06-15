@@ -176,23 +176,6 @@
     /* ── BODY SPLIT ── */
     .j-body{display:flex;flex:1;overflow:hidden;position:relative;z-index:10}
 
-    /* ── SIDEBAR ── */
-    .j-sidebar{
-      width:var(--sidebar-w);flex-shrink:0;
-      background:rgba(6,10,18,0.95);
-      border-right:1px solid var(--rim);
-      display:flex;flex-direction:column;
-      overflow-y:auto;padding:.6rem .5rem;
-      position:relative;
-    }
-    [data-theme="light"] .j-sidebar{background:rgba(228,242,252,.98)}
-
-    .j-sidebar::before{
-      content:'';position:absolute;top:0;right:0;width:1px;height:100%;
-      background:linear-gradient(180deg,transparent,rgba(99,179,237,.3),transparent);
-      opacity:.6;
-    }
-
     .j-sb-section{
       font-family:var(--font-mono);font-size:.5rem;color:var(--fg3);
       letter-spacing:.18em;text-transform:uppercase;font-weight:400;
@@ -635,7 +618,6 @@
 
     /* ── RESPONSIVE ── */
     @media(max-width:768px){
-      .j-sidebar{width:48px}
       .j-sb-item span:not(.j-sb-icon){display:none}
       .j-sb-section,.j-sb-div{display:none}
       .j-pulse-strip{grid-template-columns:repeat(2,1fr)}
@@ -779,17 +761,6 @@
 <!-- ══ BODY ══ -->
 <div class="j-body">
 
-  <!-- SIDEBAR -->
-  <aside class="j-sidebar" id="j-sidebar">
-    <div class="j-sb-section">Navigation</div>
-    <button class="j-sb-item active" onclick="showPane('hub')" id="sb-hub">
-      <span class="j-sb-icon">◈</span><span>Search Hub</span>
-    </button>
-    <button class="j-sb-item" onclick="showPane('announcements')" id="sb-announcements">
-      <span class="j-sb-icon">▣</span><span>Announcements</span>
-    </button>
-  </aside>
-
   <!-- CONTENT -->
   <div class="j-content" id="j-content">
 
@@ -819,6 +790,14 @@
                   autocomplete="off"
                 />
                 <button class="j-search-clear" id="srch-clear" style="display:none" onclick="clearSearch()">✕</button>
+                <!-- ADD THIS: -->
+                <button id="hub-voice-btn" onclick="toggleHubVoice()"
+                    title="Voice search"
+                    style="background:transparent;border:none;font-size:1.1rem;
+                          cursor:pointer;padding:0 .35rem;color:var(--fg3);
+                          transition:color .15s;"
+                    onmouseover="this.style.color='var(--arc)'"
+                    onmouseout="this.style.color='var(--fg3)'">🎤</button>
               </div>
             </div>
             <div class="j-dropdown" id="srch-dd"></div>
@@ -836,7 +815,7 @@
 <button id="admin-ai-bubble" onclick="toggleAdminAI()"
   style="position:fixed;bottom:1.75rem;right:1.75rem;z-index:300;
          background:var(--arc);color:#000;font-family:var(--font-mono);
-         font-size:.68rem;font-weight:700;padding:.55rem 1.1rem;
+         font-size:1.25rem;font-weight:700;padding:.75rem 1.25rem;
          border-radius:999px;border:none;cursor:pointer;
          box-shadow:0 4px 20px rgba(99,179,237,.4);
          display:flex;align-items:center;gap:.4rem;transition:all .2s;">
@@ -850,11 +829,11 @@
   align-items:center;justify-content:center;">
 
   <!-- MODAL BOX -->
-  <div style="width:min(680px,96vw);height:min(700px,92vh);
+  <div style="width:min(960px,96vw);height:min(960px,92vh);
               background:var(--panel);border:1px solid var(--rim2);
               border-radius:20px;display:flex;flex-direction:column;
               box-shadow:0 24px 80px rgba(0,0,0,.7),0 0 0 1px rgba(99,179,237,.1);
-              overflow:hidden;position:relative;">
+              overflow:hidden;position:relative;" >
 
     <!-- HEADER BAR -->
     <div style="display:flex;align-items:center;justify-content:space-between;
@@ -863,18 +842,19 @@
       <div style="display:flex;align-items:center;gap:.55rem;">
         <div style="width:8px;height:8px;border-radius:50%;background:var(--arc);
                     box-shadow:0 0 8px var(--arc);animation:pulse 2s infinite;"></div>
-        <span style="font-family:var(--font-hud);font-size:1.0rem;color:var(--arc);
+        <span style="font-family:var(--font-hud);font-size:1.25rem;color:var(--arc);
                      letter-spacing:.14em;text-transform:uppercase;">IITBNF AI Assistant</span>
       </div>
       <div style="display:flex;align-items:center;gap:.5rem;">
         <button onclick="clearAIChat()"
           style="background:none;border:1px solid var(--rim2);color:var(--fg3);
-                 font-family:var(--font-mono);font-size:.75rem;padding:.2rem .55rem;
+                 font-family:var(--font-mono);font-size:1.0rem;padding:.2rem .55rem;
                  border-radius:5px;cursor:pointer;transition:all .15s;letter-spacing:.05em;"
           onmouseover="this.style.color='var(--crimson)';this.style.borderColor='var(--crimson)'"
           onmouseout="this.style.color='var(--fg3)';this.style.borderColor='var(--rim2)'">
           Clear
         </button>
+
         <button onclick="toggleAdminAI()"
           style="background:var(--hull);border:1px solid var(--rim2);color:var(--fg3);
                  width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:1.0rem;
@@ -899,20 +879,12 @@
         <div id="ai-greeting-headline"
           style="font-family:var(--font-hud);font-size:1.3rem;font-weight:600;
                  color:var(--fg);letter-spacing:.06em;margin-bottom:.4rem;"></div>
-        <div style="font-family:var(--font-mono);font-size:.68rem;color:var(--fg3);
+        <div style="font-family:var(--font-mono);font-size:1.0rem;color:var(--fg3);
                     letter-spacing:.04em;line-height:1.6;">
           Ask anything about IITBNF — staff, lab users,<br>equipment, policies, or facility operations.
         </div>
-      </div>
-
-      <!-- SUGGESTION CHIPS -->
-      <div style="display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;max-width:420px;">
-        <button class="ai-chip" onclick="sendChip('How many active staff members are there?')">👤 Active staff count</button>
-        <button class="ai-chip" onclick="sendChip('How many lab users are registered?')">🔬 Lab user count</button>
-        <button class="ai-chip" onclick="sendChip('How many equipment are currently operational?')">⚙ Equipment status</button>
-        <button class="ai-chip" onclick="sendChip('What is the attendance policy?')">📋 Attendance policy</button>
-        <button class="ai-chip" onclick="sendChip('Are there any active announcements?')">📢 Announcements</button>
-        <button class="ai-chip" onclick="sendChip('What is the booking process?')">📅 Booking process</button>
+                <!-- SUGGESTION CHIPS -->
+        <div id="ai-greeting-chips-wrap" style="display:flex;flex-wrap:wrap;gap:.45rem;justify-content:center;max-width:420px;"></div>
       </div>
 
       <!-- CENTERED INPUT (greeting state) -->
@@ -927,11 +899,16 @@
           <input id="admin-ai-input-greeting" type="text"
             placeholder="Ask anything about IITBNF…"
             style="flex:1;background:transparent;border:none;color:var(--fg);
-                   font-family:var(--font-body);font-size:.85rem;outline:none;"
+                   font-family:var(--font-body);font-size:1.0rem;outline:none;"
             onkeydown="if(event.key==='Enter')sendAdminAI()" />
+            <!-- ADD before the ↑ send button in ai-chat-input-wrap -->
+          <button type="button" class="ai-voice-btn"
+            style="background:transparent;border:none;font-size:1.1rem;
+                  cursor:pointer;padding:0 .35rem;flex-shrink:0;"
+            title="Click to speak, click again to stop">🎤</button>
           <button onclick="sendAdminAI()"
             style="background:var(--arc);color:#000;border:none;border-radius:8px;
-                   padding:.45rem .85rem;cursor:pointer;font-weight:700;font-size:.85rem;
+                   padding:.45rem .85rem;cursor:pointer;font-weight:700;font-size:1.0rem;
                    transition:opacity .15s;flex-shrink:0;"
             onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">↑</button>
         </div>
@@ -961,11 +938,16 @@
           <input id="admin-ai-input-chat" type="text"
             placeholder="Message IITBNF AI…"
             style="flex:1;background:transparent;border:none;color:var(--fg);
-                   font-family:var(--font-body);font-size:.85rem;outline:none;"
+                   font-family:var(--font-body);font-size:1.0rem;outline:none;"
             onkeydown="if(event.key==='Enter')sendAdminAI()" />
+            <!-- ADD before the ↑ send button in ai-greeting-input-wrap -->
+          <button type="button" class="ai-voice-btn"
+            style="background:transparent;border:none;font-size:1.1rem;
+                  cursor:pointer;padding:0 .35rem;flex-shrink:0;"
+            title="Click to speak, click again to stop">🎤</button>
           <button onclick="sendAdminAI()" id="ai-send-btn"
             style="background:var(--arc);color:#000;border:none;border-radius:8px;
-                   padding:.4rem .75rem;cursor:pointer;font-weight:700;font-size:.9rem;
+                   padding:.4rem .75rem;cursor:pointer;font-weight:700;font-size:1.0rem;
                    transition:all .15s;flex-shrink:0;"
             onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">↑</button>
         </div>
@@ -976,74 +958,6 @@
 </div><!-- end modal overlay -->
 
 </div><!-- end hub pane -->
-
-    <!-- ══ ANNOUNCEMENTS PANE ══ -->
-    <div class="j-pane" id="pane-announcements">
-      <div class="j-pane-header-row">
-        <div>
-          <div class="j-pane-title">Facility Announcements</div>
-          <div class="j-pane-sub">MANAGE FACILITY-WIDE ANNOUNCEMENTS</div>
-        </div>
-        <button class="j-add-btn" onclick="toggleAnnAdd()">+ NEW Announcement</button>
-      </div>
-
-      <div class="j-ann-add-card" id="ann-add-form">
-        <form method="POST" action="/admin-panel/announcement/add">
-          <div style="display:flex;flex-direction:column;gap:.7rem">
-            <div>
-              <label class="j-form-label">Create/Edit Announcement</label>
-              <textarea name="announcement" rows="3" class="j-form-input" placeholder="Enter announcement text…" style="resize:vertical;"></textarea>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
-              <div><label class="j-form-label">Start</label><input type="datetime-local" name="start_datetime" class="j-form-input"></div>
-              <div><label class="j-form-label">End</label><input type="datetime-local" name="end_datetime" class="j-form-input"></div>
-            </div>
-            <div class="j-form-actions">
-              <button type="submit" class="j-btn-save">Share</button>
-              <button type="button" class="j-btn-cancel" onclick="toggleAnnAdd()">Cancel</button>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      <div class="j-ann-list">
-      {% if announcements %}
-        {% for a in announcements %}
-        <div class="j-ann-card">
-          <div id="ann-view-{{ a.announcementid }}">
-            <div class="j-ann-text">{{ a.announcement }}</div>
-            <div class="j-ann-meta">
-              <span class="j-ann-dates">{{ a.start_datetime | int | datetimeformat }} → {{ a.end_datetime | int | datetimeformat }}</span>
-              <div class="j-ann-actions">
-                <button class="j-a j-a-edit" onclick="showAnnEdit({{ a.announcementid }})">Edit</button>
-                <button class="j-a j-a-del" onclick="confirmAction('/admin-panel/announcement/delete/{{ a.announcementid }}','Delete this broadcast?')">Delete</button>
-              </div>
-            </div>
-          </div>
-          <div id="ann-edit-{{ a.announcementid }}" style="display:none">
-            <form method="POST" action="/admin-panel/announcement/edit/{{ a.announcementid }}">
-              <div style="display:flex;flex-direction:column;gap:.65rem">
-                <textarea name="announcement" rows="3" class="j-form-input" style="resize:vertical">{{ a.announcement }}</textarea>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
-                  <div><label class="j-form-label">Start</label><input type="datetime-local" name="start_datetime" class="j-form-input" value="{{ a.start_datetime | int | datetimeformat_input }}"></div>
-                  <div><label class="j-form-label">End</label><input type="datetime-local" name="end_datetime" class="j-form-input" value="{{ a.end_datetime | int | datetimeformat_input }}"></div>
-                </div>
-                <div class="j-form-actions">
-                  <button type="submit" class="j-btn-save">Update</button>
-                  <button type="button" class="j-btn-cancel" onclick="hideAnnEdit({{ a.announcementid }})">Cancel</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-        {% endfor %}
-      {% else %}
-        <div style="text-align:center;padding:3rem;color:var(--fg3);font-family:var(--font-mono);font-size:.75rem;background:var(--panel);border:1px dashed var(--rim2);border-radius:var(--radius-lg);">
-          No broadcasts active.
-        </div>
-      {% endif %}
-      </div>
-    </div>
 
   </div><!-- end j-content -->
 </div><!-- end j-body -->
@@ -1161,8 +1075,25 @@ function paint(q) {
   openDD();
 }
 
-function openDD()  { dd.classList.add('open');  box.classList.add('focused'); }
-function closeDD() { dd.classList.remove('open'); box.classList.remove('focused'); ddIdx = -1; }
+// In admin_panel.html, in the openDD() function:
+function openDD() {
+    dd.classList.add('open');
+    box.classList.add('focused');
+    // Hide AI bubble when dropdown is open on mobile
+    if (window.innerWidth < 768) {
+        const bubble = document.getElementById('admin-ai-bubble');
+        if (bubble) bubble.style.display = 'none';
+    }
+}
+
+function closeDD() {
+    dd.classList.remove('open');
+    box.classList.remove('focused');
+    ddIdx = -1;
+    // Restore AI bubble
+    const bubble = document.getElementById('admin-ai-bubble');
+    if (bubble) bubble.style.display = '';
+}
 
 inp.addEventListener('input', () => {
   const q = inp.value.trim();
@@ -1212,22 +1143,6 @@ function loadRecentProfiles() {
 }
 loadRecentProfiles();
 
-// ── FORM TOGGLES ────────────────────────────────
-function toggleAddForm(id) {
-  document.getElementById(id).classList.toggle('open');
-}
-function toggleAnnAdd() {
-  document.getElementById('ann-add-form').classList.toggle('open');
-}
-function showAnnEdit(id) {
-  document.getElementById('ann-view-' + id).style.display = 'none';
-  document.getElementById('ann-edit-' + id).style.display = 'block';
-}
-function hideAnnEdit(id) {
-  document.getElementById('ann-view-' + id).style.display = 'block';
-  document.getElementById('ann-edit-' + id).style.display = 'none';
-}
-
 // ── MODALS ───────────────────────────────────────
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 document.addEventListener('keydown', e => {
@@ -1272,6 +1187,7 @@ function toggleAdminAI() {
   modal.style.display = _adminAIOpen ? 'flex' : 'none';
   if (_adminAIOpen) {
     _setAIGreeting();
+    _buildAdminChips();
     _renderAIScreen();
     setTimeout(() => {
       const inp = _aiMessages.length
@@ -1293,7 +1209,26 @@ function _setAIGreeting() {
   const el   = document.getElementById('ai-greeting-headline');
   if (el) el.textContent = `${sal}, Administrator.`;
 }
-
+// Replacing the static HTML chips with:
+function _buildAdminChips() {
+    const chips = [
+        { label: '👤 Active staff count', q: 'How many active staff members are there?' },
+        { label: '🔬 Lab user count', q: 'How many lab users are registered?' },
+        { label: '⚙ Equipment status', q: 'How many equipment are currently operational?' },
+        { label: '📋 Attendance policy', q: 'What is the attendance policy?' },
+        { label: '📅 Booking process', q: 'What is the booking process?' },
+    ];
+    const wrap = document.getElementById('ai-greeting-chips-wrap'); // add this id to the chips div
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    chips.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'ai-chip';
+        btn.textContent = c.label;
+        btn.addEventListener('click', () => sendChip(c.q));
+        wrap.appendChild(btn);
+    });
+}
 function _renderAIScreen() {
   const greet = document.getElementById('ai-greeting-screen');
   const chat  = document.getElementById('ai-chat-screen');
@@ -1454,6 +1389,121 @@ function clearAIChat() {
   _aiStreaming = false;
   _renderAIScreen();
   setTimeout(() => document.getElementById('admin-ai-input-greeting')?.focus(), 80);
+}
+// Wire Whisper voice to admin chat (sendAdminAI instead of sendAIQuestion)
+window.sendAIQuestion = window.sendAdminAI; 
+
+// ── ADMIN HUB VOICE SEARCH ────────────────────────────────────────────────
+// Reuses the same Whisper pipeline from ai_panel.html logic
+// but targets the hub search input
+
+let _hubVoiceReady = false;
+let _hubIsRecording = false;
+let _hubMediaRecorder = null;
+let _hubAudioChunks = [];
+let _hubWhisperPipe = null;
+
+async function _loadHubWhisper() {
+    if (_hubWhisperPipe) return _hubWhisperPipe;
+    try {
+        // Dynamic import — only loads if user clicks the mic
+        const { pipeline } = await import(
+            'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js'
+        );
+        _hubWhisperPipe = await pipeline('automatic-speech-recognition', 'Xenova/whisper-medium');
+        _hubVoiceReady = true;
+        return _hubWhisperPipe;
+    } catch(e) {
+        console.error('[HubVoice] Load failed:', e);
+        return null;
+    }
+}
+
+async function toggleHubVoice() {
+    const btn = document.getElementById('hub-voice-btn');
+    
+    if (_hubIsRecording) {
+        _hubMediaRecorder?.stop();
+        return;
+    }
+
+    if (!_hubVoiceReady) {
+        if(btn) btn.textContent = '⏳';
+        await _loadHubWhisper();
+        if (!_hubVoiceReady) {
+            alert('Speech model unavailable. Please type to search.');
+            if(btn) btn.textContent = '🎤';
+            return;
+        }
+    }
+
+    let stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 }
+        });
+    } catch(e) {
+        alert('Microphone access denied.');
+        return;
+    }
+
+    _hubIsRecording  = true;
+    _hubAudioChunks  = [];
+    if(btn) { btn.textContent = '🔴'; btn.title = 'Click to stop recording'; }
+    
+    const searchInput = document.getElementById('srch-input');
+    if (searchInput) searchInput.placeholder = 'Listening… speak a name or ID';
+
+    const autoStop = setTimeout(() => {
+        if (_hubIsRecording) _hubMediaRecorder?.stop();
+    }, 8000);  // 8s max for a name search
+
+    _hubMediaRecorder = new MediaRecorder(stream);
+    _hubMediaRecorder.ondataavailable = e => { if(e.data.size > 0) _hubAudioChunks.push(e.data); };
+    
+    _hubMediaRecorder.onstop = async () => {
+        clearTimeout(autoStop);
+        _hubIsRecording = false;
+        if(btn) btn.textContent = '⏳';
+        stream.getTracks().forEach(t => t.stop());
+
+        try {
+            const blob    = new Blob(_hubAudioChunks, { type: 'audio/webm' });
+            const arrBuf  = await blob.arrayBuffer();
+            
+            // Decode audio
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+            const decoded  = await audioCtx.decodeAudioData(arrBuf);
+            const float32  = decoded.getChannelData(0);
+            audioCtx.close();
+
+            const result = await _hubWhisperPipe(float32, {
+                language: 'english', task: 'transcribe',
+                condition_on_prev_tokens: false,
+                no_speech_threshold: 0.3,
+            });
+
+            const text = result.text?.trim();
+            if (text && text.length > 1) {
+                const searchInput = document.getElementById('srch-input');
+                if (searchInput) {
+                    searchInput.value = text;
+                    searchInput.dispatchEvent(new Event('input'));  // trigger search
+                    searchInput.focus();
+                }
+            }
+        } catch(e) {
+            console.error('[HubVoice] Failed:', e);
+        } finally {
+            if(btn) { btn.textContent = '🎤'; btn.title = 'Voice search'; }
+            const searchInput = document.getElementById('srch-input');
+            if (searchInput && !searchInput.value) {
+                searchInput.placeholder = 'Identify by name, ID, designation, department…';
+            }
+        }
+    };
+
+    _hubMediaRecorder.start();
 }
 </script>
 </body>

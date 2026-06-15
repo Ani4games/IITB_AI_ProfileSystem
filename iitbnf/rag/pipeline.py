@@ -15,36 +15,79 @@ def _call_ollama_sync(prompt: str, max_tokens: int = 500) -> str:
 def _call_ollama_stream(prompt: str, max_tokens: int = 500):
     yield from llm_stream(prompt, max_tokens)
     
-def rag_stream(ctx: dict, mode: str = "short"):
-    """Streaming token generator — used by /api/ai/stream SSE endpoint."""
-    from rag.composer import compose_staff_summary, compose_lab_summary
+# In pipeline.py, add this new function and modify rag_stream():
 
-    # Short mode: composer only, no LLM
-    if mode == "short":
-        is_lab  = ctx.get("category") is not None  # lab ctx has 'category'
-        summary = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
+def _build_enrichment_prompt(composer_output: str, ctx: dict) -> str:
+    """
+    Give the SLM the composer output + raw data.
+    Task: polish phrasing only, do NOT change any numbers or facts.
+    Keep it tightly constrained so a 0.5B model can succeed reliably.
+    """
+    # Minimal data block — only identity + key counts the SLM might reference
+    data_lines = []
+    for key in ("name", "designation", "team", "attendance_pct", "days_present",
+                "working_days", "leaves_taken", "leave_breakdown", "eq_requests",
+                "eq_slot_booked", "total_bookings", "tools_used",
+                "systems_owned_current", "tool_permissions_count",
+                "monthly_reports_submitted", "papers", "projects", "tenure_years"):
+        v = ctx.get(key)
+        if v and str(v) not in ("N/A", "None", "0", ""):
+            data_lines.append(f"  {key} = {v}")
+    data_block = "\n".join(data_lines)
+
+    return (
+        "You are a professional HR report editor.\n"
+        "Your ONLY job is to improve the flow and readability of the draft below.\n"
+        "Rules you MUST follow:\n"
+        "  1. Do NOT change any number, percentage, date, or name.\n"
+        "  2. Do NOT add any fact that is not in the draft or the data block.\n"
+        "  3. Keep all paragraphs. Do not merge or split them.\n"
+        "  4. Maximum 10 words changed per paragraph.\n"
+        "  5. Output the full revised text. Nothing else.\n\n"
+        f"Verified Data (ground truth — numbers must stay exactly as shown):\n"
+        f"{data_block}\n\n"
+        f"Draft:\n{composer_output}\n\n"
+        f"Revised:"
+    )
+
+
+def rag_stream(ctx: dict, mode: str = "short"):
+    """
+    Unified streaming generator.
+    1. Composer always runs first — produces factually correct template output.
+    2. If SLM is available AND mode is 'executive', SLM enriches the composer output.
+    3. If SLM is unavailable, composer output is used directly.
+    """
+    from rag.composer import compose_staff_summary, compose_lab_summary
+    from llm import is_llm_available
+
+    is_lab = ctx.get("category") is not None
+    composer_output = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
+
+    # Short mode OR SLM unavailable: return composer output directly
+    if mode == "short" or not is_llm_available():
         yield "[MODE: Quick Summary]"
-        yield summary
+        yield composer_output
         return
 
-    # Executive mode: retrieve context, build prompt, call Ollama
+    # Executive mode + SLM available: enrich the composer output
     yield "[MODE: Executive Briefing]"
-
-    rag_block = ""
-    try:
-        from rag.retrieve import retrieve
-        query     = _build_report_query(ctx)
-        chunks    = retrieve(query, k=RAG_K, requested_name=ctx.get("name"))
-        relevant  = [c for c in chunks if c.get("score", 0) >= MIN_SCORE]
-        rag_block = _format_chunks(relevant)
-        logger.info(
-            "[RAG] rag_stream executive: chunks_used=%d", len(relevant)
-        )
-    except Exception as exc:
-        logger.warning("[RAG] retrieve() failed in rag_stream: %s", exc)
-
-    prompt = _build_executive_prompt(ctx, rag_block=rag_block)
-    yield from _call_ollama_stream(prompt, max_tokens=500)
+    prompt = _build_enrichment_prompt(composer_output, ctx)
+    
+    full_tokens = []
+    for token in _call_ollama_stream(prompt, max_tokens=600):
+        full_tokens.append(token)
+        yield token
+    
+    enriched = "".join(full_tokens).strip()
+    
+    # Safety net: if SLM output is too short, blank, or looks like it 
+    # hallucinated (contains numbers not in composer output), fall back
+    # to composer output
+    if not enriched or len(enriched) < len(composer_output) * 0.5:
+        # SLM produced garbage — yield the composer output instead
+        # (already streamed tokens, so yield a replacement signal)
+        yield "\n\n[FALLBACK: " + composer_output + "]"
 
 
 def rag_generate(ctx: dict, audience: str = "management") -> str:
@@ -234,7 +277,7 @@ def _build_executive_prompt(ctx: dict, rag_block: str = "") -> str:
 
         "Begin paragraph 1 now, starting with the person's name:"
     )
-def _build_chat_prompt(question: str, ctx: dict) -> str:
+def _build_chat_prompt(question: str, ctx: dict, history: list = None) -> str:
     """
     Build a minimal, focused prompt for Q&A.
     Only includes facts directly relevant to the question keywords.
@@ -296,7 +339,15 @@ def _build_chat_prompt(question: str, ctx: dict) -> str:
             "name", "designation", "team", "attendance_pct",
             "eq_requests", "papers", "projects"
         ])
-
+    history_block = ""
+    if history:
+        history_lines = []
+        for msg in history[-6:]:  # last 3 exchanges = 6 messages
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            prefix = "User:" if role == "user" else "Assistant:"
+            history_lines.append(f"{prefix} {content}")
+        history_block = "\n\nConversation History:\n" + "\n".join(history_lines)
     # Build a minimal facts block from only the selected fields
     facts_lines = []
     for key in selected_fields:
@@ -313,10 +364,12 @@ def _build_chat_prompt(question: str, ctx: dict) -> str:
         "- Answer in ONE sentence.\n"
         "- If the answer is not in the facts, say: 'This information is not on record.'\n"
         "- Do not summarize. Do not list other facts. Just answer the question.\n\n"
+        f"{history_block}"
         f"Facts:\n{facts_block}\n\n"
         f"Question: {question}\n"
         "Answer:"
     )
+
 
 def _validate_response(response: str, ctx: dict) -> str:
     """

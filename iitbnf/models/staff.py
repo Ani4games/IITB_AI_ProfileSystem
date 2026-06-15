@@ -132,7 +132,11 @@ def get_person(member_id):
     return p
 
 def get_permissions(member_id):
-    return hr_query("SELECT field FROM user_permission WHERE memberid=%s", (member_id,))
+    perms = hr_query("SELECT field FROM user_permission WHERE memberid=%s", (member_id,))
+    print(f"get_permissions SQL: fetched {len(perms)} permissions for member_id={member_id}")
+    for p in perms:
+        print(f"  - {p['field']}")
+    return [p["field"] for p in perms] if perms else []
 
 
 # ── Attendance ────────────────────────────────────────────────────────────────
@@ -237,19 +241,42 @@ def get_attendance_stats(member_id, year=None):
             "recent_log":     [],
             "trend":          [],
         }
-
+# In staff.py, replace _get_years_raw() with this:
 def _get_years_raw(member_id=None, memberid=None):
     years = set()
+    
+    # Get the joining year from iitb_joining_date
     if member_id:
-        # Merge 2 HR queries into 1 UNION
+        joining_rows = hr_query(
+            "SELECT iitb_joining_date, joining_date FROM profile WHERE member_id = %s LIMIT 1",
+            (member_id,)
+        )
+        if joining_rows:
+            jd = joining_rows[0].get("iitb_joining_date") or joining_rows[0].get("joining_date")
+            if jd:
+                try:
+                    if isinstance(jd, str):
+                        from datetime import datetime as _dt
+                        jd = _dt.strptime(jd[:10], "%Y-%m-%d").date()
+                    join_year = jd.year
+                    current_year = date.today().year
+                    # Add ALL years from joining year to current year
+                    for y in range(join_year, current_year + 1):
+                        years.add(y)
+                except Exception:
+                    pass
+    
+    # Still also add years where data actually exists
+    # (keeps the existing behaviour as a fallback)
+    if member_id:
         rows = hr_query("""
             SELECT DISTINCT YEAR(date) AS yr FROM user_attendance WHERE memberid=%s
             UNION
             SELECT DISTINCT report_year FROM monthly_report WHERE member_id=%s
         """, (member_id, member_id))
         years.update(int(r["yr"]) for r in rows if r.get("yr"))
+    
     if memberid:
-        # Merge 2 slots queries into 1 UNION
         rows = slots_query("""
             SELECT DISTINCT YEAR(FROM_UNIXTIME(startdate)) AS yr 
             FROM reservations WHERE memberid=%s
@@ -258,6 +285,7 @@ def _get_years_raw(member_id=None, memberid=None):
             FROM equipment_usage_approval WHERE requestedby=%s
         """, (memberid, memberid))
         years.update(int(r["yr"]) for r in rows if r.get("yr"))
+    
     return years
 
 def _process_years(year_list):
@@ -524,7 +552,7 @@ def get_equipment_stats(member_id, year=None):
     lab  = _get_lab_access_rows(uid, year)
 
   # Total slots = sum of all bookings
-    total = sum(t.get("times_booked", 0) for t in tools)
+    total = sum(int(t.get("slot_booked") or 0) for t in tools)
     return {
         "available": True,
         "total_slots": total,
@@ -681,7 +709,14 @@ def get_attendance_trend(member_id, year=None):
             "attendance_pct": pct
         })
 
-    return monthly_data
+    # At the end of get_attendance_trend(), change return to:
+    return {
+        "data":        monthly_data,
+        "start_month": start_month,
+        "end_month":   end_month,
+        "year":        year,
+    }
+# Previously it only returned the list. Now it returns a dict.
 
 # ── System ownership (staff) ──────────────────────────────────────────────────
 
@@ -742,15 +777,19 @@ def _get_slot_rows(member_id: int, year=None) -> list:
         return []
     # year_filter = "AND YEAR(e.date_of_request) = %s" if year else ""
     # params      = (uid, int(year)) if year else (uid,)
-    year_filter = """
-    AND e.date_of_request >= %s
-    AND e.date_of_request < %s
-    """
-    extended_year = int(year) + 1 if year else None
-    start_date = f"{year}-01-01"
-    end_date   = f"{extended_year}-01-01"
+    if year:
+        year_filter = """
+        AND e.date_of_request >= %s
+        AND e.date_of_request < %s
+        """
+        extended_year = int(year) + 1
+        start_date = f"{year}-01-01"
+        end_date   = f"{extended_year}-01-01"
+        params = (uid, start_date, end_date)
+    else:
+        year_filter = ""
+        params = (uid,)
 
-    params = (uid, start_date, end_date)
     start = perf_counter()
     rows = slots_query(f"""
         SELECT

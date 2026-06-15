@@ -261,6 +261,13 @@ async function _waitAndDownload(jobId) {
 
   try {
     let first = true;
+    let elapsed = 0;
+    const timerInterval = setInterval(() => {
+        elapsed += 0.3;
+        if (msg && elapsed < 45) {
+            msg.textContent = `Rendering PDF… (~${Math.max(0, Math.round(20 - elapsed))}s remaining)`;
+        }
+    }, 300);
     while (true) {
       if (!first) await new Promise(r => setTimeout(r, 300));
       first = false;
@@ -268,6 +275,7 @@ async function _waitAndDownload(jobId) {
       const d = await r.json();
       if (d.status === 'done') {
         clearInterval(fake);
+        clearInterval(timerInterval);
         if (prog) prog.style.width = '100%';
         if (msg)  msg.textContent = 'Download starting…';
         _setPDFBtnState('ready');
@@ -281,12 +289,14 @@ async function _waitAndDownload(jobId) {
         clearInterval(fake);
         if (msg) msg.textContent = `PDF generation failed: ${d.error || 'unknown error'}`;
         setTimeout(() => closeModal('pdf-progress-modal'), 2500);
+        clearInterval(timerInterval);
         return;
       }
       if (d.status === 'not_found') {
         clearInterval(fake);
         if (msg) msg.textContent = 'Job expired — please try again.';
         setTimeout(() => closeModal('pdf-progress-modal'), 2000);
+        clearInterval(timerInterval);
         return;
       }
       if (msg) msg.textContent = 'Rendering PDF…';
@@ -295,6 +305,7 @@ async function _waitAndDownload(jobId) {
     clearInterval(fake);
     if (msg) msg.textContent = 'Connection error during PDF generation.';
     setTimeout(() => closeModal('pdf-progress-modal'), 2000);
+    clearInterval(timerInterval);
   }
 }
 
@@ -487,5 +498,10 @@ function _writeRecentProfile(id, name, url, type) {
     list.unshift(item);
     if (list.length > MAX) list = list.slice(0, MAX);
     localStorage.setItem(KEY, JSON.stringify(list));
+  } catch (e) { /* localStorage blocked */ }
+}
+function _clearRecentProfiles() {
+  try {
+    localStorage.removeItem('iitbnf_recent_profiles');
   } catch (e) { /* localStorage blocked */ }
 }

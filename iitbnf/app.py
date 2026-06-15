@@ -8,6 +8,8 @@ app.py — Flask application factory. Registers blueprints and filters.
 Redundant blueprints (hub, dashboard, admin) have been removed.
 """
 import os
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
 import atexit
 from datetime import datetime, timedelta
 from flask.json.provider import DefaultJSONProvider
@@ -220,7 +222,6 @@ from routes.profile       import bp as profile_bp
 from routes.lab_profile   import bp as lab_profile_bp
 from routes.admin_panel   import bp as admin_panel_bp
 from routes.ai_routes     import bp as ai_bp
-from routes.announcements import bp as announcements_bp
 from routes.debug         import bp as debug_bp
 from routes.rag_routes    import bp as rag_bp
 from routes.section_routes import bp as section_bp
@@ -231,7 +232,7 @@ app.register_blueprint(profile_bp)
 app.register_blueprint(lab_profile_bp)
 app.register_blueprint(admin_panel_bp)
 app.register_blueprint(ai_bp)
-app.register_blueprint(announcements_bp)
+# app.register_blueprint(announcements_bp)
 app.register_blueprint(debug_bp)
 app.register_blueprint(rag_bp)
 app.register_blueprint(section_bp)

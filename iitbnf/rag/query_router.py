@@ -19,6 +19,7 @@ Query categories handled:
 Returns None if no structured route matches → falls through to SLM.
 """
 
+from os import name
 import re
 import logging
 from db import slots_query, hr_query
@@ -66,7 +67,8 @@ TOOL_KEYWORDS = [
     'list the machine', 'list the tool', 'list the equipment',
     'list machine', 'list tool', 'list equipment', 'requests approved',
     'most used', 'most used equipment', 'most used tool',
-    'has requested', 'has worked with', 'worked with', 'most booked', 'cancelled', 'rejected'
+    'has requested', 'has worked with', 'worked with', 'most booked', 'cancelled', 'rejected',
+    'top tools', 'top machines', 'top equipment','list top', 'show top',
 ]
 MONTHLY_KEYWORDS     = ['month by month','monthly breakdown','each month',
                         'month wise','monthwise','per month']
@@ -128,7 +130,37 @@ def route(question: str, ctx: dict) -> str | None:
     uid   = ctx.get("slot_uid")
     mid   = ctx.get("member_id")
     name  = ctx.get("name", "This member")
+    # ADD at the top of the try block in route(), before "# 1. Monthly breakdown":
 
+    # ── 0. "Since year" queries ───────────────────────────────────────────
+    SINCE_PATTERN = re.compile(r'\bsince\s+(20\d{2})\b', re.I)
+    since_match = SINCE_PATTERN.search(question)
+    if since_match:
+        since_year = int(since_match.group(1))
+        if _has_any(q, LEAVE_KEYWORDS):
+            return _leaves_since_year(mid, name, since_year)
+        if _has_any(q, ATTEND_KEYWORDS):
+            return _attendance_since_year(mid, name, since_year)
+        if _has_any(q, SLOT_KEYWORDS + ['slot', 'equipment request']):
+            return _slot_since_year(uid, name, since_year)
+    # ADD after SINCE_PATTERN block, before "# 1. Monthly breakdown":
+
+    # ── 0b. "From year to year" range queries ─────────────────────────
+    RANGE_PATTERN = re.compile(r'\bfrom\s+(20\d{2})\s+to\s+(20\d{2})\b', re.I)
+    range_match = RANGE_PATTERN.search(question)
+    if range_match:
+        y_start = int(range_match.group(1))
+        y_end   = int(range_match.group(2))
+        if y_start <= y_end:
+            range_years = list(range(y_start, y_end + 1))
+            if _has_any(q, LEAVE_KEYWORDS):
+                return _leaves_range(mid, name, range_years)
+            if _has_any(q, ATTEND_KEYWORDS):
+                return _attendance_range(mid, name, range_years)
+            if _has_any(q, SLOT_KEYWORDS + ['slot', 'equipment request']):
+                return _slot_range(uid, name, range_years)
+            if _has_any(q, RESERVATION_KEYWORDS):
+                return _reservation_range(uid, name, range_years)
     try:
         # ── 1. Monthly breakdown ──────────────────────────────────────────────
         # Check this FIRST because it often contains a year too
@@ -147,8 +179,10 @@ def route(question: str, ctx: dict) -> str | None:
         if _has_any(q, TOOL_KEYWORDS):
             tool_hint = _extract_tool_hint(q)
             target_year = years[0] if len(years) == 1 else None
-            return _tool_specific_usage(uid, name, tool_hint, target_year)
-
+            # Extract "top N" / "list N" limit
+            top_n_match = re.search(r'\b(top|list|show|first)\s+(\d+)\b', q, re.I)
+            top_n = int(top_n_match.group(2)) if top_n_match else None
+            return _tool_specific_usage(uid, name, tool_hint, target_year, limit=top_n)
         # ── 3. Multi-year comparisons ─────────────────────────────────────────
         if len(years) >= 2:
             if _has_any(q, RESERVATION_KEYWORDS) and not _has_any(q, SLOT_KEYWORDS):
@@ -205,6 +239,13 @@ def route(question: str, ctx: dict) -> str | None:
 def _slot_activity_year(uid, name, year) -> str:
     if not uid:
         return f"Slot booking data is not available for {name}."
+    STATUS_FOCUS = {
+    'approved': 'approved',
+    'booked': 'slot_booked', 
+    'rejected': 'rejected',
+    'pending': 'pending',
+    }
+    # If a focus word is detected, lead with that number
     rows = slots_query("""
         SELECT
             COUNT(*)                                            AS total,
@@ -234,9 +275,11 @@ def _slot_activity_year(uid, name, year) -> str:
 def _compare_slot_activity(uid, name, years) -> str:
     if not uid:
         return f"Slot booking data is not available for {name}."
+    
+    is_comparison = len(years) == 2 # only add trend for exactly 2 years
     lines = [
-        f"Equipment request comparison for {name} "
-        f"({' vs '.join(str(y) for y in sorted(years))}):\n"
+        f"Equipment request summary for {name} "
+        f"({', '.join(str(y) for y in sorted(years))}):\n"
     ]
     for year in sorted(years):
         rows = slots_query("""
@@ -262,16 +305,17 @@ def _compare_slot_activity(uid, name, years) -> str:
             )
         else:
             lines.append(f"  {year}: No data found.")
-
+    if is_comparison:
     # Add trend insight if exactly 2 years
-    if len(years) == 2 and all(
-        rows and rows[0] and rows[0]['total']
-        for yr in years
-        for rows in [slots_query(
-            "SELECT COUNT(*) AS total FROM equipment_usage_approval "
-            "WHERE requestedby=%s AND YEAR(date_of_request)=%s", (uid, yr)
-        )]
-    ):
+        if len(years) == 2 and all(
+            rows and rows[0] and rows[0]['total']
+            for yr in years
+            for rows in [slots_query(
+                "SELECT COUNT(*) AS total FROM equipment_usage_approval "
+                "WHERE requestedby=%s AND YEAR(date_of_request)=%s", (uid, yr)
+            )]
+        ):
+            pass
         totals = {}
         for yr in sorted(years):
             r = slots_query(
@@ -321,6 +365,27 @@ def _monthly_slot_activity(uid, name, year) -> str:
     lines.append(f"\n  Total {year}: {total_year} requests across {len(rows)} active months.")
     return "\n".join(lines)
 
+def _slot_since_year(uid, name, since_year) -> str:
+    if not uid:
+        return f"Slot booking data is not available for {name}."
+    rows = slots_query("""
+        SELECT
+            COUNT(*)                                            AS total,
+            SUM(CASE WHEN status=3 THEN 1 ELSE 0 END)          AS slot_booked,
+            COUNT(DISTINCT equipmentid)                         AS tools_used
+        FROM equipment_usage_approval
+        WHERE requestedby=%s AND YEAR(date_of_request) >= %s
+    """, (uid, since_year))
+    if not rows or not rows[0] or not rows[0]['total']:
+        return f"{name} has no equipment request data since {since_year}."
+    r = rows[0]
+    return (
+        f"Since {since_year}, {name} submitted {r['total']} equipment usage "
+        f"{'request' if r['total']==1 else 'requests'} across "
+        f"{r['tools_used'] or 0} "
+        f"{'tool' if (r['tools_used'] or 0)==1 else 'tools'}. "
+        f"Breakdown: {r['slot_booked'] or 0} slot-booked."
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RESERVATIONS
@@ -358,9 +423,10 @@ def _reservations_year(uid, name, year) -> str:
 def _compare_reservations(uid, name, years) -> str:
     if not uid:
         return f"Reservation data is not available for {name}."
+    is_comparison = len(years) == 2 # only add trend for exactly 2 years
     lines = [
         f"Slot reservation comparison for {name} "
-        f"({' vs '.join(str(y) for y in sorted(years))}):\n"
+        f"({'  '.join(str(y) for y in sorted(years))}):\n"
     ]
     for year in sorted(years):
         rows = slots_query("""
@@ -382,26 +448,26 @@ def _compare_reservations(uid, name, years) -> str:
             )
         else:
             lines.append(f"  {year}: No reservation data found.")
-
+    if is_comparison:
     # Trend
-    totals = {}
-    for yr in sorted(years):
-        r = slots_query(
-            "SELECT COUNT(*) AS total FROM reservations "
-            "WHERE memberid=%s AND YEAR(FROM_UNIXTIME(startdate))=%s AND isblackout=1",
-            (uid, yr)
-        )
-        totals[yr] = int(r[0]['total'] if r and r[0] else 0)
+        totals = {}
+        for yr in sorted(years):
+            r = slots_query(
+                "SELECT COUNT(*) AS total FROM reservations "
+                "WHERE memberid=%s AND YEAR(FROM_UNIXTIME(startdate))=%s AND isblackout=1",
+                (uid, yr)
+            )
+            totals[yr] = int(r[0]['total'] if r and r[0] else 0)
 
-    if len(years) == 2:
-        yr_sorted = sorted(years)
-        diff = totals[yr_sorted[1]] - totals[yr_sorted[0]]
-        if diff > 0:
-            lines.append(f"\n  Trend: +{diff} more reservations in {yr_sorted[1]}.")
-        elif diff < 0:
-            lines.append(f"\n  Trend: {abs(diff)} fewer reservations in {yr_sorted[1]}.")
-        else:
-            lines.append(f"\n  Trend: Same number of reservations in both years.")
+        if len(years) == 2:
+            yr_sorted = sorted(years)
+            diff = totals[yr_sorted[1]] - totals[yr_sorted[0]]
+            if diff > 0:
+                lines.append(f"\n  Trend: +{diff} more reservations in {yr_sorted[1]}.")
+            elif diff < 0:
+                lines.append(f"\n  Trend: {abs(diff)} fewer reservations in {yr_sorted[1]}.")
+            else:
+                lines.append(f"\n  Trend: Same number of reservations in both years.")
 
     return "\n".join(lines)
 
@@ -442,7 +508,7 @@ def _monthly_reservations(uid, name, year) -> str:
 # TOOL-SPECIFIC USAGE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _tool_specific_usage(uid, name, tool_hint, year=None) -> str:
+def _tool_specific_usage(uid, name, tool_hint, year=None, limit=None) -> str:
     if not uid:
         return f"Equipment usage data is not available for {name}."
 
@@ -455,6 +521,8 @@ def _tool_specific_usage(uid, name, tool_hint, year=None) -> str:
     tool_filter  = "AND LOWER(r.name) LIKE %s" if tool_hint else ""
     if tool_hint:
         params_base.append(f"%{tool_hint}%")
+     # Use requested limit or default 15
+    display_limit = limit if limit and 1 <= limit <= 50 else 15
 
     rows = slots_query(f"""
         SELECT
@@ -470,7 +538,7 @@ def _tool_specific_usage(uid, name, tool_hint, year=None) -> str:
           {tool_filter}
         GROUP BY r.machid, r.name
         ORDER BY times_requested DESC
-        LIMIT 15
+        LIMIT {display_limit}
     """, tuple(params_base))
 
     if not rows:
@@ -479,6 +547,7 @@ def _tool_specific_usage(uid, name, tool_hint, year=None) -> str:
         return f"{name} has no equipment usage records{hint_str} {period}."
 
     period_str = f"in {year}" if year else "overall"
+    top_label = f"Top {display_limit}" if limit else "Equipment usage"
     lines = [f"Equipment usage for {name} {period_str}:\n"]
     for r in rows:
         lines.append(
@@ -489,8 +558,35 @@ def _tool_specific_usage(uid, name, tool_hint, year=None) -> str:
             f"last: {str(r['last_used'])[:10] if r['last_used'] else 'unknown'}"
         )
     return "\n".join(lines)
-
-
+def _tool_permission_date(uid, name, tool_hint) -> str:
+    rows = slots_query("""
+        SELECT r.name AS tool_name,
+               DATE_FORMAT(STR_TO_DATE(p.date, '%%m/%%d/%%Y'), '%%d-%%m-%%Y') AS granted_on
+        FROM permissions p
+        JOIN resources r ON r.machid = p.machid
+        WHERE p.memberid=%s AND LOWER(r.name) LIKE LOWER(%s)
+        LIMIT 1
+    """, (uid, f"%{tool_hint}%"))
+    
+    if not rows:
+        return f"No permission record found for that tool for {name}."
+    return (
+        f"{name} was authorized to use {rows[0]['tool_name']} "
+        f"on {rows[0]['granted_on']}."
+    )
+def _logbook_top_tools(uid, name) -> str:
+    from models.staff import get_staff_logbook_stats, _get_uid_from_member
+    stats = get_staff_logbook_stats(uid)  # already cached
+    breakdown = stats.get("breakdown", [])
+    if not breakdown:
+        return f"{name} has no logbook entries on record."
+    top = breakdown[0]
+    lines = [f"{b['tool_name']}: {b['entries']} entries" for b in breakdown[:5]]
+    return (
+        f"{name}'s most used tool by logbook entries is "
+        f"{top['tool_name']} ({top['entries']} entries). "
+        f"Top tools: {', '.join(lines)}."
+    )
 # ══════════════════════════════════════════════════════════════════════════════
 # ATTENDANCE
 # ══════════════════════════════════════════════════════════════════════════════
@@ -572,9 +668,10 @@ def _attendance_pct_change(mid, name, y1, y2) -> str:
 def _compare_attendance(mid, name, years) -> str:
     if not mid:
         return f"Attendance data is not available for {name}."
+    is_comparison = len(years) == 2 # only add trend for exactly 2 years
     lines = [
         f"Attendance comparison for {name} "
-        f"({' vs '.join(str(y) for y in sorted(years))}):\n"
+        f"({'  '.join(str(y) for y in sorted(years))}):\n"
     ]
     totals = {}
     for year in sorted(years):
@@ -586,16 +683,17 @@ def _compare_attendance(mid, name, years) -> str:
         days = int(rows[0]['days_present'] if rows and rows[0] else 0)
         totals[year] = days
         lines.append(f"  {year}: {days} days present.")
-
-    if len(years) == 2:
-        yr_sorted = sorted(years)
-        diff = totals[yr_sorted[1]] - totals[yr_sorted[0]]
-        if diff > 0:
-            lines.append(f"\n  Trend: +{diff} more days present in {yr_sorted[1]}.")
-        elif diff < 0:
-            lines.append(f"\n  Trend: {abs(diff)} fewer days present in {yr_sorted[1]}.")
-        else:
-            lines.append(f"\n  Trend: Same attendance in both years.")
+    
+    if is_comparison:
+        if len(years) == 2:
+            yr_sorted = sorted(years)
+            diff = totals[yr_sorted[1]] - totals[yr_sorted[0]]
+            if diff > 0:
+                lines.append(f"\n  Trend: +{diff} more days present in {yr_sorted[1]}.")
+            elif diff < 0:
+                lines.append(f"\n  Trend: {abs(diff)} fewer days present in {yr_sorted[1]}.")
+            else:
+                lines.append(f"\n  Trend: Same attendance in both years.")
 
     return "\n".join(lines)
 
@@ -625,7 +723,31 @@ def _monthly_attendance(mid, name, year) -> str:
     lines.append(f"\n  Total {year}: {total_year} days present.")
     return "\n".join(lines)
 
-
+def _attendance_since_year(mid, name, since_year) -> str:
+    if not mid:
+        return f"Attendance data is not available for {name}."
+    from datetime import date as _date
+    current_year = _date.today().year
+    
+    rows = hr_query("""
+        SELECT YEAR(date) AS yr, COUNT(*) AS days_present
+        FROM user_attendance
+        WHERE memberid=%s AND YEAR(date) >= %s
+        GROUP BY YEAR(date)
+        ORDER BY yr
+    """, (mid, since_year))
+    
+    if not rows:
+        return f"{name} has no attendance records since {since_year}."
+    
+    grand_total = 0
+    lines = [f"Attendance for {name} since {since_year}:\n"]
+    for r in rows:
+        days = int(r['days_present'] or 0)
+        grand_total += days
+        lines.append(f"  {r['yr']}: {days} days present")
+    lines.append(f"\n  Total since {since_year}: {grand_total} days present.")
+    return "\n".join(lines)
 # ══════════════════════════════════════════════════════════════════════════════
 # LEAVES
 # ══════════════════════════════════════════════════════════════════════════════
@@ -652,6 +774,47 @@ def _leaves_year(mid, name, year) -> str:
     lines.append(f"\n  Total: {total} leave days in {year}.")
     return "\n".join(lines)
 
+# Add to query_router.py after _leaves_year():
+
+def _leaves_since_year(mid, name, since_year) -> str:
+    """Aggregate leave data from since_year to current year."""
+    if not mid:
+        return f"Leave data is not available for {name}."
+    from datetime import date as _date
+    current_year = _date.today().year
+    years = list(range(since_year, current_year + 1))
+    
+    rows = hr_query("""
+        SELECT YEAR(from_date) AS yr,
+               type_of_leave,
+               SUM(DATEDIFF(to_date, from_date) + 1) AS days_taken
+        FROM leaves
+        WHERE memberid=%s AND status=1 AND YEAR(from_date) >= %s
+        GROUP BY YEAR(from_date), type_of_leave
+        ORDER BY yr, type_of_leave
+    """, (mid, since_year))
+    
+    if not rows:
+        return f"{name} has no approved leave records since {since_year}."
+    
+    # Group by year
+    year_data = {}
+    for r in rows:
+        yr = r['yr']
+        if yr not in year_data:
+            year_data[yr] = {}
+        year_data[yr][r['type_of_leave']] = int(r['days_taken'] or 0)
+    
+    grand_total = 0
+    lines = [f"Leave taken by {name} since {since_year}:\n"]
+    for yr in sorted(year_data.keys()):
+        yr_total = sum(year_data[yr].values())
+        grand_total += yr_total
+        bd = ", ".join(f"{k}: {v}d" for k, v in year_data[yr].items())
+        lines.append(f"  {yr}: {yr_total} days ({bd})")
+    
+    lines.append(f"\n  Total since {since_year}: {grand_total} leave days.")
+    return "\n".join(lines)
 
 def _compare_leaves(mid, name, years) -> str:
     if not mid:
@@ -670,7 +833,34 @@ def _compare_leaves(mid, name, years) -> str:
         lines.append(f"  {year}: {days} leave day{'s' if days != 1 else ''} taken.")
     return "\n".join(lines)
 
-
+def _leave_entitlements(mid, name, can=True) -> str:
+    rows = hr_query("""
+        SELECT ml.type_of_leave, ml.max_leaves
+        FROM max_leaves ml
+        WHERE ml.memberid=%s
+    """, (mid,))
+    
+    if not rows:
+        # Fall back to role-based entitlements
+        rows = hr_query("""
+            SELECT ml.type_of_leave, ml.max_leaves
+            FROM max_leaves ml
+            JOIN role r ON r.memberid=%s
+            WHERE ml.memberid = r.memberid
+        """, (mid,))
+    
+    if not rows:
+        return f"No leave entitlement data found for {name}."
+    
+    if can:
+        lines = [f"{r['type_of_leave']}: up to {r['max_leaves']} days" for r in rows]
+        return f"{name} is entitled to: {', '.join(lines)}."
+    else:
+        # "can't take" — this needs policy context, not just DB data
+        return (
+            f"Leave types not listed in {name}'s entitlements "
+            f"would require special approval."
+        )
 # ══════════════════════════════════════════════════════════════════════════════
 # PUBLICATIONS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -764,7 +954,28 @@ def _training_summary(uid, name) -> str:
         f"{'piece' if (r['tools_trained'] or 0)==1 else 'pieces'} of equipment."
     )
 
-
+def _monthly_training(uid, name, year) -> str:
+    rows = slots_query("""
+        SELECT MONTH(date) AS month, COUNT(*) AS total
+        FROM training_report
+        WHERE memberid=%s AND YEAR(date)=%s
+        GROUP BY MONTH(date)
+        ORDER BY month
+    """, (uid, year))
+    
+    if not rows:
+        return f"{name} has no training records for {year}."
+    
+    lines = [
+        f"  {MONTH_DISPLAY[r['month']]}: {r['total']} session{'s' if r['total']!=1 else ''}"
+        for r in rows
+    ]
+    total = sum(r['total'] for r in rows)
+    return (
+        f"Monthly training breakdown for {name} in {year}:\n"
+        + "\n".join(lines)
+        + f"\n\n  Total: {total} training sessions."
+    )
 # ══════════════════════════════════════════════════════════════════════════════
 # PROJECTS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -820,3 +1031,76 @@ def _list_permissions(uid, name) -> str:
             f"{name} holds access permissions for {len(tool_names)} tools. "
             f"Includes: {first_five}, and {len(tool_names)-5} more."
         )
+# ADD at bottom of query_router.py:
+
+def _attendance_range(mid, name, years) -> str:
+    if not mid:
+        return f"Attendance data is not available for {name}."
+    lines = [f"Attendance for {name} ({years[0]}–{years[-1]}):\n"]
+    grand_total = 0
+    for year in years:
+        rows = hr_query(
+            "SELECT COUNT(*) AS days_present FROM user_attendance "
+            "WHERE memberid=%s AND YEAR(date)=%s", (mid, year)
+        )
+        days = int(rows[0]['days_present'] if rows and rows[0] else 0)
+        grand_total += days
+        lines.append(f"  {year}: {days} days present")
+    lines.append(f"\n  Total ({years[0]}–{years[-1]}): {grand_total} days present.")
+    return "\n".join(lines)
+
+
+def _slot_range(uid, name, years) -> str:
+    if not uid:
+        return f"Slot booking data is not available for {name}."
+    lines = [f"Equipment requests for {name} ({years[0]}–{years[-1]}):\n"]
+    grand_total = 0
+    for year in years:
+        rows = slots_query("""
+            SELECT COUNT(*) AS total,
+                   SUM(CASE WHEN status=3 THEN 1 ELSE 0 END) AS booked
+            FROM equipment_usage_approval
+            WHERE requestedby=%s AND YEAR(date_of_request)=%s
+        """, (uid, year))
+        total  = int(rows[0]['total']  if rows and rows[0] else 0)
+        booked = int(rows[0]['booked'] if rows and rows[0] else 0)
+        grand_total += total
+        lines.append(f"  {year}: {total} requests ({booked} slot-booked)")
+    lines.append(f"\n  Total ({years[0]}–{years[-1]}): {grand_total} requests.")
+    return "\n".join(lines)
+
+
+def _leaves_range(mid, name, years) -> str:
+    if not mid:
+        return f"Leave data is not available for {name}."
+    lines = [f"Leave taken by {name} ({years[0]}–{years[-1]}):\n"]
+    grand_total = 0
+    for year in years:
+        rows = hr_query(
+            "SELECT SUM(DATEDIFF(to_date,from_date)+1) AS total_days "
+            "FROM leaves WHERE memberid=%s AND status=1 AND YEAR(from_date)=%s",
+            (mid, year)
+        )
+        days = int(rows[0]['total_days'] if rows and rows[0] and rows[0]['total_days'] else 0)
+        grand_total += days
+        lines.append(f"  {year}: {days} leave days")
+    lines.append(f"\n  Total ({years[0]}–{years[-1]}): {grand_total} leave days.")
+    return "\n".join(lines)
+
+
+def _reservation_range(uid, name, years) -> str:
+    if not uid:
+        return f"Reservation data is not available for {name}."
+    lines = [f"Slot reservations for {name} ({years[0]}–{years[-1]}):\n"]
+    grand_total = 0
+    for year in years:
+        rows = slots_query(
+            "SELECT COUNT(*) AS total FROM reservations "
+            "WHERE memberid=%s AND YEAR(FROM_UNIXTIME(startdate))=%s AND isblackout=1",
+            (uid, year)
+        )
+        total = int(rows[0]['total'] if rows and rows[0] else 0)
+        grand_total += total
+        lines.append(f"  {year}: {total} reservations")
+    lines.append(f"\n  Total ({years[0]}–{years[-1]}): {grand_total} reservations.")
+    return "\n".join(lines)

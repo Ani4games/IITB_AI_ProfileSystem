@@ -236,7 +236,7 @@ def _generate_pdf_job(app, job_id: str, member_id: int, year: int):
                 return
 
             tool_perms_list = sanitize_list(tool_perms or [], limit=30)  # limit for PDF readability
-
+            perms_safe = (perms or [])[:50]  # cap permissions list too
             raw_slot = slot_act or {}
             slot_activity = {k: v for k, v in raw_slot.items() if k != "rows"}
             slot_activity["rows"] = []
@@ -256,7 +256,7 @@ def _generate_pdf_job(app, job_id: str, member_id: int, year: int):
                 att                = safe_json(attendance or {}),
                 slot_activity      = slot_activity,
                 logbook_entries    = logbook_stats or {},
-                permissions        = perms or [],
+                permissions        = perms_safe or [],
                 system_owned       = system_owned,
                 system_owner_track = system_owner_track,
                 tool_perms_rich    = tool_perms_list,
