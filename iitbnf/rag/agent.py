@@ -19,15 +19,13 @@ Just import and use this in your routes or chat handler.
 import re
 import logging
 
-from flask import ctx
-
-from rag.pipeline import rag_stream, rag_generate, rag_chat
+from rag.pipeline import rag_generate, rag_chat
 from rag.tier0 import lookup as tier0_lookup
 from rag.query_router import route as structured_route
 from rag.facility_router import route_facility
 from rag.data_gatherer import gather
 from rag.intent_router import classify_intent
-# Add near top of agent.py, after imports:
+
 from llm import is_llm_available
 
 SLM_UNAVAILABLE_MSG = (
@@ -67,8 +65,6 @@ def _answer_without_slm(question: str, ctx: dict) -> str:
     
     return (
         "I couldn't find a specific answer to that question in the available data. "
-        "Please try rephrasing or ask about a specific field like attendance, "
-        "equipment requests, publications, or projects."
     )
 logger = logging.getLogger(__name__)
 
@@ -218,7 +214,98 @@ def _format_gathered(gathered: dict) -> str:
 
     return "Data retrieved but could not be formatted."
 # ── Public agent API ──────────────────────────────────────────────────────────
+# ADD this helper function near the bottom of agent.py (before agent_stream):
 
+def _handle_monthly_attendance(clean_message: str, ctx: dict, slm_ok: bool) -> dict | None:
+    """
+    Handle single or multi-month attendance queries.
+    Returns a result dict if handled, None to fall through.
+    """
+    MONTH_MAP_ORDERED = [
+        ('january', 1), ('february', 2), ('march', 3), ('april', 4),
+        ('may', 5), ('june', 6), ('july', 7), ('august', 8),
+        ('september', 9), ('october', 10), ('november', 11), ('december', 12),
+        ('jan', 1), ('feb', 2), ('mar', 3), ('apr', 4),
+        ('jun', 6), ('jul', 7), ('aug', 8), ('sep', 9), ('sept', 9),
+        ('oct', 10), ('nov', 11), ('dec', 12),
+    ]
+    MONTH_DISPLAY = {
+        1:'January', 2:'February', 3:'March', 4:'April',
+        5:'May', 6:'June', 7:'July', 8:'August',
+        9:'September', 10:'October', 11:'November', 12:'December'
+    }
+
+    q_lower = clean_message.lower()
+    year_match = re.search(r'\b(20\d{2})\b', clean_message)
+    year_val = int(year_match.group(1)) if year_match else None
+
+    # Collect ALL distinct months mentioned, preserving order of appearance
+    found_months = []
+    for name, num in MONTH_MAP_ORDERED:
+        if re.search(r'\b' + re.escape(name) + r'\b', q_lower):
+            if num not in found_months:
+                found_months.append(num)
+
+    if not found_months or not year_val:
+        return None
+
+    mid = ctx.get("member_id")
+    name = ctx.get("name", "This person")
+    if not mid:
+        return None
+
+    from db import hr_query as _hrq
+
+    if len(found_months) == 1:
+        month_num = found_months[0]
+        rows = _hrq(
+            "SELECT COUNT(*) AS days FROM user_attendance "
+            "WHERE memberid=%s AND MONTH(date)=%s AND YEAR(date)=%s",
+            (mid, month_num, year_val)
+        )
+        days = int(rows[0]['days'] if rows and rows[0] else 0)
+        mname = MONTH_DISPLAY.get(month_num, str(month_num))
+        answer = (f"{name} was present for {days} working "
+                  f"{'day' if days == 1 else 'days'} in {mname} {year_val}.")
+        return {"answer": answer, "mode": "attendance_monthly",
+                "label": "Monthly Attendance", "confidence": "high",
+                "success": True, "tier": 1, "slm_available": slm_ok}
+    else:
+        # Multi-month: query each month
+        month_data = []
+        for month_num in found_months:
+            rows = _hrq(
+                "SELECT COUNT(*) AS days FROM user_attendance "
+                "WHERE memberid=%s AND MONTH(date)=%s AND YEAR(date)=%s",
+                (mid, month_num, year_val)
+            )
+            days = int(rows[0]['days'] if rows and rows[0] else 0)
+            month_data.append((MONTH_DISPLAY.get(month_num, str(month_num)), days))
+
+        lines = [f"{mname}: {days} {'day' if days == 1 else 'days'} present"
+                 for mname, days in month_data]
+
+        if len(month_data) == 2:
+            diff = month_data[1][1] - month_data[0][1]
+            if diff > 0:
+                trend = (f"{name} was present {diff} more "
+                         f"{'day' if diff == 1 else 'days'} in "
+                         f"{month_data[1][0]} than {month_data[0][0]}.")
+            elif diff < 0:
+                trend = (f"{name} was present {abs(diff)} fewer "
+                         f"{'day' if abs(diff) == 1 else 'days'} in "
+                         f"{month_data[1][0]} than {month_data[0][0]}.")
+            else:
+                trend = f"{name} had the same attendance in both months."
+            answer = (f"Monthly attendance comparison for {name} in {year_val}:\n"
+                      f"{chr(10).join(lines)}\n{trend}")
+        else:
+            answer = (f"Monthly attendance for {name} in {year_val}:\n"
+                      f"{chr(10).join(lines)}")
+
+        return {"answer": answer, "mode": "attendance_monthly_comparison",
+                "label": "Monthly Attendance Comparison", "confidence": "high",
+                "success": True, "tier": 1, "slm_available": slm_ok}
 # REPLACE agent_stream() in agent.py:
 def agent_stream(user_message: str, ctx: dict):
     """
@@ -261,13 +348,20 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
         "share", "do", "are", "any", "which", "compare", "difference",
     )
     clean_message = normalize_question(user_message)
-    # After: clean_message = normalize_question(user_message)
-    # ADD:
-    person_name = ctx.get("name", "")
-    if person_name and person_name.lower() not in clean_message.lower():
-        # Inject name for pronouns and short follow-up questions
-        if clean_message.strip().lower().startswith(("what about", "and in", "how about")):
-            clean_message = clean_message + f" for {person_name}"
+    # Short ambiguous queries that are about facility policy, not profile data
+    _FACILITY_TRIGGERS = ['working day', 'working hour', 'open hour', 'timing', 
+                        'operating hour', 'iitbnf hour', 'iitbnf time', 'iitbnf day']
+    if any(t in clean_message.lower() for t in _FACILITY_TRIGGERS):
+        fac = route_facility(clean_message)
+        if fac:
+            return {"answer": fac, "mode": "facility_knowledge",
+                    "label": "Facility Knowledge", "confidence": "high",
+                    "success": True, "tier": 1.5, "slm_available": slm_ok}
+        person_name = ctx.get("name", "")
+        if person_name and person_name.lower() not in clean_message.lower():
+            # Inject name for pronouns and short follow-up questions
+            if clean_message.strip().lower().startswith(("what about", "and in", "how about")):
+                clean_message = clean_message + f" for {person_name}"
     # Detect compound questions with "and" joining two intents
     # In agent_generate(), BEFORE the compound question check, add:
     # Don't split if the question contains two years (it's a comparison, not compound)
@@ -331,6 +425,23 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
         intent_label, intent_method = classify_intent(clean_message)
         logger.info("[Agent] intent=%s method=%s query=%r", intent_label, intent_method, clean_message[:60])
 
+        # ── FACILITY INFO: early exit regardless of regex/minilm method ──────────
+        # Must be checked before the MiniLM wiring block because facility_info
+        # can be detected by regex, and the normal tier waterfall (structured_route,
+        # tier0_lookup) returns None for policy questions, causing silent fallthrough.
+        if intent_label == "facility_info":
+            fac = route_facility(clean_message)
+            if fac:
+                return {"answer": fac, "mode": "facility_knowledge",
+                        "label": "Facility Knowledge", "confidence": "high",
+                        "success": True, "tier": 1.5, "slm_available": slm_ok}
+
+        # ── ATTENDANCE_MONTHLY: early exit handles single and multi-month ────────
+        if intent_label == "attendance_monthly":
+            result = _handle_monthly_attendance(clean_message, ctx, slm_ok)
+            if result:
+                return result
+
         # ── MiniLM WIRING ────────────────────────────────────────────────────────
         # MiniLM only fires when regex failed — meaning the question used unusual
         # phrasing that keyword matching missed. We inject a canonical keyword into
@@ -339,6 +450,9 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
         # NOTE: we only act on MiniLM results, not regex results — if method is
         # "regex" the label is already implicit in the question text and the
         # normal tier waterfall below handles it fine.
+        # ADD this block right after: intent_label, intent_method = classify_intent(clean_message)
+        # and before: if intent_method == "minilm":
+
 
         if intent_method == "minilm":
             _aug = clean_message   # default: pass question unchanged
@@ -346,14 +460,88 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
             if intent_label == "attendance":
                 # MiniLM caught phrasing like "how punctual is X" — inject "attendance"
                 _aug = clean_message + " attendance"
-
+            if intent_label == "attendance_monthly":
+                result = _handle_monthly_attendance(clean_message, ctx, slm_ok)
+                if result:
+                    return result
             elif intent_label == "compare_attend":
                 _aug = clean_message + " compare attendance"
-
+            # ADD before the elif intent_label == "equipment_year" block
+        elif intent_label == "equipment_year":
+            # Check if question also contains a month name → monthly breakdown
+            MONTH_MAP = {
+                'jan': 1, 'january': 1, 'feb': 2, 'february': 2,
+                'mar': 3, 'march': 3, 'apr': 4, 'april': 4,
+                'may': 5, 'jun': 6, 'june': 6, 'jul': 7, 'july': 7,
+                'aug': 8, 'august': 8, 'sep': 9, 'sept': 9, 'september': 9,
+                'oct': 10, 'october': 10, 'nov': 11, 'november': 11,
+                'dec': 12, 'december': 12,
+            }
+            q_lower = clean_message.lower()
+            month_num = next((v for k, v in MONTH_MAP.items() if k in q_lower), None)
+            year_match = re.search(r'\b(20\d{2})\b', clean_message)
+            year_val = int(year_match.group(1)) if year_match else None
+            
+            if month_num and year_val:
+                uid = ctx.get("slot_uid")
+                name = ctx.get("name", "This person")
+                if uid:
+                    from db import slots_query as _sq
+                    rows = _sq("""
+                        SELECT COUNT(*) AS total,
+                            SUM(CASE WHEN status=3 THEN 1 ELSE 0 END) AS booked,
+                            SUM(CASE WHEN status=0 THEN 1 ELSE 0 END) AS pending,
+                            SUM(CASE WHEN status=2 THEN 1 ELSE 0 END) AS rejected,
+                            COUNT(DISTINCT equipmentid) AS tools
+                        FROM equipment_usage_approval
+                        WHERE requestedby=%s 
+                        AND MONTH(date_of_request)=%s 
+                        AND YEAR(date_of_request)=%s
+                    """, (uid, month_num, year_val))
+                    month_names = {1:'January',2:'February',3:'March',4:'April',
+                                5:'May',6:'June',7:'July',8:'August',
+                                9:'September',10:'October',11:'November',12:'December'}
+                    mname = month_names.get(month_num, str(month_num))
+                    r = rows[0] if rows and rows[0] else {}
+                    total = int(r.get('total') or 0)
+                    if total == 0:
+                        answer = f"{name} has no equipment request data for {mname} {year_val}."
+                    else:
+                        answer = (f"In {mname} {year_val}, {name} submitted {total} equipment "
+                                f"{'request' if total==1 else 'requests'} across "
+                                f"{int(r.get('tools') or 0)} tools. "
+                                f"Breakdown: {int(r.get('booked') or 0)} slot-booked, "
+                                f"{int(r.get('pending') or 0)} pending, "
+                                f"{int(r.get('rejected') or 0)} rejected.")
+                    return {"answer": answer, "mode": "slot_monthly",
+                            "label": "Monthly Slot Activity", "confidence": "high",
+                            "success": True, "tier": 1, "slm_available": slm_ok}
             elif intent_label in ("equipment_year", "equipment_count"):
                 _aug = clean_message + " equipment requests"
 
             elif intent_label == "equipment_list":
+                if any(kw in clean_message.lower() for kw in ['logbook', 'log book', 'session log', 'entries']):
+                    uid = ctx.get("slot_uid")
+                    if not uid:
+                        from models.staff import _get_uid_from_member
+                        uid = _get_uid_from_member(ctx.get("member_id"))
+                    if uid:
+                        from models.staff import get_staff_logbook_stats
+                        # Extract N from "top 3", "top 5" etc.
+                        top_n_match = re.search(r'\btop\s+(\d+)\b', clean_message, re.I)
+                        top_n = int(top_n_match.group(1)) if top_n_match else 5
+                        stats = get_staff_logbook_stats(uid)
+                        breakdown = stats.get("breakdown", [])[:top_n]
+                        name = ctx.get("name", "This person")
+                        if not breakdown:
+                            answer = f"{name} has no logbook entries on record."
+                        else:
+                            lines = [f"{b['tool_name']}: {b['entries']} entries" for b in breakdown]
+                            answer = (f"{name}'s top {len(breakdown)} most used equipment by logbook entries: "
+                                    + "; ".join(lines) + ".")
+                        return {"answer": answer, "mode": "logbook_top_n",
+                                "label": "Logbook Top N", "confidence": "high",
+                                "success": True, "tier": 1, "slm_available": slm_ok}
                 _aug = clean_message + " which tools"
 
             elif intent_label == "publication":
@@ -392,6 +580,46 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
                 _aug = clean_message + " designation role"
             elif intent_label == "attendance_year":
                 _aug = clean_message + " attendance days present"
+            elif intent_label == "attendance_monthly":
+                # Extract month name and year from the question
+                
+                MONTH_MAP = {
+                    'jan': 1, 'january': 1, 'feb': 2, 'february': 2,
+                    'mar': 3, 'march': 3, 'apr': 4, 'april': 4,
+                    'may': 5, 'jun': 6, 'june': 6, 'jul': 7, 'july': 7,
+                    'aug': 8, 'august': 8, 'sep': 9, 'sept': 9, 'september': 9,
+                    'oct': 10, 'october': 10, 'nov': 11, 'november': 11,
+                    'dec': 12, 'december': 12,
+                }
+                q_lower = clean_message.lower()
+                month_num = None
+                for mname, mnum in MONTH_MAP.items():
+                    if mname in q_lower:
+                        month_num = mnum
+                        break
+                year_match = re.search(r'\b(20\d{2})\b', clean_message)
+                year_val = int(year_match.group(1)) if year_match else None
+                
+                if month_num and year_val:
+                    mid = ctx.get("member_id")
+                    name = ctx.get("name", "This person")
+                    if mid:
+                        from db import hr_query
+                        rows = hr_query(
+                            "SELECT COUNT(*) AS days FROM user_attendance "
+                            "WHERE memberid=%s AND MONTH(date)=%s AND YEAR(date)=%s",
+                            (mid, month_num, year_val)
+                        )
+                        days = int(rows[0]['days'] if rows and rows[0] else 0)
+                        month_names = {1:'January',2:'February',3:'March',4:'April',
+                                    5:'May',6:'June',7:'July',8:'August',
+                                    9:'September',10:'October',11:'November',12:'December'}
+                        mname_display = month_names.get(month_num, str(month_num))
+                        answer = (f"{name} was present for {days} working "
+                                f"{'day' if days==1 else 'days'} in {mname_display} {year_val}.")
+                        return {"answer": answer, "mode": "attendance_monthly",
+                                "label": "Monthly Attendance", "confidence": "high",
+                                "success": True, "tier": 1, "slm_available": slm_ok}
             elif intent_label == "logbook":
                 # Logbook needs a direct DB call — tier0 and structured_route
                 # don't have keyword coverage for unusual logbook phrasing

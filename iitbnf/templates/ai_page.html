@@ -120,18 +120,6 @@
     .ctx-stat-val {
       font-size: .82rem; color: var(--fg); font-weight: 500;
     }
-    .ctx-back-link {
-      margin-top: auto; padding-top: 1rem;
-      display: flex; flex-direction: column; gap: .4rem;
-    }
-    .ctx-back-link a {
-      font-family: var(--font-mono); font-size: .62rem;
-      color: var(--muted); text-decoration: none;
-      display: flex; align-items: center; gap: .35rem;
-      transition: color .15s;
-    }
-    .ctx-back-link a:hover { color: var(--amber); }
-
     /* ── Right chat panel ────────────────────────────────────────── */
     .ai-chat-panel {
       display: flex; flex-direction: column;
@@ -441,13 +429,6 @@
         <span class="ctx-stat-val">{{ ctx.research_area }}</span>
       </div>
       {% endif %}
-
-      <div class="ctx-back-link">
-        <a href="/{{ 'lab' if profile_type == 'lab' else 'profile' }}/{{ profile_id }}">
-          ← Back to Profile
-        </a>
-        <a href="{{ url_for('admin_panel.index') }}#hub">← Hub</a>
-      </div>
     </div>
 
     <!-- RIGHT: Chat Panel -->

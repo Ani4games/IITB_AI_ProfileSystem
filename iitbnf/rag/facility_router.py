@@ -22,7 +22,9 @@ ABOUT_KEYWORDS = ['what is iitbnf','about iitbnf','about the facility',
                   'where is the facility',                 
                   'location of iitbnf',                    
                   'address of iitbnf',                     
-                  'iit bombay nanofabrication facility']   
+                  'iit bombay nanofabrication facility',
+                  'working days of iitbnf','iitbnf working days',
+                  'iitbnf timing','iitbnf hours','iitbnf open'] 
 
 TEAM_KEYWORDS     = ['team','staff','who works','roles','positions',
                      'hr team','it team','faculty incharge',
@@ -39,7 +41,10 @@ EQUIPMENT_KEYWORDS= ['what equipment','list of equipment','which machine',
 
 POLICY_KEYWORDS   = ['attendance policy','leave policy','75 percent',
                      'mandatory attendance','threshold','leave type',
-                     'how many leaves','working hours','operating hours']
+                     'how many leaves','working hours','operating hours',
+                     'working days','work hours','opening hours','open hours',
+                     'timing','timings','working time','what time','open time',
+                     'facility hours','lab hours','when is','when does']
 
 CONTACT_KEYWORDS  = ['contact','who to contact','reach out','support',
                      'help desk','report issue','equipment problem',
@@ -71,6 +76,12 @@ def route_facility(question: str) -> str | None:
 
         if 'how many equipment' in q or 'total equipment' in q or 'how many tool' in q:
             return _live_equipment_count()
+
+        if any(k in q for k in ['working day', 'work day', 'working hour', 'work hour',
+                                'opening hour', 'open hour', 'timing', 'what time',
+                                'when open', 'when does iitbnf', 'facility hour',
+                                'operating hour', 'lab hour']):
+            return _attendance_policy()
 
         # ── Keyword groups after ───────────────────────────────────────────
         if _has_any(q, ABOUT_KEYWORDS):
@@ -159,6 +170,9 @@ def _equipment_overview() -> str:
 def _attendance_policy() -> str:
     return (
         "IITBNF attendance and leave policy:\n\n"
+        "  Working hours       : 9:00 AM to 6:00 PM.\n"
+        "  Break time          : 1 hour for lunch, between 1 pm to 2 pm.\n"
+        "  Opening hours       : 9:00 AM to 5:00 PM.\n"
         "  Mandatory threshold : 75% attendance of working days per year.\n"
         "  Staff below 75%     : May be flagged for management review.\n"
         "  Working days        : Monday to Friday, excluding institute holidays.\n\n"

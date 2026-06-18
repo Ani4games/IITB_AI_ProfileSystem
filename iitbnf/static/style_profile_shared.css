@@ -340,7 +340,7 @@ body {
 .card-big.good  { color: var(--green); }
 .card-big.warn  { color: var(--amber); }
 .card-big.bad   { color: var(--red); }
-.card-sub       { font-size: .90rem; color: var(--muted); }
+.card-sub       { font-size: .85rem; color: var(--muted); }
 .card-pills     { display: flex; flex-wrap: wrap; gap: .28rem; margin-top: .08rem; }
 .cpill {
   font-size: .6rem; font-weight: 700; font-family: var(--font-mono);
@@ -454,7 +454,7 @@ body {
 .mm-val .pending { color: var(--amber); }
 .mm-val .rejected{ color: var(--red); }
 .mm-key {
-  font-size: 1.25rem; color: var(--muted);
+  font-size: 1.05rem; color: var(--muted);
   margin-top: .22rem; text-transform: uppercase; letter-spacing: .05em;
 }
 
@@ -464,7 +464,7 @@ body {
 /* Modal table */
 .modal-table { width: 100%; border-collapse: collapse; font-size: 1.05rem; }
 .modal-table th {
-  font-family: var(--font-mono); font-size: 1.25rem; color: var(--amber);
+  font-family: var(--font-mono); font-size: 1.05rem; color: var(--amber);
   letter-spacing: .07em; text-transform: uppercase;
   padding: .38rem .55rem; text-align: left;
   border-bottom: 1px solid var(--border2); white-space: nowrap;
@@ -472,7 +472,7 @@ body {
 .modal-table td {
   padding: .38rem .55rem; border-bottom: 1px solid var(--border);
   color: var(--fg); vertical-align: middle;
-  white-space: nowrap; min-width: 0;
+  white-space: nowrap; min-width: 0; font-size: 1.05rem;
 }
 .modal-table tr:last-child td { border-bottom: none; }
 .modal-table tr:hover td      { background: var(--surface2); }
@@ -481,7 +481,7 @@ body {
 /* Status tags */
 .cell-muted { color: var(--muted); font-size: 1.25rem; }
 .cell-mono  { font-family: var(--font-mono); font-size: 1.25rem; color: var(--amber); }
-.stag       { display: inline-block; font-family: var(--font-mono); font-size: 1.25rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: .1rem .42rem; border-radius: 4px; }
+.stag       { display: inline-block; font-family: var(--font-mono); font-size: 1.05rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: .1rem .42rem; border-radius: 4px; }
 .stag-green  { background: var(--green-dim); color: var(--green); }
 .stag-orange { background: var(--amber-dim); color: var(--orange); }
 .stag-amber  { background: var(--amber-dim); color: var(--amber); }

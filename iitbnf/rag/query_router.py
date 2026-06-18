@@ -19,7 +19,6 @@ Query categories handled:
 Returns None if no structured route matches → falls through to SLM.
 """
 
-from os import name
 import re
 import logging
 from db import slots_query, hr_query

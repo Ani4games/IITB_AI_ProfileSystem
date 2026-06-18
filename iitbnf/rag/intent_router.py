@@ -42,7 +42,16 @@ logger = logging.getLogger(__name__)
 _RULES = [
     # ── Compare patterns (must come before single-year patterns) ──────────────
     # Replace the existing compare rule with two more specific ones:
-
+    # ADD this BEFORE the existing attendance rule in _RULES:
+    (re.compile(
+        r"\b(attendance policy|leave policy|mandatory threshold|75 percent|75%|"
+        r"working hour|working day of iitbnf|iitbnf hour|iitbnf time|iitbnf day|"
+        r"iitbnf schedule|iitbnf timing|iitbnf work|"
+        r"where is iitbnf|about iitbnf|what is iitbnf|iitbnf located|"
+        r"how many (staff|user|member|lab user)|total (staff|user|member)|"
+        r"active (staff|user)|headcount)\b",
+        re.I
+    ), "facility_info"),
     (re.compile(
         r"(\bcompare\b|\bvs\b|\bversus\b|\bdifference between\b|\bchange from\b)"
         r".{0,40}(attend|present|day|regular)",
@@ -70,7 +79,20 @@ _RULES = [
         r"(slot|equipment|request|booking|reservation|active|usage).{0,40}\b20\d{2}\b",
         re.I
     ), "equipment_year"),
-    # ADD to _RULES, before the attendance rule:
+    # -- Attendance patterns with month context (e.g. "January attendance") — must come before generic attendance rule:
+    (re.compile(
+        r"\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+        r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
+        r"dec(?:ember)?)\b.{0,30}(attend|present|days?)",
+        re.I
+    ), "attendance_monthly"),
+    (re.compile(
+        r"(attend|present|days?).{0,30}\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|"
+        r"apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|"
+        r"oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b",
+        re.I
+    ), "attendance_monthly"),
+    # -- Year + attendance patterns:
     (re.compile(
         r"\b20\d{2}\b.{0,40}(attend|present|days?|working day)",
         re.I
@@ -203,6 +225,15 @@ _ANCHORS = {
         "attendance percent for X",
         "what percentage did X attend",
     ],
+    # ADD inside _ANCHORS dict:
+    "attendance_monthly": [
+        "attendance in January 2026",
+        "how many days was X present in March",
+        "share X attendance in Feb 2025",
+        "attendance for January",
+        "days present in December 2024",
+        "how regular was X in June",
+    ],
     "compare": [
         "compare X slot activity in 2025 and 2026",
         "how did X booking change from 2025 to 2026",
@@ -330,6 +361,14 @@ _ANCHORS = {
         "what is IITBNF",
         "tell me about IITBNF",
         "about the facility",
+        "what are the working days at iitbnf",
+        "working days iitbnf",
+        "how many days does iitbnf operate",
+        "when is iitbnf open",
+        "working hours iitbnf",
+        "what time does iitbnf open",
+        "iitbnf schedule",
+        "iitbnf timings",
     ],
 }
 

@@ -118,7 +118,7 @@ def lab_profile(memberid):
     avail_data = get_available_years(memberid=memberid)
     avail_years, best_year = avail_data if avail_data else ([date.today().year], date.today().year)
     year = request.args.get("year", type=int) or best_year
-
+    _can_see_errors = is_full_access()  # evaluate here, in request context
     data = run_parallel({
         "user":            lambda: get_lab_user(memberid),
         "stats":           lambda: get_lab_stats(memberid),
@@ -127,7 +127,7 @@ def lab_profile(memberid):
         "lab_access":      lambda: get_lab_access_log(memberid, year),
         "projects":        lambda: _get_lab_projects(memberid),
         "cancellations":   lambda: get_lab_cancellations(memberid),
-        "errors":          lambda: get_lab_errors(memberid) if is_full_access() else [],
+        "errors":          lambda: get_lab_errors(memberid) if _can_see_errors else [],
         "reg":             lambda: get_lab_registration(memberid),
         "session_reports": lambda: get_session_reports(memberid),
         "tool_perms_rich": lambda: get_member_tool_permissions(memberid),
