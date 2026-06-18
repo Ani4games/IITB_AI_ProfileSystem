@@ -45,7 +45,7 @@ def _make_single_conn(db_config):
     import socket as _socket
     conn = pymysql.connect(
         host            = db_config.get("host", "localhost"),
-        port            = db_config.get("port", 3306),
+        port            = int(db_config.get("port", 3306)),
         user            = db_config["user"],
         password        = db_config["password"],
         database        = db_config["database"],

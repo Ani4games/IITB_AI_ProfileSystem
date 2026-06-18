@@ -391,7 +391,12 @@ def _load_minilm():
         try:
             from sentence_transformers import SentenceTransformer
             logger.info("[IntentRouter] Loading all-MiniLM-L6-v2...")
-            _minilm_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+            import os
+            cache_dir = os.path.join(os.path.dirname(__file__), "..", "models", "minilm")
+            _minilm_model = SentenceTransformer(
+                "sentence-transformers/all-MiniLM-L6-v2",
+                cache_folder=cache_dir if os.path.exists(cache_dir) else None,
+            )
 
             labels, phrases = [], []
             for intent, anchor_phrases in _ANCHORS.items():

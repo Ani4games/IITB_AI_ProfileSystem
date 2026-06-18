@@ -3,25 +3,29 @@ config.py — All environment variables, DB config, and constants.
 """
 import os
 from datetime import timedelta
+import sys
 
-# config.py — replace DB_HR and DB_SLOTS entirely
+_use_pipe = sys.platform == "win32"
+
 DB_HR = {
-    "host":     os.getenv("DB_HOST", "127.0.0.1"),
+    "host":     os.getenv("DB_HOST", "localhost"),
     "port":     int(os.getenv("DB_PORT", 3306)),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "hr_portal",
     "charset":  "utf8mb4",
-    "use_named_pipe": False,
+    "use_named_pipe": _use_pipe,
+    "pipe_name":      "MySQL",
 }
 DB_SLOTS = {
-    "host":     os.getenv("DB_HOST", "127.0.0.1"),
+    "host":     os.getenv("DB_HOST", "localhost"),
     "port":     int(os.getenv("DB_PORT", 3306)),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "slotbooking",
     "charset":  "utf8mb4",
-    "use_named_pipe": False,
+    "use_named_pipe": _use_pipe,
+    "pipe_name":      "MySQL",
 }
 
 # ── AI ────────────────────────────────────────────────────────────────────────

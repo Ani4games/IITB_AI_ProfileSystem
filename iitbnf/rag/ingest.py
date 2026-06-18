@@ -275,7 +275,16 @@ def ingest_text_files() -> list[dict]:
     Ingest plain text knowledge documents from documents/ directory.
     These provide facility-specific context that enriches RAG responses.
     """
-    txt_files = list(DOCUMENTS_DIR.glob("**/*.txt")) if DOCUMENTS_DIR.exists() else []
+    docs_subdir = DOCUMENTS_DIR / "documents"
+    if not docs_subdir.exists():
+        # Fallback: look in root but exclude venv, rag, routes, static, templates
+        EXCLUDE = {"venv", "rag", "routes", "static", "templates", "tmp", ".git"}
+        txt_files = [
+            p for p in DOCUMENTS_DIR.glob("*.txt")  # non-recursive, root only
+            if p.parent.name not in EXCLUDE
+        ]
+    else:
+        txt_files = list(docs_subdir.glob("**/*.txt"))
     if not txt_files:
         logger.info("No .txt files found — skipping text ingestion.")
         return []
