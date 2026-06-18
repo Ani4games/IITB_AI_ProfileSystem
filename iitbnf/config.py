@@ -7,21 +7,23 @@ from datetime import timedelta
 # ── Database ──────────────────────────────────────────────────────────────────
 DB_HR = {
     "host":     os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT",3306)),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "hr_portal",
     "charset":  "utf8mb4",
-    "use_named_pipe": True,
-    "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
+    "use_named_pipe": False,
+    # "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
 }
 DB_SLOTS = {
     "host":     os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT",3306)),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "slotbooking",
     "charset":  "utf8mb4",
-    "use_named_pipe": True,
-    "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
+    "use_named_pipe": False,
+    # "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
 }
 
 # ── AI ────────────────────────────────────────────────────────────────────────
