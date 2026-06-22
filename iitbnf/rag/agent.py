@@ -369,38 +369,41 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
     has_compound_marker = bool(re.search(r'\band\b|\balso\b', clean_message, re.I))
     if has_compound_marker and year_count < 2:
         parts = re.split(r'\band\b|\balso\b', clean_message, flags=re.I)
-        if len(parts) == 2:
-            answers = []
-            person_name = ctx.get("name", "")
-            for part in parts:
-                part = part.strip()
-                if not part:
-                    continue
-                if person_name and person_name.lower() not in part.lower():
-                    part += f"{person_name}'s {part.lstrip('the').lstrip('their')}"
-                # Try all tiers for each part
-                a = structured_route(part, ctx)
-                if not a:
-                    fast = tier0_lookup(part, ctx)
-                    if fast:
-                        a = fast["answer"]
-                if not a and len(part.split()) > 2:  # only call facility for substantive parts
-                    a = route_facility(part)
-                if not a:
-                    a = route_facility(part)    
-                if not a:
-                # Return explicit "not found" so both parts always surface
-                    a = f"No data found for: '{part.strip()}'" 
-                if a:
-                    answers.append(a)
-            if len(answers) >= 1:
-                return {"answer": answers[0] + "\n\n" + answers[1],
-                        "mode": "compound", "label": "Compound Question",
-                        "confidence": "medium", "success": True,
-                        "tier": 1, "slm_available": slm_ok}
-            elif len(answers) == 1:
-                # Only one part answered — return it but don't claim compound success
-                pass  # fall through to normal processing
+        if len(parts) < 2:
+            pass
+        else:
+            if len(parts) == 2:
+                answers = []
+                person_name = ctx.get("name", "")
+                for part in parts:
+                    part = part.strip()
+                    if not part:
+                        continue
+                    if person_name and person_name.lower() not in part.lower():
+                        part += f"{person_name}'s {part.lstrip('the').lstrip('their')}"
+                    # Try all tiers for each part
+                    a = structured_route(part, ctx)
+                    if not a:
+                        fast = tier0_lookup(part, ctx)
+                        if fast:
+                            a = fast["answer"]
+                    if not a and len(part.split()) > 2:  # only call facility for substantive parts
+                        a = route_facility(part)
+                    if not a:
+                        a = route_facility(part)    
+                    if not a:
+                    # Return explicit "not found" so both parts always surface
+                        a = f"No data found for: '{part.strip()}'" 
+                    if a:
+                        answers.append(a)
+                if len(answers) >= 1:
+                    return {"answer": answers[0] + "\n\n" + answers[1],
+                            "mode": "compound", "label": "Compound Question",
+                            "confidence": "medium", "success": True,
+                            "tier": 1, "slm_available": slm_ok}
+                elif len(answers) == 1:
+                    # Only one part answered — return it but don't claim compound success
+                    pass  # fall through to normal processing
     is_question = (
         any(clean_message.strip().lower().startswith(w) for w in QUESTION_STARTERS)
         or clean_message.strip().endswith("?")

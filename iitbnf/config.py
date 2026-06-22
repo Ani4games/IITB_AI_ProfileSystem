@@ -3,29 +3,25 @@ config.py — All environment variables, DB config, and constants.
 """
 import os
 from datetime import timedelta
-import sys
 
-_use_pipe = sys.platform == "win32"
-
+# ── Database ──────────────────────────────────────────────────────────────────
 DB_HR = {
     "host":     os.getenv("DB_HOST", "localhost"),
-    "port":     int(os.getenv("DB_PORT", 3306)),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "hr_portal",
     "charset":  "utf8mb4",
-    "use_named_pipe": _use_pipe,
-    "pipe_name":      "MySQL",
+    "use_named_pipe": True,
+    "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
 }
 DB_SLOTS = {
     "host":     os.getenv("DB_HOST", "localhost"),
-    "port":     int(os.getenv("DB_PORT", 3306)),
     "user":     os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASS", "Ani4MariaDB"),
     "database": "slotbooking",
     "charset":  "utf8mb4",
-    "use_named_pipe": _use_pipe,
-    "pipe_name":      "MySQL",
+    "use_named_pipe": True,
+    "pipe_name":      "MySQL",    # matches your socket=MySQL in my.ini
 }
 
 # ── AI ────────────────────────────────────────────────────────────────────────
@@ -35,6 +31,7 @@ AI_MODE      = "llamacpp"  # "ollama", "local", or "mock"
 LOCAL_MODEL_NAME   = os.getenv("LOCAL_MODEL_NAME",   "Qwen/Qwen2.5-0.5B-Instruct")
 LOCAL_MODEL_DEVICE = os.getenv("LOCAL_MODEL_DEVICE",  "cpu")
 LOCAL_MODEL_TEMP   = float(os.getenv("LOCAL_MODEL_TEMP", "0.15"))
+GGUF_MODEL_PATH = "qwen2.5-0.5b-instruct.Q4_K_M.gguf"
 # ── Flask ─────────────────────────────────────────────────────────────────────
 SECRET_KEY              = os.getenv("SECRET_KEY", "iitbnf-dev-secret-change-in-prod")
 SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV") == "production"

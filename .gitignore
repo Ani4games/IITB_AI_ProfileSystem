@@ -1,0 +1,10 @@
+iitbnf/test_db_latency.py
+iitbnf/test_llm.py
+iitbnf/test_pdf_speed.py
+iitbnf/config.py
+iitbnf/health_check.py
+iitbnf/test_ai_bot.py
+iitbnf/gunicorn_conf.py
+iitbnf/routes/__pycache__
+iitbnf/models/__pycache__
+iitbnf/qwen2.5-0.5b-instruct.Q4_K_M.gguf

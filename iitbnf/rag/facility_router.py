@@ -24,7 +24,9 @@ ABOUT_KEYWORDS = ['what is iitbnf','about iitbnf','about the facility',
                   'address of iitbnf',                     
                   'iit bombay nanofabrication facility',
                   'working days of iitbnf','iitbnf working days',
-                  'iitbnf timing','iitbnf hours','iitbnf open'] 
+                  'iitbnf timing','iitbnf hours','iitbnf open',
+                  'timings', 'what time does', 'when is iitbnf open',
+                  'opening hours', 'working hours', 'operating hours'] 
 
 TEAM_KEYWORDS     = ['team','staff','who works','roles','positions',
                      'hr team','it team','faculty incharge',
