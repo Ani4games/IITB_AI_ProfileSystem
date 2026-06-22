@@ -1,0 +1,1 @@
+flask waitress pymysql scikit-learn numpy spacy xhtml2pdf reportlab llama-cpp-python python -m spacy download en_core_web_md
