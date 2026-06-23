@@ -198,14 +198,14 @@ Windows deployments and environments where Gunicorn is unavailable.
 pip install waitress
 
 # Start (from the project root directory)
-waitress-serve --host=0.0.0.0 --port=5000 --threads=8 app:app
+waitress-serve --host=127.0.0.1 --port=5000 --threads=8 app:app
 ```
 
 Key Waitress flags:
 
 | Flag | Description |
 |------|-------------|
-| `--host=0.0.0.0` | Accept connections from all network interfaces |
+| `--host=127.0.0.1` | Accept connections from all network interfaces |
 | `--port=5000` | Port to listen on |
 | `--threads=8` | Number of worker threads (set to 2× CPU core count) |
 | `--connection-limit=200` | Max simultaneous connections |
@@ -214,7 +214,7 @@ Key Waitress flags:
 Example for a 4-core machine:
 
 ```bash
-waitress-serve --host=0.0.0.0 --port=8080 --threads=8 --connection-limit=200 app:app
+waitress-serve --host=127.0.0.1 --port=8080 --threads=8 --connection-limit=200 app:app
 ```
 
 ### Production (Gunicorn — Linux/macOS only)
