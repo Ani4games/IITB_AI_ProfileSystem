@@ -4,6 +4,7 @@ test_pdf_speed.py
 config.py
 health_check.py
 test_ai_bot.py
+load.py
 gunicorn_conf.py
 /routes/__pycache__
 /models/__pycache__

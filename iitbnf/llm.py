@@ -207,10 +207,12 @@ class LocalBackend(Backend):
             elapsed = round((time.perf_counter() - t0) * 1000)
             logger.info("[LLM] generate: %d tokens in %dms", max_tokens, elapsed)
             return text.strip()
+        
 
         except Exception as exc:
             logger.error("[LLM] generate() failed: %s", exc)
             return f"[ERROR] Generation failed: {exc}"
+        
 
     def stream(self, prompt: str, max_tokens: int = 500):
         """
@@ -465,6 +467,9 @@ class LlamaCppBackend(Backend):
         )
 
     def generate(self, prompt: str, max_tokens: int = 500) -> str:
+        tag = f"pid={os.getpid()} tid={threading.get_ident()}"
+        logger.info("[LLM] %s START generate", tag)
+        t0 = time.perf_counter()
         llm = self._get_llm()
         if llm is None:
             return f"[ERROR] Model unavailable: {self._load_error}"
@@ -479,12 +484,17 @@ class LlamaCppBackend(Backend):
                 top_p       = 0.9,
                 repeat_penalty = 1.1,
             )
+            elapsed = round((time.perf_counter() - t0), 1)
+            logger.info("[LLM] %s END generate (%.1fs)", tag, elapsed)
             return result["choices"][0]["message"]["content"].strip()
         except Exception as exc:
             logger.error("[LLM/llama.cpp] generate() failed: %s", exc)
             return f"[ERROR] Generation failed: {exc}"
 
     def stream(self, prompt: str, max_tokens: int = 500):
+        tag = f"pid={os.getpid()} tid={threading.get_ident()}"
+        logger.info("LLM %s START stream", tag)
+        t0 = time.perf_counter()
         llm = self._get_llm()
         if llm is None:
             yield f"[ERROR] Model unavailable: {self._load_error}"
@@ -509,6 +519,9 @@ class LlamaCppBackend(Backend):
         except Exception as exc:
             logger.error("[LLM/llama.cpp] stream() failed: %s", exc)
             yield f"[ERROR] Streaming failed: {exc}"
+        finally:
+            elapsed = round((time.perf_counter() - t0), 1)
+            logger.info("[LLM] %s END stream (%.1fs)", tag, elapsed)
 # ══════════════════════════════════════════════════════════════════════════════
 # SINGLETON FACTORY
 # ══════════════════════════════════════════════════════════════════════════════

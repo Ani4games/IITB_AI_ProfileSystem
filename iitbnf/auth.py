@@ -10,12 +10,11 @@ from config import STAFF_POSITIONS
 
 # ── Master toggle — set via environment variable so production is
 #    never accidentally left open ──────────────────────────────────────────────
-AUTH_DISABLED = os.getenv("AUTH_DISABLED", "false").lower() == "true"
-
+# AUTH_DISABLED = os.getenv("AUTH_DISABLED", "false").lower() == "true"
+AUTH_DISABLED = True
 
 def md5(text: str) -> str:
     return hashlib.md5(text.encode()).hexdigest()
-
 
 # ── Session checks ────────────────────────────────────────────────────────────
 
