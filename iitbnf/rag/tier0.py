@@ -438,6 +438,11 @@ LOOKUP_RULES: list[dict] = [
         "formatter": lambda ctx: (
             f"{_str(ctx, 'name')} has {_int(ctx, 'cancellations')} reservation "
             f"{_pluralise(_int(ctx, 'cancellations'), 'cancellation')} on record."
+            + (
+                f", plus {_int(ctx, 'slot_cancelled')} slot-level cancellation"
+                f"{'s' if _int(ctx, 'slot_cancelled') != 1 else ''}"
+                if _int(ctx, 'slot_cancelled') > 0 else ""
+            ) + "."
         ),
     },
 

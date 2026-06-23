@@ -25,8 +25,6 @@ Pipeline
 import logging
 from datetime import date
 
-from distro import name
-
 from db import hr_query, slots_query
 from utils import calc_mandatory_days
 
@@ -337,8 +335,19 @@ def _build_staff_context(member_id: int) -> dict | None:
                 (slot_uid,),
             )
             ctx["cancellations"] = int(cc[0]["cancellations"] or 0) if cc else 0
+            
         except Exception as e:
             logger.warning("Cancellations context failed for uid %s: %s", slot_uid, e)
+        # ---- Slot Cancellations ---------------------
+        try:
+            sc = slots_query(
+                "SELECT COUNT(*) AS slot_cancelled FROM equipment_usage_approval "
+                "WHERE requestedby=%s AND status=3 AND resid IS NULL",
+                (slot_uid,),
+            )
+            ctx["slot_cancelled"] = int(sc[0]["slot_cancelled"] or 0) if sc else 0
+        except Exception as e:
+            logger.warning("Slot cancellations context failed for uid %s: %s", slot_uid, e)
         # ── Publications ──────────────────────────────────────────────────
         try:
             pp = slots_query(

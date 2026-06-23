@@ -12,34 +12,7 @@ import threading
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 from auth import login_required, is_full_access
 from models.ai import generate_llm_report, _build_staff_context, _build_lab_context
-from llm import is_llm_available
 bp = Blueprint("ai", __name__)
-
-
-@bp.route("/api/ai/report", methods=["POST"])
-@login_required
-def ai_report():
-    if not is_full_access():
-        return jsonify({"success": False, "error": "Access restricted."}), 403
-
-    data         = request.get_json(silent=True) or {}
-    profile_type = data.get("profile_type", "staff")
-    profile_id   = data.get("profile_id")
-    audience     = data.get("audience", "management")
-
-    if not profile_id:
-        return jsonify({"success": False, "error": "No profile ID provided."}), 400
-
-    try:
-        result = generate_llm_report(
-            profile_type = profile_type,
-            profile_id   = int(profile_id),
-            audience     = audience,
-        )
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
 
 @bp.route("/api/ai/stream")
 @login_required
@@ -181,75 +154,25 @@ def ai_compose():
                         mimetype="text/event-stream"), 404
 
     # ── SHORT mode: composer only, instant ────────────────────────────────
-    if mode == "short":
-        def generate_short():
-            try:
-                from rag.composer import compose_staff_summary, compose_lab_summary
-                is_lab  = profile_type == "lab"
-                summary = (
-                    compose_lab_summary(ctx) if is_lab
-                    else compose_staff_summary(ctx)
-                )
-                if not summary:
-                    yield "data: [ERROR] Could not generate summary.\n\n"
-                    return
-                import json
-                yield f"data: {json.dumps({'type': 'text', 'content': summary})}\n\n"
-                yield "data: [DONE]\n\n"
-            except Exception as e:
-                yield f"data: [ERROR] {str(e)}\n\n"
-
-        return Response(
-            stream_with_context(generate_short()),
-            mimetype="text/event-stream",
-            headers={
-                "Cache-Control":     "no-cache",
-                "X-Accel-Buffering": "no",
-                # "Connection":        "keep-alive",
-            }
-        )
-    
-    # ── EXECUTIVE mode: composer + LLM, streamed ──────────────────────────
-    token_queue = queue.Queue()
-    SENTINEL    = object()
-
-    def inference_worker():
+    def generate_short():
         try:
-            from rag.pipeline import rag_stream_executive
-            for token in rag_stream_executive(ctx, profile_type):
-                token_queue.put(token)
+            from rag.composer import compose_staff_summary, compose_lab_summary
+            is_lab  = profile_type == "lab"
+            summary = (
+                compose_lab_summary(ctx) if is_lab
+                else compose_staff_summary(ctx)
+            )
+            if not summary:
+                yield "data: [ERROR] Could not generate summary.\n\n"
+                return
+            import json
+            yield f"data: {json.dumps({'type': 'text', 'content': summary})}\n\n"
+            yield "data: [DONE]\n\n"
         except Exception as e:
-            token_queue.put(f"[ERROR] {str(e)}")
-        finally:
-            token_queue.put(SENTINEL)
-
-    t = threading.Thread(target=inference_worker, daemon=True)
-    t.start()
-
-    def generate_executive():
-        import json
-        try:
-            while True:
-                try:
-                    item = token_queue.get(timeout=1.0)
-                except queue.Empty:
-                    yield ": heartbeat\n\n"
-                    continue
-
-                if item is SENTINEL:
-                    yield "data: [DONE]\n\n"
-                    break
-                elif isinstance(item, str) and item.startswith("[ERROR]"):
-                    yield f"data: {json.dumps({'type': 'error', 'content': item})}\n\n"
-                    break
-                else:
-                    # Stream tokens individually so typewriter works
-                    yield f"data: {item}\n\n"
-        except GeneratorExit:
-            pass
+            yield f"data: [ERROR] {str(e)}\n\n"
 
     return Response(
-        stream_with_context(generate_executive()),
+        stream_with_context(generate_short()),
         mimetype="text/event-stream",
         headers={
             "Cache-Control":     "no-cache",

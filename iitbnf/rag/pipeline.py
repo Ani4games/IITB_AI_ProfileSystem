@@ -14,80 +14,14 @@ def _call_ollama_sync(prompt: str, max_tokens: int = 500) -> str:
 
 def _call_ollama_stream(prompt: str, max_tokens: int = 500):
     yield from llm_stream(prompt, max_tokens)
-    
-# In pipeline.py, add this new function and modify rag_stream():
 
-def _build_enrichment_prompt(composer_output: str, ctx: dict) -> str:
-    """
-    Give the SLM the composer output + raw data.
-    Task: polish phrasing only, do NOT change any numbers or facts.
-    Keep it tightly constrained so a 0.5B model can succeed reliably.
-    """
-    # Minimal data block — only identity + key counts the SLM might reference
-    data_lines = []
-    for key in ("name", "designation", "team", "attendance_pct", "days_present",
-                "working_days", "leaves_taken", "leave_breakdown", "eq_requests",
-                "eq_slot_booked", "total_bookings", "tools_used",
-                "systems_owned_current", "tool_permissions_count",
-                "monthly_reports_submitted", "papers", "projects", "tenure_years"):
-        v = ctx.get(key)
-        if v and str(v) not in ("N/A", "None", "0", ""):
-            data_lines.append(f"  {key} = {v}")
-    data_block = "\n".join(data_lines)
-
-    return (
-        "You are a professional HR report editor.\n"
-        "Your ONLY job is to improve the flow and readability of the draft below.\n"
-        "Rules you MUST follow:\n"
-        "  1. Do NOT change any number, percentage, date, or name.\n"
-        "  2. Do NOT add any fact that is not in the draft or the data block.\n"
-        "  3. Keep all paragraphs. Do not merge or split them.\n"
-        "  4. Maximum 10 words changed per paragraph.\n"
-        "  5. Output the full revised text. Nothing else.\n\n"
-        f"Verified Data (ground truth — numbers must stay exactly as shown):\n"
-        f"{data_block}\n\n"
-        f"Draft:\n{composer_output}\n\n"
-        f"Revised:"
-    )
-
-
+# REPLACE rag_stream() with:
 def rag_stream(ctx: dict, mode: str = "short"):
-    """
-    Unified streaming generator.
-    1. Composer always runs first — produces factually correct template output.
-    2. If SLM is available AND mode is 'executive', SLM enriches the composer output.
-    3. If SLM is unavailable, composer output is used directly.
-    """
     from rag.composer import compose_staff_summary, compose_lab_summary
-    from llm import is_llm_available
-
     is_lab = ctx.get("category") is not None
     composer_output = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
-
-    # Short mode OR SLM unavailable: return composer output directly
-    if mode == "short" or not is_llm_available():
-        yield "[MODE: Quick Summary]"
-        yield composer_output
-        return
-
-    # Executive mode + SLM available: enrich the composer output
-    yield "[MODE: Executive Briefing]"
-    prompt = _build_enrichment_prompt(composer_output, ctx)
-    
-    full_tokens = []
-    for token in _call_ollama_stream(prompt, max_tokens=600):
-        full_tokens.append(token)
-        yield token
-    
-    enriched = "".join(full_tokens).strip()
-    
-    # Safety net: if SLM output is too short, blank, or looks like it 
-    # hallucinated (contains numbers not in composer output), fall back
-    # to composer output
-    if not enriched or len(enriched) < len(composer_output) * 0.5:
-        # SLM produced garbage — yield the composer output instead
-        # (already streamed tokens, so yield a replacement signal)
-        yield "\n\n[FALLBACK: " + composer_output + "]"
+    yield "[MODE: Quick Summary]"
+    yield composer_output
 
 
 def rag_generate(ctx: dict, audience: str = "management") -> str:
@@ -123,39 +57,6 @@ def rag_chat(question: str, ctx: dict) -> dict:
     if not answer:
         answer = "The AI model is currently unavailable. Please try again later or check that Ollama is running."
     return {"answer": answer, "success": bool(answer)}
-
-
-def rag_stream_executive(ctx: dict, profile_type: str):
-    """Used by /api/ai/compose in executive mode — emits {type:token} dicts."""
-    import json
-    from rag.retrieve import retrieve
-
-    # ── Retrieve relevant context chunks from TF-IDF index ───────────────────
-    # Build a rich query from the profile ctx, retrieve top-5 scored chunks,
-    # filter by minimum score, and format them into the rag_block string that
-    # _build_executive_prompt() already knows how to inject as Reference Data.
-    rag_block = ""
-    try:
-        query  = _build_report_query(ctx)
-        chunks = retrieve(
-            query,
-            k              = RAG_K,
-            requested_name = ctx.get("name"),
-        )
-        relevant = [c for c in chunks if c.get("score", 0) >= MIN_SCORE]
-        rag_block = _format_chunks(relevant)
-        logger.info(
-            "[RAG] executive stream: query=%r  chunks_retrieved=%d  chunks_used=%d",
-            query[:80], len(chunks), len(relevant),
-        )
-    except Exception as exc:
-        # Non-fatal — continue without RAG context rather than blocking the stream
-        logger.warning("[RAG] retrieve() failed in rag_stream_executive: %s", exc)
-
-    prompt = _build_executive_prompt(ctx, rag_block=rag_block)
-    for token in _call_ollama_stream(prompt, max_tokens=600):
-        yield json.dumps({"type": "token", "content": token})
-
 
 def digest_session_reports_stream(tool_name: str, rows: list):
     """Summarise session reports for one tool — used by /api/ai/session-digest."""

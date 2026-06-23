@@ -739,11 +739,11 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
             except Exception:
                 pass
 
-        answer = rag_generate(ctx, audience=(
-            "management" if intent["mode"] == "executive" else "individual"
-        ))
-        return {"answer": answer, "mode": intent["mode"], "label": intent["label"],
-                "confidence": intent["confidence"], "success": bool(answer), "slm_available": slm_ok}
+        from rag.composer import compose_staff_summary, compose_lab_summary
+        is_lab = ctx.get("category") is not None
+        answer = compose_lab_summary(ctx) if is_lab else compose_staff_summary(ctx)
+        return {"answer": answer, "mode": "composer", "label": "Profile Summary",
+                "confidence": "high", "success": bool(answer), "slm_available": slm_ok}
 # Add this function:
 def _extract_years(question: str) -> list[int]:
     return [int(y) for y in re.findall(r'\b(20\d{2})\b', question)]

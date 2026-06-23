@@ -142,7 +142,13 @@ STAFF_TEMPLATES = [
         "priority":  2,
         "tags":      "team iitbnf member staff",
     },
-
+    {
+        "text":      "In {pronoun_possessive} tenure of {tenure_years} year{'s' if tenure_years != 1 else ''} at IITBNF, {name} has made {total_bookings_word} slot {reservation_plural} across {tools_used_word} distinct {piece_plural} of equipment.",
+        "slot":      "tenure_activity",
+        "condition": lambda c: int(c.get("tenure_years") or 0) > 0 and int(c.get("total_bookings") or 0) > 0,
+        "priority":  1,
+        "tags":      "tenure years reservations slots bookings equipment activity",
+    },
     # ── Identity detail ───────────────────────────────────────────────────────
     # Single template: condition gates on both joining_date AND appointment_type
     # being available.  When appointment_type is missing the sentence is simply
@@ -499,7 +505,7 @@ STAFF_SECTION_ORDER = [
     "ownership", "ownership_history", "permissions",
     "reports", "training",
     "session_reports", "cancellations",
-    "research", "projects",
+    "research", "projects", "tenure_activity", 
 ]
 
 LAB_SECTION_ORDER = [
