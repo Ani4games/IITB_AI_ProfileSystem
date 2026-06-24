@@ -20,10 +20,11 @@ Headless run for CI / scripted runs:
 
 import random
 from locust import HttpUser, task, between, events
+import time
 
 # ── Fill these in with real IDs from your DB before running ──────────────────
-STAFF_MEMBER_IDS = [189, 200, 245]      # hr_portal.profile.member_id values
-LAB_MEMBER_IDS   = [2506, 2524, 2600]   # slotbooking.login.memberid values
+STAFF_MEMBER_IDS = [189, 2007, 2457]      # hr_portal.profile.member_id values
+LAB_MEMBER_IDS   = [2406, 2533, 1949]   # slotbooking.login.memberid values
 YEARS            = [2023, 2024, 2025, 2026]
 
 AI_QUESTIONS = [
@@ -54,6 +55,14 @@ class IITBNFUser(HttpUser):
     @task(3)
     def admin_panel(self):
         self.client.get("/admin-panel/")
+
+    @task(3)
+    def admin_panel_staff(self):
+        self.client.get(f"/admin-panel/api/staff/<id>")
+    
+    @task(3)
+    def admin_panel_lab(self):
+        self.client.get(f"/admin-panel/api/lab/<id>")
 
     # ── Staff profile page load ───────────────────────────────────────────────
     @task(5)
@@ -93,6 +102,28 @@ class IITBNFUser(HttpUser):
         mid = random.choice(LAB_MEMBER_IDS)
         yr = random.choice(YEARS)
         self.client.get(f"/api/section/lab/{mid}/reservations?year={yr}")
+    @task(4)
+    def staff_other_sections(self):
+        mid = random.choice(STAFF_MEMBER_IDS)
+        yr = random.choice(YEARS)
+        section = random.choice([
+            "reservations", "system_owned", "owner_track", "tool_perms",
+            "session_reports", "cancellations", "lab_access",
+        ])
+        url = f"/api/section/staff/{mid}/{section}"
+        if section in ("reservations", "lab_access"):
+            url += f"?year={yr}"
+        self.client.get(url)
+
+    @task(4)
+    def lab_other_sections(self):
+        mid = random.choice(LAB_MEMBER_IDS)
+        yr = random.choice(YEARS)
+        section = random.choice(["requests", "projects", "system_owned"])
+        url = f"/api/section/lab/{mid}/{section}"
+        if section == "requests":
+            url += f"?year={yr}"
+        self.client.get(url)
 
     # ── PDF prefetch — fires a background thread per call. Under load this
     #    tells you if you're saturating Python threads / the DB pool with
@@ -101,7 +132,21 @@ class IITBNFUser(HttpUser):
     def pdf_prefetch(self):
         mid = random.choice(STAFF_MEMBER_IDS)
         self.client.get(f"/profile/{mid}/pdf/prefetch")
+    @task(1)
+    def pdf_full_cycle(self):
+        mid = random.choice(STAFF_MEMBER_IDS)
+        r = self.client.get(f"/profile/{mid}/pdf/start")
+        job_id = r.json().get("job_id")
+        if job_id:
+            for _ in range(5):
+                self.client.get(f"/profile/pdf/status/{job_id}")
+                time.sleep(1)
 
+    @task(1)
+    def owner_pdf(self):
+        mid = random.choice(STAFF_MEMBER_IDS)
+        self.client.get(f"/api/profile/{mid}/system-owner-pdf/prefetch")
+        self.client.get(f"/api/profile/{mid}/system-owner-track-pdf/prefetch")
     # ── AI stream — the SSE endpoint. Locust's HttpUser doesn't natively
     #    parse SSE, but issuing the GET and timing time-to-completion is
     #    still useful: it tells you connection setup + queueing time under
@@ -134,7 +179,15 @@ class IITBNFUser(HttpUser):
             # Don't crash the locust worker — just log and continue
             pass
 
+    @task(2)
+    def ai_compose(self):
+        mid = random.choice(STAFF_MEMBER_IDS)
+        self.client.get(f"/api/ai/compose?profile_type=staff&profile_id={mid}&mode=short")
 
+    @task(1)
+    def admin_ai_chat(self):
+        q = random.choice(AI_QUESTIONS)
+        self.client.get(f"/api/ai/admin-chat?message={q}")
 # ── Print a reminder at test start so the operator checks the right dashboards
 @events.test_start.add_listener
 def _on_start(environment, **kwargs):

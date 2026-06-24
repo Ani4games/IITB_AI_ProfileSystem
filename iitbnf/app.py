@@ -146,7 +146,13 @@ def _startup_tasks():
         print("[warmup] Composer ready.")
     except Exception as e:
         print(f"[warmup] Composer warm-up failed (non-fatal): {e}")
-    
+    # Step 4.5: SLM backend
+    try:
+        from llm import warm_up as llm_warmup
+        llm_warmup()
+        print("[warmup] LLM backend ready.")
+    except Exception as e:
+        print(f"[warmup] LLM warm-up failed (non-fatal): {e}")
     # In app.py, _startup_tasks(), after the composer warmup:
     # Step 5: Intent router (MiniLM)
     try:
@@ -155,6 +161,9 @@ def _startup_tasks():
         print("[warmup] Intent router ready.")
     except Exception as e:
         print(f"[warmup] Intent router warm-up failed (non-fatal): {e}")
+    from rag.retrieve import retrieve
+    import rag.retrieve as rag
+    rag.retrieve("warmup query", k=1)
     # Step 6: PDF cleanup (NEW)
     try:
         from routes.profile     import PDF_JOBS

@@ -41,5 +41,5 @@ if __name__ == "__main__":
         threads         = THREADS,
         channel_timeout = 120,    # seconds before dropping idle connection
         cleanup_interval= 30,
-        connection_limit= 1000,
+        connection_limit= 5000,
     )

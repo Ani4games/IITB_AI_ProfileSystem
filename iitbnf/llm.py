@@ -648,3 +648,9 @@ def is_llm_available() -> bool:
         return False
     except Exception:
         return False
+    
+from app import app
+with app.app_context():
+    from llm import is_llm_available, warm_up
+    warm_up()
+    print(is_llm_available())   # must print True

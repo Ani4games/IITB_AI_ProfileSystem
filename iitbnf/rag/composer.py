@@ -283,7 +283,7 @@ STAFF_TEMPLATES = [
     # The "no data" template is removed — the SectionClassifier excludes the
     # section when eq_requests == 0, so a "none recorded" sentence is never reached.
     {
-        "text": "{tenure_activity_prefix}has recieved {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked, demonstrating consistent and active use of facility resources. Lab reservation records show {total_bookings_word} {reservation_plural} across {tools_used_word} distinct {piece_plural} of equipment.",
+        "text":      "{tenure_activity_prefix} {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked, demonstrating consistent and active use of facility resources.",
         "slot":      "equipment",
         "condition": lambda c: _eq(c) >= 1 and _slot(c) > 0 and _pos(c, "total_bookings") > 0,
         "priority":  1,
@@ -307,7 +307,7 @@ STAFF_TEMPLATES = [
     },
     # Fallback when no reservations
     {
-        "text": "{tenure_activity_prefix}has recieved {eq_requests_word} equipment usage {eq_request_verb} this period, of which {eq_slot_booked_word} have been slot-booked.",
+        "text": "{tenure_activity_prefix}has recieved {eq_requests_word} equipment usage this period, of which {eq_slot_booked_word} have been slot-booked.",
         "slot":      "equipment",
         "condition": lambda c: _eq(c) >= 1 and _slot(c) > 0 and _pos(c, "total_bookings") == 0,
         "priority":  2,
