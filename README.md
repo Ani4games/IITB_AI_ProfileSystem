@@ -42,39 +42,10 @@ equipment activity tracking, AI-generated narrative summaries, and PDF report ge
 ---
 
 ## Architecture Overview
-app.py                  Flask factory — registers blueprints, starts RAG ingestion thread
-├── routes/
-│   ├── auth_routes.py       Login / logout
-│   ├── profile.py           Staff profile page + async PDF generation
-│   ├── lab_profile.py       Lab user profile page + PDF
-│   ├── admin_panel.py       Admin search hub + announcement management
-│   ├── section_routes.py    AJAX per-section data endpoints (attendance, slots, etc.)
-│   ├── ai_routes.py         /api/ai/report (batch) + /api/ai/stream (SSE)
-│   ├── rag_routes.py        RAG profile pages + /api/rag/chat
-│   ├── announcements.py     Legacy announcement CRUD routes
-│   ├── debug.py             Speed dashboard, DB test, timing profiler
-│   └── debug_ai.py         Step-by-step AI pipeline diagnostics
-├── models/
-│   ├── ai.py               Context builders (_build_staff_context, _build_lab_context)
-│   │                       + template-based narrative fallback
-│   ├── staff.py            All HR-portal queries (attendance, slot activity, etc.)
-│   └── lab.py              All slotbooking queries (reservations, permissions, etc.)
-├── rag/
-│   ├── ingest.py           TF-IDF index builder (SQL dumps + live DB serialisations)
-│   ├── retrieve.py         Hybrid TF-IDF + word-vector retrieval (spaCy / GloVe)
-│   ├── pipeline.py         LLM prompt builder, rag_generate, rag_chat, rag_stream
-│   ├── composer.py         ML-based template selector for instant summaries (no LLM)
-│   ├── agent.py            Intent detection + tier-0/1/2 routing
-│   ├── tier0.py            Zero-model factual lookup from context dict
-│   ├── query_router.py     Structured DB query handler (year-specific, multi-year)
-│   ├── facility_router.py  Facility knowledge base (static answers)
-│   └── data_gatherer.py    Pre-fetches structured data for LLM formatting
-├── db.py                   Thread-safe connection pools for hr_portal + slotbooking
-├── cache.py                In-memory TTL cache + @cached decorator
-├── auth.py                 Session helpers and route guards
-├── utils.py                Parallel execution, holiday caching, name resolution
-└── config.py               DB credentials, Flask settings, position constants
-
+[!Alt Text](Architecture_1.png "architecture_1")
+[!Alt Text](Architecture_2.png "architecture_2")
+[!Alt Text](Architecture_3.png "architecture_3")
+[!Alt Text](Architecture_4.png "architecture_4")
 ---
 
 ## Database Requirements
