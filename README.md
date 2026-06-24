@@ -42,10 +42,10 @@ equipment activity tracking, AI-generated narrative summaries, and PDF report ge
 ---
 
 ## Architecture Overview
-[!Alt Text](Architecture_1.png "architecture_1")
-[!Alt Text](Architecture_2.png "architecture_2")
-[!Alt Text](Architecture_3.png "architecture_3")
-[!Alt Text](Architecture_4.png "architecture_4")
+(Architecture_1.png "architecture_1")
+(Architecture_2.png "architecture_2")
+(Architecture_3.png "architecture_3")
+(Architecture_4.png "architecture_4")
 ---
 
 ## Database Requirements
