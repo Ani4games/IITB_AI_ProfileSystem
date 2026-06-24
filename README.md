@@ -46,6 +46,8 @@ equipment activity tracking, AI-generated narrative summaries, and PDF report ge
 <img src="Architecture_2.png " width = "100%">
 <img src="Architecture_3.png " width = "100%">
 <img src="Architecture_4.png " width = "100%">
+
+** The finetune.py file has been removed, so the fine tuning procedure can be done easily in Google Colab
 ---
 
 ## Database Requirements
