@@ -43,6 +43,9 @@ equipment activity tracking, AI-generated narrative summaries, and PDF report ge
 
 ## Architecture Overview
 <img src="Architecture_1.png " width = "300">
+<img src="Architecture_2.png " width = "300">
+<img src="Architecture_3.png " width = "300">
+<img src="Architecture_4.png " width = "300">
 ![](Architecture_1.png "architecture_1")
 ![](Architecture_2.png "architecture_2")
 ![](Architecture_3.png "architecture_3")
