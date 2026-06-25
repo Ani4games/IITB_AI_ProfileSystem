@@ -156,7 +156,7 @@
             <!-- New: goes to full page -->
             <a href="/ai/{{ profile_type }}/{{ member_id }}" 
               style="margin-left:auto;display:inline-flex;align-items:center;gap:.4rem;
-                      font-family:var(--font-mono);font-size:.65rem;font-weight:700;
+                      font-family:var(--font-mono);font-size:1rem;font-weight:700;
                       letter-spacing:.06em;text-transform:uppercase;
                       padding:.35rem .85rem;border-radius:999px;text-decoration:none;
                       background:var(--amber-dim);border:1px solid rgba(245,166,35,.4);
@@ -208,7 +208,7 @@
         ◈ AI · Data-driven
       </div>
       <div style="display:flex;align-items:center;gap:.4rem;padding:.4rem 0;border-top:1px solid var(--border);margin-top:.5rem;">
-        <select id="tts-lang-sel" style="font-family:var(--font-mono);font-size:.55rem;
+        <select id="tts-lang-sel" style="font-family:var(--font-mono);font-size:1rem;
           background:var(--surface2);border:1px solid var(--border2);color:var(--muted);
           border-radius:4px;padding:.15rem .3rem;cursor:pointer;outline:none;">
           <option value="en-IN">English</option>
@@ -219,11 +219,11 @@
           <option value="bn-IN">বাংলা</option>
         </select>
         <button onclick="speakSummary(document.getElementById('tts-lang-sel').value)"
-          style="font-family:var(--font-mono);font-size:.55rem;background:var(--amber-dim);
+          style="font-family:var(--font-mono);font-size:1rem;background:var(--amber-dim);
           border:1px solid rgba(245,166,35,.3);color:var(--amber);border-radius:4px;
           padding:.15rem .45rem;cursor:pointer;">🔊 Speak</button>
         <button onclick="window.speechSynthesis && window.speechSynthesis.cancel()"
-          style="font-family:var(--font-mono);font-size:.55rem;background:var(--surface2);
+          style="font-family:var(--font-mono);font-size:1rem;background:var(--surface2);
           border:1px solid var(--border2);color:var(--muted);border-radius:4px;
           padding:.15rem .45rem;cursor:pointer;">■ Stop</button>
       </div>

@@ -6,7 +6,7 @@
 <style>
   body {
     font-family: DejaVuSans, sans-serif;
-    font-size: 10px;
+    font-size: 16px;
     color: #111;
     background: #fff;
     padding: 12px 18px 18px;
@@ -16,7 +16,7 @@
   /* ── SECTION ── */
   .section { margin-bottom: 8px; page-break-inside: avoid; }
   .section-hdr {
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1.0px;
@@ -35,7 +35,7 @@
   thead { display: table-header-group; }
   tr    { page-break-inside: avoid; }
   th {
-    font-size: 7px;
+    font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -50,7 +50,7 @@
   td {
     padding: 2px 4px;
     border-bottom: 1px solid #ebebeb;
-    font-size: 9px;
+    font-size: 10px;
     vertical-align: middle;
     color: #111;
     overflow: hidden;
@@ -62,7 +62,7 @@
   .badge {
     padding: 1px 4px;
     border-radius: 2px;
-    font-size: 7px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.4px;
     text-transform: uppercase;
@@ -78,7 +78,7 @@
   .m-val.good { color: #166534; }
   .m-val.warn { color: #92400e; }
   .m-val.bad  { color: #991b1b; }
-  .m-key { font-size: 7px; text-transform: uppercase; letter-spacing: 0.6px; color: #888; }
+  .m-key { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: #888; }
 </style>
 </head>
 <body>
@@ -88,7 +88,7 @@
   <colgroup><col style="width:60%;"><col style="width:40%;"></colgroup>
   <tr>
     <td style="padding:0 0 8px 0; border:none; font-size:16px; font-weight:700; color:#ff6200; letter-spacing:1px;">IITBNF Lab Profile Report</td>
-    <td style="padding:0 0 8px 0; border:none; text-align:right; font-size:8px; color:#777; line-height:1.6;">
+    <td style="padding:0 0 8px 0; border:none; text-align:right; font-size:12px; color:#777; line-height:1.6;">
       <strong style="color:#111;">{{ user.fname }} {{ user.lname }}</strong><br>
       Lab User #{{ '%04d' % memberid }}<br>
       Year: {{ selected_year }}
@@ -101,30 +101,30 @@
   <colgroup><col style="width:50%;"><col style="width:50%;"></colgroup>
   <tr>
     <td style="padding:5px 8px 5px 0; border:none; vertical-align:top;">
-      <div style="font-size:14px; font-weight:700; color:#111; margin-bottom:2px;">{{ user.fname }} {{ user.lname }}</div>
-      <div style="font-size:11px; font-weight:600; color:#555; text-transform:uppercase; letter-spacing:0.5px;">{{ user.position or 'Lab User' }}</div>
-      {% if user.department %}<div style="font-size:10px; color:#333;">{{ user.department }}</div>{% endif %}
+      <div style="font-size:16px; font-weight:700; color:#111; margin-bottom:2px;">{{ user.fname }} {{ user.lname }}</div>
+      <div style="font-size:12px; font-weight:600; color:#555; text-transform:uppercase; letter-spacing:0.5px;">{{ user.position or 'Lab User' }}</div>
+      {% if user.department %}<div style="font-size:12px; color:#333;">{{ user.department }}</div>{% endif %}
     </td>
     <td style="padding:5px 0; border:none; vertical-align:top;">
       <table style="width:100%; border-collapse:collapse; table-layout:fixed;">
         <colgroup><col style="width:80px;"><col style="width:auto;"></colgroup>
         {% if user.email %}
-        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Email</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111; word-break:break-all;">{{ user.email }}</td></tr>
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:12px; color:#888; text-transform:uppercase;">Email</td><td style="padding:1px 0; border:none; font-size:12px; font-weight:600; color:#111; word-break:break-all;">{{ user.email }}</td></tr>
         {% endif %}
         {% if user.rollno and user.rollno not in ['','0','NA'] %}
-        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Roll No</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.rollno }}</td></tr>
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:12px; color:#888; text-transform:uppercase;">Roll No</td><td style="padding:1px 0; border:none; font-size:12px; font-weight:600; color:#111;">{{ user.rollno }}</td></tr>
         {% endif %}
         {% if user.mobile and user.mobile not in ['','0','NA'] %}
-        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Mobile</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.mobile }}</td></tr>
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:12px; color:#888; text-transform:uppercase;">Mobile</td><td style="padding:1px 0; border:none; font-size:12px; font-weight:600; color:#111;">{{ user.mobile }}</td></tr>
         {% endif %}
         {% if user.research_area and user.research_area not in ['','NA'] %}
-        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Research</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.research_area }}</td></tr>
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:12px; color:#888; text-transform:uppercase;">Research</td><td style="padding:1px 0; border:none; font-size:12px; font-weight:600; color:#111;">{{ user.research_area }}</td></tr>
         {% endif %}
         {% if user.supervisor_name or user.supervisor %}
-        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Supervisor</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.supervisor_name or user.supervisor }}</td></tr>
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:12px; color:#888; text-transform:uppercase;">Supervisor</td><td style="padding:1px 0; border:none; font-size:12px; font-weight:600; color:#111;">{{ user.supervisor_name or user.supervisor }}</td></tr>
         {% endif %}
         {% if user.expiry_date and user.expiry_date not in ['','0000-00-00'] %}
-        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:8px; color:#888; text-transform:uppercase;">Expiry</td><td style="padding:1px 0; border:none; font-size:9px; font-weight:600; color:#111;">{{ user.expiry_date }}</td></tr>
+        <tr><td style="padding:1px 4px 1px 0; border:none; font-size:12px; color:#888; text-transform:uppercase;">Expiry</td><td style="padding:1px 0; border:none; font-size:12px; font-weight:600; color:#111;">{{ user.expiry_date }}</td></tr>
         {% endif %}
       </table>
     </td>
@@ -434,8 +434,8 @@
 <table style="width:100%; border-collapse:collapse; table-layout:fixed; margin-top:20px; padding-top:6px; border-top:1px solid #ddd;">
   <colgroup><col style="width:60%;"><col style="width:40%;"></colgroup>
   <tr>
-    <td style="border:none; font-size:8px; color:#aaa; padding:4px 0;">IIT Bombay Nanofabrication Facility — Confidential</td>
-    <td style="border:none; font-size:8px; color:#aaa; padding:4px 0; text-align:right;">Lab User #{{ '%04d' % memberid }} · {{ selected_year }}</td>
+    <td style="border:none; font-size:12px; color:#aaa; padding:4px 0;">IIT Bombay Nanofabrication Facility — Confidential</td>
+    <td style="border:none; font-size:12px; color:#aaa; padding:4px 0; text-align:right;">Lab User #{{ '%04d' % memberid }} · {{ selected_year }}</td>
   </tr>
 </table>
 
