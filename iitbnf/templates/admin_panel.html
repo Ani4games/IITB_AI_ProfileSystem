@@ -781,6 +781,8 @@
                   placeholder="Identify by name, ID, designation, department…"
                   autocomplete="off"
                 />
+                <kbd style="font-family:var(--font-mono); font-size:.62rem; color:var(--fg3); border:1px solid var(--rim2);
+                  padding:.1rem .4rem; border-radius:4px; margin-left:.4rem;">⌘K</kbd>
                 <button class="search-clear" id="srch-clear" style="display:none" onclick="clearSearch()">✕</button>
                 <!-- ADD THIS: -->
                 <button id="hub-voice-btn" onclick="toggleHubVoice()"
@@ -801,7 +803,22 @@
             <div id="recent-list" style="display:flex;flex-wrap:wrap;gap:.4rem;"></div>
           </div>
         </div>
-
+        <div id="cmd-palette-overlay" style="display:none; position:fixed; inset:0; z-index:500;
+     background:rgba(0,0,0,.7); backdrop-filter:blur(6px); align-items:flex-start;
+     justify-content:center; padding-top:12vh;">
+  <!-- <div style="width:min(560px,92vw); background:var(--panel); border:1px solid var(--rim2);
+              border-radius:14px; box-shadow:0 24px 80px rgba(0,0,0,.6); overflow:hidden;">
+    <div style="display:flex; align-items:center; gap:.6rem; padding:.75rem 1rem; border-bottom:1px solid var(--rim);">
+      <span style="color:var(--arc); font-size:1rem;">⌘</span>
+      <input id="cmd-palette-input" type="text" placeholder="Jump to a member, or type 'export 189'…"
+        style="flex:1; background:transparent; border:none; color:var(--fg); font-family:var(--font-body);
+               font-size:.95rem; outline:none;" autocomplete="off">
+      <kbd style="font-family:var(--font-mono); font-size:.65rem; color:var(--fg3); border:1px solid var(--rim2);
+                  padding:.1rem .4rem; border-radius:4px;">esc</kbd>
+    </div>
+    <div id="cmd-palette-results" style="max-height:50vh; overflow-y:auto;"></div>
+  </div> -->
+</div>
       </div>
 <!-- ══ AI CHAT BUBBLE + MODAL ══ -->
 <button id="admin-ai-bubble" onclick="toggleAdminAI()"
@@ -1497,6 +1514,74 @@ async function toggleHubVoice() {
 
     _hubMediaRecorder.start();
 }
+// let _cmdIdx = -1;
+
+// function openCmdPalette() {
+//   const overlay = document.getElementById('cmd-palette-overlay');
+//   overlay.style.display = 'flex';
+//   const input = document.getElementById('cmd-palette-input');
+//   input.value = '';
+//   document.getElementById('cmd-palette-results').innerHTML = '';
+//   setTimeout(() => input.focus(), 30);
+// }
+
+// function closeCmdPalette() {
+//   document.getElementById('cmd-palette-overlay').style.display = 'none';
+//   _cmdIdx = -1;
+// }
+
+// function _renderCmdResults(query) {
+//   const results = document.getElementById('cmd-palette-results');
+//   const q = query.trim().toLowerCase();
+
+//   // "export <id>" → trigger PDF prefetch + start, open in new tab
+//   const exportMatch = q.match(/^export\s+(\d+)/);
+//   if (exportMatch) {
+//     const id = exportMatch[1];
+//     results.innerHTML = `<div class="dd-row" onclick="window.open('/profile/${id}/pdf','_blank'); closeCmdPalette();">
+//         <span class="dd-arr">⬇</span><div class="dd-info"><div class="dd-name">Export PDF for member #${id}</div>
+//         <div class="dd-sub">Opens the PDF generation flow</div></div></div>`;
+//     return;
+//   }
+
+//   if (!q) { results.innerHTML = ''; return; }
+//   const hits = PEOPLE.filter(p => p.s.includes(q)).slice(0, 8);
+//   if (!hits.length) {
+//     results.innerHTML = `<div class="dd-empty">No matches for "${query}"</div>`;
+//     return;
+//   }
+//   results.innerHTML = hits.map((p, i) => `
+//     <a href="${p.url}" class="dd-row" data-i="${i}">
+//       <div class="dd-av ${p.kind === 'lab' ? 'av-l' : 'av-s'}">${p.init}</div>
+//       <span class="dd-id ${p.kind === 'lab' ? 'l' : 's'}">${p.id}</span>
+//       <div class="dd-info"><div class="dd-name">${p.name}</div><div class="dd-sub">${p.sub}</div></div>
+//       <span class="dd-arr">→</span>
+//     </a>`).join('');
+//   _cmdIdx = -1;
+// }
+
+// document.addEventListener('keydown', e => {
+//   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+//     e.preventDefault();
+//     openCmdPalette();
+//   } else if (e.key === 'Escape' && document.getElementById('cmd-palette-overlay').style.display === 'flex') {
+//     closeCmdPalette();
+//   }
+// });
+
+// document.getElementById('cmd-palette-input').addEventListener('input', e => _renderCmdResults(e.target.value));
+// document.getElementById('cmd-palette-input').addEventListener('keydown', e => {
+//   const rows = document.querySelectorAll('#cmd-palette-results .dd-row');
+//   if (!rows.length) return;
+//   if (e.key === 'ArrowDown') { e.preventDefault(); _cmdIdx = Math.min(_cmdIdx + 1, rows.length - 1); }
+//   if (e.key === 'ArrowUp')   { e.preventDefault(); _cmdIdx = Math.max(_cmdIdx - 1, 0); }
+//   if (e.key === 'Enter' && _cmdIdx >= 0) { rows[_cmdIdx].click(); return; }
+//   rows.forEach((r, i) => r.classList.toggle('hl', i === _cmdIdx));
+// });
+
+// document.getElementById('cmd-palette-overlay').addEventListener('click', e => {
+//   if (e.target.id === 'cmd-palette-overlay') closeCmdPalette();
+// });
 </script>
 </body>
 </html>

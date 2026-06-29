@@ -8,7 +8,7 @@ load.py
 gunicorn_conf.py
 /routes/__pycache__
 /models/__pycache__
-/db.py
+db.py
 qwen2.5-0.5b-instruct.Q4_K_M.gguf
 fine_tune.py
 locustfile.py
@@ -18,3 +18,6 @@ __pycache__/
 **/__pycache__/
 *.pyc
 *.pyo
+tfidf_index.pkl.*
+/rag/composer_model.pkl
+tmp

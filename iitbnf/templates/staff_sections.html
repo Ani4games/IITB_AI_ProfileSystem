@@ -232,6 +232,16 @@
       <span class="card-cta">View access log <span class="card-cta-arrow">→</span></span>
     </div>
   </div>
+  <div class="prf-card accent-blue" onclick="openModal('timeline-modal')" role="button">
+  <div class="card-header">
+    <span class="card-icon">▥</span>
+    <span class="card-title">Year Timeline</span>
+  </div>
+  <div class="card-metric">
+    <div class="card-sub">Attendance, requests &amp; reservations by month</div>
+  </div>
+  <div class="card-footer"><span class="card-cta">View timeline <span class="card-cta-arrow">→</span></span></div>
+</div>
 {% endblock %}
 
 {# ════════════════════════════════════════════════════════════════
@@ -481,6 +491,19 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="timeline-modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="modal-head">
+      <span class="modal-icon">▥</span>
+      <span class="modal-title">Year Timeline — <span id="timeline-year-label">{{ selected_year }}</span></span>
+      <button class="modal-close-btn" onclick="closeModal('timeline-modal')">✕</button>
+    </div>
+    <div class="modal-body" id="timeline-body">
+      <div class="sk-chart" style="height:160px;"></div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {# ════════════════════════════════════════════════════════════════
@@ -537,7 +560,22 @@ _modalOpenHooks['eq-activity-modal'] = function() {
     .then(r => r.json())
     .then(d => { if (d.success) renderHeatmap('eq-heatmap', { year, mode: 'intensity', values: d.data }); });
 };
-
+_modalOpenHooks['timeline-modal'] = function () {
+  const year = _initialYear;
+  document.getElementById('timeline-year-label').textContent = year;
+  Promise.all([
+    fetch(`/api/section/staff/${MEMBER_ID}/attendance?year=${year}`).then(r => r.json()),
+    fetch(`/api/section/staff/${MEMBER_ID}/slot_activity?year=${year}`).then(r => r.json()),
+    fetch(`/api/section/staff/${MEMBER_ID}/reservations?year=${year}`).then(r => r.json()),
+  ]).then(([att, slot, res]) => {
+    const months = mergeTimelineData(
+      att.success ? att.data.trend : [],
+      slot.success ? slot.data.rows : [],
+      res.success ? res.data : []
+    );
+    renderTimeline('timeline-body', months);
+  });
+};
   // ── Attendance chart ──────────────────────────────────────────────
 const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 let _attChart;

@@ -433,7 +433,8 @@ def download_pdf(job_id):
     job = PDF_JOBS.get(job_id)
     if not job or job["status"] != "done":
         return "Not ready", 404
-    return send_file(job["file"], as_attachment=True)
+    inline = request.args.get("inline") == "1"
+    return send_file(job["file"], as_attachment=not inline)
 
 
 @bp.route("/profile/<int:member_id>/pdf")

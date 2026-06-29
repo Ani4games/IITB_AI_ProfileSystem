@@ -261,27 +261,24 @@ async function _waitAndDownload(jobId) {
 
   try {
     let first = true;
-    let elapsed = 0;
-    const timerInterval = setInterval(() => {
-        elapsed += 0.3;
-        if (msg && elapsed < 45) {
-            msg.textContent = `Rendering PDF… (~${Math.max(0, Math.round(20 - elapsed))}s remaining)`;
-        }
-    }, 300);
     while (true) {
       if (!first) await new Promise(r => setTimeout(r, 300));
       first = false;
       const r = await fetch(_PDF_STATUS_BASE + jobId);
       const d = await r.json();
+
       if (d.status === 'done') {
         clearInterval(fake);
-        clearInterval(timerInterval);
         if (prog) prog.style.width = '100%';
-        if (msg)  msg.textContent = 'Download starting…';
+        if (msg)  msg.textContent = 'Opening preview…';
         _setPDFBtnState('ready');
         setTimeout(() => {
           closeModal('pdf-progress-modal');
-          window.location.href = _PDF_DOWNLOAD_BASE + jobId;
+          const frame = document.getElementById('pdf-preview-frame');
+          if (frame) frame.src = _PDF_DOWNLOAD_BASE + jobId + '?inline=1';
+          const dlBtn = document.getElementById('pdf-preview-download-btn');
+          if (dlBtn) dlBtn.onclick = () => { window.location.href = _PDF_DOWNLOAD_BASE + jobId; };
+          openModal('pdf-preview-modal');
         }, 280);
         return;
       }
@@ -289,14 +286,12 @@ async function _waitAndDownload(jobId) {
         clearInterval(fake);
         if (msg) msg.textContent = `PDF generation failed: ${d.error || 'unknown error'}`;
         setTimeout(() => closeModal('pdf-progress-modal'), 2500);
-        clearInterval(timerInterval);
         return;
       }
       if (d.status === 'not_found') {
         clearInterval(fake);
         if (msg) msg.textContent = 'Job expired — please try again.';
         setTimeout(() => closeModal('pdf-progress-modal'), 2000);
-        clearInterval(timerInterval);
         return;
       }
       if (msg) msg.textContent = 'Rendering PDF…';
@@ -305,13 +300,7 @@ async function _waitAndDownload(jobId) {
     clearInterval(fake);
     if (msg) msg.textContent = 'Connection error during PDF generation.';
     setTimeout(() => closeModal('pdf-progress-modal'), 2000);
-    clearInterval(timerInterval);
   }
-  // After job is done, show iframe preview in modal before download
-  const previewUrl = _PDF_DOWNLOAD_BASE + jobId;
-  document.getElementById('pdf-preview-frame').src = previewUrl;
-  openModal('pdf-preview-modal');
-  // User clicks "Download" or "Close"
 }
 
 // Secondary PDF downloads (system-owner PDFs, etc.)

@@ -39,7 +39,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow: auto;
       background-image: url('/static/images/Nano-Lab.jpg');
       background-size: cover;
       background-position: center;
@@ -134,8 +134,11 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: center;           /* ADD */
+      text-align: center;            /* ADD */
       padding: 2rem 3rem 4rem;
-      max-width: 720px;
+      max-width: 860px;              /* widen slightly for centered layout */
+      margin: 0 auto;                /* ADD */
     }
 
     /* Badge pill */
@@ -143,6 +146,7 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
+      margin: 0 auto 2rem;
       background: rgba(217, 119, 6, 0.301);
       border: 1px solid rgba(217, 20, 6, 0.784);
       color: var(--amber-light);
@@ -190,6 +194,8 @@
       margin-bottom: 2.75rem;
       max-width: 500px;
       font-weight: 300;
+      margin-left: auto;   
+      margin-right: auto;  
     }
 
     /* Login button */
@@ -222,79 +228,132 @@
 
     /* ── FEATURE CARDS (bottom) ── */
     .lp-features {
-      position: fixed;
-      bottom: 2rem;
-      right: 3rem;
-      display: flex;
+      position: relative;
       z-index: 2;
+      display: flex;
       flex-direction: column;
-      gap: 0.85rem;
-      width: 480px;
+      gap: 1.25rem;
+      padding: 3rem 3rem;
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
     }
 
     .lp-feat {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px;
-      padding: 0.85rem 1.1rem;
-      backdrop-filter: blur(12px);
+      background: rgba(10, 15, 28, 0.72);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 1.4rem 1.6rem;
+      backdrop-filter: blur(16px);
       display: flex;
       align-items: flex-start;
-      gap: 0.85rem;
-      transition: background 0.2s, border-color 0.2s;
+      gap: 1rem;
+      transition: border-color .2s, transform .2s;
+      width: 100%;
     }
     .lp-feat:hover {
-      background: rgba(255,255,255,0.07);
-      border-color: rgba(217,119,6,0.3);
+      border-color: rgba(245,166,35,.45);
+      transform: translateY(-3px);
     }
 
     .feat-icon {
+      font-size: 1.5rem;
       color: var(--amber);
-      font-size: 1rem;
       flex-shrink: 0;
-      margin-top: 0.1rem;
     }
 
     .feat-body h4 {
       font-family: 'Space Mono', monospace;
-      font-size: 1rem;
+      font-size: .85rem;
       font-weight: 700;
       color: var(--fg);
-      margin-bottom: 0.2rem;
+      margin-bottom: .35rem;
+      letter-spacing: .04em;
+    }
+    .feat-body
+    {
+      flex: 1;
     }
     .feat-body p {
       font-size: 1rem;
-      color: var(--muted);
-      line-height: 1.5;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.65;
     }
 
-    /* ── DECORATIVE LINE ── */
-    .lp-rule {
-      position: absolute;
-      left: 3rem;
-      bottom: 0;
-      width: 1px;
-      height: 40%;
-      background: linear-gradient(to bottom, transparent, rgba(217,119,6,0.4), transparent);
-      z-index: 10;
-    }
-
-    /* ── RESPONSIVE ── */
-    @media (max-width: 768px) {
-      .lp-nav   { padding: 1.25rem 1.5rem; }
-      .lp-content { padding: 1.5rem 1.5rem 12rem; }
-      .lp-features { right: 1.5rem; bottom: 1.5rem; width: calc(100% - 3rem); flex-direction: row; flex-wrap: wrap; }
-      .lp-feat  { flex: 1; min-width: 140px; }
-      .lp-rule  { display: none; }
-      .lp-hero  { font-size: clamp(2.5rem, 10vw, 3.5rem); }
-    }
+/* Footer */
+.lp-footer {
+  position: relative;
+  z-index: 2;
+  background: rgba(5, 8, 18, 0.85);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding: 1.75rem 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .6rem;
+  text-align: center;
+}
+.lp-footer-top {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.lp-footer-brand {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--amber);
+  letter-spacing: .12em;
+}
+.lp-footer-divider {
+  width: 1px;
+  height: 14px;
+  background: rgba(255,255,255,0.15);
+}
+.lp-footer-link {
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  color: rgba(255,255,255,0.4);
+  text-decoration: none;
+  letter-spacing: .06em;
+  transition: color .2s;
+}
+.lp-footer-link:hover { color: var(--amber); }
+.lp-footer-copy {
+  font-family: 'Space Mono', monospace;
+  font-size: 1.25rem;
+  color: rgba(255,255,255,0.22);
+  letter-spacing: .06em;
+}
+.lp-footer-credits {
+  font-size: 1.25rem;
+  color: rgba(255,255,255,0.35);
+}
+.lp-footer-credits strong {
+  color: rgba(255,255,255,0.6);
+  font-weight: 600;
+}
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .lp-nav   { padding: 1.25rem 1.5rem; }
+  .lp-content { padding: 1.5rem 1.5rem 12rem; }
+  .lp-features { right: 1.5rem; bottom: 1.5rem; width: calc(100% - 3rem); flex-direction: row; flex-wrap: wrap; 
+              grid-template-columns: 1fr; padding: 1.5rem 1.25rem 1rem;}
+  .lp-feat  { flex: 1; min-width: 140px; }
+  .lp-rule  { display: none; }
+  .lp-hero  { font-size: clamp(2.5rem, 10vw, 3.5rem); }
+  .lp-footer   { padding: 1.25rem 1rem; }
+  .lp-footer-top { gap: .75rem; }
+}
   </style>
 </head>
 <body class="landing-page">
   <div class="grid-bg"></div>
   <div class="grain"></div>
-  <!-- Background layers -->
-  <div class="lp-rule"></div>
 
   <!-- Navigation -->
   <nav class="lp-nav">
@@ -311,7 +370,7 @@
   <!-- Main hero content -->
   <main class="lp-content">
 
-    <div class="lp-badge">IIT Bombay Nanofabrication Facility</div>
+    <div class="lp-badge" style="margin: 0 auto 2rem;">IIT Bombay Nanofabrication Facility</div>
 
     <h1 class="lp-hero">
       Personnel<br>
@@ -332,28 +391,58 @@
 
   <!-- Feature cards (bottom-right) -->
   <div class="lp-features">
-    <div class="lp-feat">
-      <span class="feat-icon">◈</span>
-      <div class="feat-body">
-        <h4>Activity Logs</h4>
-        <p>Real-time tracking of lab usage and staff appointments.</p>
-      </div>
-    </div>
-    <div class="lp-feat">
-      <span class="feat-icon">◉</span>
-      <div class="feat-body">
-        <h4>Smart Search</h4>
-        <p>Query personnel by role, position, or historical engagement.</p>
-      </div>
-    </div>
-    <div class="lp-feat">
-      <span class="feat-icon">✦</span>
-      <div class="feat-body">
-        <h4>AI Summaries</h4>
-        <p>Auto-generated profiles powered by open-source LLMs.</p>
-      </div>
+  <div class="lp-feat">
+    <span class="feat-icon">◈</span>
+    <div class="feat-body">
+      <h4>AI-Powered Profile Analysis</h4>
+      <p>Each staff and lab user profile comes with an on-demand AI narrative — summarising attendance, equipment usage, publications, and research output into a plain-English briefing without requiring a single line of manual input.</p>
     </div>
   </div>
+  <div class="lp-feat">
+    <span class="feat-icon">◉</span>
+    <div class="feat-body">
+      <h4>Unified Personnel Search</h4>
+      <p>Search across all IITBNF staff and lab users in real time from a single hub. Instantly jump to any profile by name, member ID, designation, or department — with a Ctrl+K command palette for power users.</p>
+    </div>
+  </div>
+  <div class="lp-feat">
+    <span class="feat-icon">⬡</span>
+    <div class="feat-body">
+      <h4>Equipment & Slot Tracking</h4>
+      <p>Full visibility into every equipment usage request, slot booking, session report, and cancellation. Year-wise breakdowns, monthly trends, and tool-level logbook entries — all accessible without touching the database.</p>
+    </div>
+  </div>
+  <div class="lp-feat">
+    <span class="feat-icon">⬇</span>
+    <div class="feat-body">
+      <h4>Automated PDF Reports</h4>
+      <p>Profile PDFs are pre-generated silently in the background the moment a page loads. By the time anyone clicks Download, the report is ready — covering attendance, slot activity, ownership history, and tool permissions.</p>
+    </div>
+  </div>
+  <div class="lp-feat">
+    <span class="feat-icon">▤</span>
+    <div class="feat-body">
+      <h4>Attendance & Leave Analytics</h4>
+      <p>Track daily attendance against the mandatory 75% threshold, view leave breakdowns by type, and visualise monthly trends via heatmaps and sparklines — across any year since the member's joining date.</p>
+    </div>
+  </div>
+</div>
+
+<footer class="lp-footer">
+  <div class="lp-footer-top">
+    <span class="lp-footer-brand">IITBNF</span>
+    <div class="lp-footer-divider"></div>
+    <a href="/login" class="lp-footer-link">Portal Login</a>
+    <div class="lp-footer-divider"></div>
+    <a href="https://www.iitb.ac.in" target="_blank" rel="noopener" class="lp-footer-link">IIT Bombay</a>
+    <div class="lp-footer-divider"></div>
+    <a href="https://www.iitbnf.iitb.ac.in" target="_blank" rel="noopener" class="lp-footer-link">IITBNF Website</a>
+  </div>
+  <p class="lp-footer-credits">
+    Designed &amp; developed by <strong>Anirudh Paliwal</strong> &nbsp;·&nbsp; IITBNF IT Team
+  </p>
+  <p class="lp-footer-copy">© 2026 IIT Bombay Nanofabrication Facility. All rights reserved.</p>
+</footer>
 
 </body>
 </html>

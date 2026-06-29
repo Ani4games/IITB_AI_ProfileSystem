@@ -50,6 +50,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   <script src="{{ url_for('static', filename='sparkline.js') }}" defer></script>
   <script src="{{ url_for('static', filename='heatmap.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='timeline.js') }}" defer></script>
   {# ── Theme init — must run before first paint to avoid flash ── #}
   <script>
     (function(){
@@ -252,8 +253,7 @@
   ══════════════════════════════════════════════════════════════ #}
 
   {# PDF progress modal — identical on both pages #}
-  <div class="modal-backdrop" id="pdf-progress-modal"
-       role="dialog" aria-modal="true">
+  <div class="modal-backdrop" id="pdf-progress-modal" role="dialog" aria-modal="true">
     <div class="modal-box pdf-modal-box">
       <div class="modal-head">
         <span class="modal-icon">⬇</span>
@@ -269,6 +269,20 @@
       </div>
     </div>
   </div>
+
+  <div class="modal-backdrop" id="pdf-preview-modal" role="dialog" aria-modal="true">
+    <div class="modal-box" style="max-width:900px; height:85vh;">
+      <div class="modal-head">
+        <span class="modal-icon">⬇</span>
+        <span class="modal-title">PDF Ready</span>
+        <button class="modal-close-btn" onclick="closeModal('pdf-preview-modal')">✕</button>
+      </div>
+      <div class="modal-body" style="padding:0; height:calc(100% - 52px);">
+        <iframe id="pdf-preview-frame" style="width:100%; height:100%; border:none; background:#fff;"></iframe>
+      </div>
+    </div>
+  </div>
+
 
   {# Page-specific modals block #}
   {% block modals %}{% endblock %}

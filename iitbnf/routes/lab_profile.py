@@ -354,7 +354,8 @@ def lab_pdf_download(job_id):
     job = LAB_PDF_JOBS.get(job_id)
     if not job or job["status"] != "done":
         return "Not ready", 404
-    return send_file(job["file"], as_attachment=True)
+    inline = request.args.get("inline") == "1"
+    return send_file(job["file"], as_attachment=not inline)
 
 
 # ── Legacy synchronous endpoint (kept for backwards compat) ───────────────────
