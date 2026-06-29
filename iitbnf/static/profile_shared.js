@@ -307,6 +307,11 @@ async function _waitAndDownload(jobId) {
     setTimeout(() => closeModal('pdf-progress-modal'), 2000);
     clearInterval(timerInterval);
   }
+  // After job is done, show iframe preview in modal before download
+  const previewUrl = _PDF_DOWNLOAD_BASE + jobId;
+  document.getElementById('pdf-preview-frame').src = previewUrl;
+  openModal('pdf-preview-modal');
+  // User clicks "Download" or "Close"
 }
 
 // Secondary PDF downloads (system-owner PDFs, etc.)

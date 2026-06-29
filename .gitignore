@@ -12,3 +12,9 @@ gunicorn_conf.py
 qwen2.5-0.5b-instruct.Q4_K_M.gguf
 fine_tune.py
 locustfile.py
+.env
+.env.*
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo

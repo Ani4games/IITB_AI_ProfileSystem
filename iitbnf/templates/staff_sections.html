@@ -89,8 +89,11 @@
         {% endfor %}
       </select>
     </div>
-    <div class="card-big warn" id="c-att-pct">-<span class="unit">%</span></div>
+    <div class="card-metric">
+      <div class="card-big warn" id="c-att-pct">-<span class="unit">%</span></div>
       <div class="card-sub" id="c-att-days">Loading…</div>
+      <div style="height:32px;margin-top:.3rem;"><canvas id="spark-att"></canvas></div>
+  </div>
     <div class="card-footer">
       <span class="card-cta">View trend <span class="card-cta-arrow">→</span></span>
     </div>
@@ -263,6 +266,10 @@
           <div class="modal-section-title">Monthly Trend</div>
           <div class="chart-wrap"><canvas id="att-trend-chart"></canvas></div>
         </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Attendance Calendar</div>
+          <div id="att-heatmap" class="heatmap-wrap"></div>
+        </div>
         <tbody id="att-leave-tbody"></tbody>
       </div>
     </div>
@@ -301,6 +308,10 @@
             </table>
           </div>
         </div>
+        <div class="modal-section">
+          <div class="modal-section-title">Equipment Calendar</div>
+          <div id="eq-heatmap" class="heatmap-wrap"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -317,7 +328,13 @@
         <button class="modal-close-btn" onclick="closeModal('ownership-current-modal')">✕</button>
       </div>
       <div class="modal-body" id="sys-owned-modal-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+        <div class="sk-card" style="padding:1rem;">
+          <div class="sk-line sk-line--title"></div>
+          <div class="sk-line"></div>
+          <div class="sk-line sk-line--medium"></div>
+          <div class="sk-line sk-line--short"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -334,7 +351,13 @@
         <button class="modal-close-btn" onclick="closeModal('ownership-history-modal')">✕</button>
       </div>
       <div class="modal-body" id="owner-track-modal-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+<div class="sk-card" style="padding:1rem;">
+  <div class="sk-line sk-line--title"></div>
+  <div class="sk-line"></div>
+  <div class="sk-line sk-line--medium"></div>
+  <div class="sk-line sk-line--short"></div>
+</div>
       </div>
     </div>
   </div>
@@ -348,7 +371,13 @@
         <button class="modal-close-btn" onclick="closeModal('perms-modal')">✕</button>
       </div>
       <div class="modal-body" id="perms-modal-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+<div class="sk-card" style="padding:1rem;">
+  <div class="sk-line sk-line--title"></div>
+  <div class="sk-line"></div>
+  <div class="sk-line sk-line--medium"></div>
+  <div class="sk-line sk-line--short"></div>
+</div>
       </div>
     </div>
   </div>
@@ -362,7 +391,13 @@
         <button class="modal-close-btn" onclick="closeModal('logbook-modal')">✕</button>
       </div>
       <div class="modal-body" id="logbook-modal-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+<div class="sk-card" style="padding:1rem;">
+  <div class="sk-line sk-line--title"></div>
+  <div class="sk-line"></div>
+  <div class="sk-line sk-line--medium"></div>
+  <div class="sk-line sk-line--short"></div>
+</div>
       </div>
     </div>
   </div>
@@ -375,7 +410,13 @@
         <button class="modal-close-btn" onclick="closeModal('logbook-entries-modal')">✕</button>
       </div>
       <div class="modal-body" id="logbook-entries-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+<div class="sk-card" style="padding:1rem;">
+  <div class="sk-line sk-line--title"></div>
+  <div class="sk-line"></div>
+  <div class="sk-line sk-line--medium"></div>
+  <div class="sk-line sk-line--short"></div>
+</div>
       </div>
     </div>
   </div>
@@ -389,7 +430,13 @@
         <button class="modal-close-btn" onclick="closeModal('staff-session-modal')">✕</button>
       </div>
       <div class="modal-body" id="staff-session-modal-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+<div class="sk-card" style="padding:1rem;">
+  <div class="sk-line sk-line--title"></div>
+  <div class="sk-line"></div>
+  <div class="sk-line sk-line--medium"></div>
+  <div class="sk-line sk-line--short"></div>
+</div>
       </div>
     </div>
   </div>
@@ -403,7 +450,13 @@
         <button class="modal-close-btn" onclick="closeModal('staff-cancel-modal')">✕</button>
       </div>
       <div class="modal-body" id="staff-cancel-modal-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+<div class="sk-card" style="padding:1rem;">
+  <div class="sk-line sk-line--title"></div>
+  <div class="sk-line"></div>
+  <div class="sk-line sk-line--medium"></div>
+  <div class="sk-line sk-line--short"></div>
+</div>
       </div>
     </div>
   </div>
@@ -417,7 +470,13 @@
         <button class="modal-close-btn" onclick="closeModal('staff-access-modal')">✕</button>
       </div>
       <div class="modal-body" id="staff-access-modal-body">
-        <p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>
+        <!-- after -->
+<div class="sk-card" style="padding:1rem;">
+  <div class="sk-line sk-line--title"></div>
+  <div class="sk-line"></div>
+  <div class="sk-line sk-line--medium"></div>
+  <div class="sk-line sk-line--short"></div>
+</div>
       </div>
     </div>
   </div>
@@ -431,6 +490,7 @@
   let _currentAttTrend = {{ trend | tojson | safe if trend else '[]' }};
   const PROFILE_TYPE = 'staff';
   const PROFILE_ID = String(MEMBER_ID);
+  const _yearDataCache = {}; // module-level, top of page_js block
   // staff_sections.html page_data:
   document.querySelectorAll('[data-name]').forEach(el => el.textContent = '{{ person.display_name }}');
 {% endblock %}
@@ -463,6 +523,19 @@ _modalOpenHooks['att-modal'] = function() {
   const sel = document.querySelector('.card-year-sel[onchange*="attendance"]');
   const year = sel ? sel.value : _initialYear;
   _ensureAttChart(year);
+   fetch(`/api/section/staff/${MEMBER_ID}/attendance_calendar?year=${year}`)
+    .then(r => r.json())
+    .then(d => { if (d.success) renderHeatmap('att-heatmap', { year, mode: 'status', values: d.data }); });
+};
+
+_modalOpenHooks['eq-activity-modal'] = function() {
+  // Always fetch fresh data for the currently selected year when modal opens
+  const sel = document.querySelector('.card-year-sel[onchange*="loadSlotActivity"]');
+  const year = sel ? sel.value : _initialYear;
+  _ensureAttChart(year);
+   fetch(`/api/section/staff/${MEMBER_ID}/equipment_calendar?year=${year}`)
+    .then(r => r.json())
+    .then(d => { if (d.success) renderHeatmap('eq-heatmap', { year, mode: 'intensity', values: d.data }); });
 };
 
   // ── Attendance chart ──────────────────────────────────────────────
@@ -560,9 +633,16 @@ function _refreshAttChart(trend) {
 
   fetch(`/api/section/staff/${MEMBER_ID}/attendance?year=${year}`)
     .then(r => r.json()).then(data => {
+      if (data.success) {
+        _yearDataCache[year] = data.data.days_present || 0;
+        annotateYearSelect(document.querySelector('.card-year-sel[onchange*="attendance"]'), _yearDataCache);
+      }
       if (cardPct) cardPct.style.opacity = '';
       if (!data.success) return;
         _updateAttCard(data.data);
+        if (data.data?.trend) {
+          renderSparkline('spark-att', data.data.trend.map(m => m.attendance_pct), { kind: 'bar', threshold: 75 });
+        }
         _updateAttModal(data.data);
       // In loadCardData(), change the trend update lines to:
       if (data.data?.trend !== undefined) {
@@ -882,7 +962,13 @@ async function openLogbookEntries(machid, toolName) {
 
 function loadRawLogbook(machid, toolName) {
   const content = document.getElementById('logbook-entries-content');
-  content.innerHTML = '<p style="color:var(--muted);text-align:center;padding:2rem;">Loading…</p>';
+  content.innerHTML = `
+  <div class="sk-card" style="padding:1rem;">
+    <div class="sk-line sk-line--title"></div>
+    <div class="sk-line"></div>
+    <div class="sk-line sk-line--medium"></div>
+    <div class="sk-line sk-line--short"></div>
+  </div>`;
   _loadSessionLog(machid, toolName, content, 100, MEMBER_ID);
 }
 
@@ -1048,4 +1134,20 @@ function loadAILogbook(machid, toolName) {
     })
     .catch(e => { if(body) body.innerHTML = `<p style="color:var(--red);">Error: ${e.message}</p>`; });
 })();
+
+
+/**
+ * year_hints — annotates <select class="card-year-sel"> options
+ * with a dot for years that actually have data, so picking 2019 on
+ * a member with no 2019 records doesn't silently return an empty card.
+ */
+window.annotateYearSelect = function (selectEl, dataByYear) {
+  if (!selectEl) return;
+  Array.from(selectEl.options).forEach(opt => {
+    const year = parseInt(opt.value, 10);
+    const hasData = (dataByYear[year] || 0) > 0;
+    opt.textContent = hasData ? `${year} ●` : `${year} ○`;
+    opt.style.color = hasData ? '' : 'var(--faint)';
+  });
+};
 {% endblock %}

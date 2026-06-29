@@ -5,8 +5,8 @@
 
 :root {
   /* Accent colors — same in both themes */
-  --amber:   #24f0fb;
-  --amber2:  #0b4df5;
+  --amber:   #f5a623;
+  --amber2:  #d97706;
   --green:   #34d399;
   --red:     #f87171;
   --blue:    #60a5fa;
@@ -121,12 +121,14 @@ body {
 .feature-card:hover { transform: translateY(-3px); border-color: var(--amber); }
 
 .hero-title {
-  font-family: var(--mono);
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
   font-size: clamp(2rem, 8vw, 3.5rem);
   color: var(--fg);
   margin-bottom: 1rem;
 }
 
+.hero-title em { font-style: normal; color: rgba(95, 233, 233, 0.9); }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }

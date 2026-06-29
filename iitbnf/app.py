@@ -20,7 +20,8 @@ from db import hr_pool, slots_pool
 from rag.ingest import init_rag
 from utils import start_pdf_cleanup
 import logging
- 
+from dotenv import load_dotenv
+load_dotenv()  # loads .env into os.environ
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"

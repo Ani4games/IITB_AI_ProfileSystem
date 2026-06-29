@@ -241,6 +241,12 @@ def get_attendance_stats(member_id, year=None):
             "recent_log":     [],
             "trend":          [],
         }
+    
+@cached(ttl_seconds=300)
+def get_attendance_calendar(member_id: int, year: int) -> dict:
+    """Date -> 'present', for the attendance heatmap."""
+    rows = get_attendance_rows(member_id, year=year)
+    return {str(r["date"])[:10]: "present" for r in rows}
 # In staff.py, replace _get_years_raw() with this:
 def _get_years_raw(member_id=None, memberid=None):
     years = set()
@@ -514,6 +520,20 @@ def _get_equipment_rows(uid, year=None):
     elapsed = (perf_counter() - start) * 1000
     print(f"_get_equipment_rows SQL: {elapsed:.1f} ms for uid={uid}, year={year}")
     return rows or []
+
+@cached(ttl_seconds=300)
+def get_equipment_daily_counts(member_id: int, year: int) -> dict:
+    """Date -> request count, for the activity heatmap."""
+    uid = _get_uid_from_member(member_id)
+    if not uid:
+        return {}
+    rows = slots_query("""
+        SELECT DATE(date_of_request) AS d, COUNT(*) AS cnt
+        FROM equipment_usage_approval
+        WHERE requestedby=%s AND YEAR(date_of_request)=%s
+        GROUP BY DATE(date_of_request)
+    """, (uid, year)) or []
+    return {str(r["d"]): int(r["cnt"]) for r in rows}
 def _get_lab_access_rows(uid, year=None):
     if uid is None:
         return []

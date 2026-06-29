@@ -90,7 +90,32 @@ def staff_attendance(member_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@bp.route("/api/section/staff/<int:member_id>/attendance_calendar")
+@login_required
+def staff_attendance_calendar(member_id):
+    if not is_full_access():
+        return jsonify({"error": "Access restricted."}), 403
+    year = request.args.get("year", type=int) or _cur_year
+    from models.staff import get_attendance_calendar
+    try:
+        data = get_attendance_calendar(member_id, year)
+        return _cached_json({"success": True, "year": year, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
+
+@bp.route("/api/section/staff/<int:member_id>/equipment_calendar")
+@login_required
+def staff_equipment_calendar(member_id):
+    if not is_full_access():
+        return jsonify({"error": "Access restricted."}), 403
+    year = request.args.get("year", type=int) or _cur_year
+    from models.staff import get_equipment_daily_counts
+    try:
+        data = get_equipment_daily_counts(member_id, year)
+        return _cached_json({"success": True, "year": year, "data": data})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 @bp.route("/api/section/staff/<int:member_id>/equipment")
 @login_required
 def staff_equipment(member_id):

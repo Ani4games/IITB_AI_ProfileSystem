@@ -6,7 +6,7 @@
   <title>IITBNF Profile System</title>
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script>(function(){const t=localStorage.getItem('iitbnf_theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
 
@@ -18,40 +18,33 @@
     ══════════════════════════════════════ */
     :root {
       /* ── Surfaces ── */
-      --void:      #0a0d14;        /* near-black indigo */
-      --deep:      #0d1120;
-      --hull:      #111827;        /* tailwind gray-900 */
-      --panel:     #161d2e;        /* card surface */
-      --panel2:    #1c2438;        /* elevated card */
-      --rim:       rgba(99,179,237,0.10);   /* soft sky border */
-      --rim2:      rgba(99,179,237,0.18);
-      --wire:      rgba(99,179,237,0.05);
-
-      /* ── Primary accent — calm teal-sky ── */
-      --arc:       #77c4fa;        /* sky-300: readable, not harsh */
-      --arc-dim:   rgba(99,179,237,0.10);
-      --arc-glow:  rgba(99,179,237,0.22);
-      --arc2:      #4299e1;        /* sky-500 */
-      --pulse:     #90cdf4;        /* sky-200 */
-
-      /* ── Semantic colors ── */
-      --gold:      #f6ad55;        /* warm amber — staff */
-      --gold-dim:  rgba(246,173,85,0.10);
-      --emerald:   #68d391;        /* soft green — online */
-      --emerald-dim: rgba(104,211,145,0.10);
-      --crimson:   #fc8181;        /* soft coral — danger */
-      --crimson-dim: rgba(252,129,129,0.10);
-      --violet:    #b794f4;        /* muted violet — lab users */
-      --violet-dim: rgba(183,148,244,0.10);
-
-      /* ── Text ── */
-      --fg:        #e2e8f0;        /* slate-200 */
-      --fg2:       #94a3b8;        /* slate-400 */
-      --fg3:       #475569;        /* slate-600 */
-      --scan:      rgba(99,179,237,0.025);
-
-      --font-hud:  'Orbitron', sans-serif;
-      --font-mono: 'Share Tech Mono', monospace;
+      --void:      #07090e;
+      --deep:      #0c0f18;
+      --hull:      #0c0f18;
+      --panel:     #0c0f18;
+      --panel2:    #121623;
+      --rim:       rgba(255,255,255,0.07);
+      --rim2:      rgba(255,255,255,0.12);
+      --wire:      rgba(245,166,35,0.04);
+      --arc:       #f5a623;
+      --arc-dim:   rgba(245,166,35,0.12);
+      --arc-glow:  rgba(245,166,35,0.22);
+      --arc2:      #d97706;
+      --pulse:     #fbbf24;
+      --gold:      #f5a623;
+      --gold-dim:  rgba(245,166,35,0.12);
+      --emerald:   #22c55e;
+      --emerald-dim: rgba(34,197,94,0.12);
+      --crimson:   #f43f5e;
+      --crimson-dim: rgba(244,63,94,0.12);
+      --violet:    #38bdf8;
+      --violet-dim: rgba(56,189,248,0.12);
+      --fg:        #eef0f6;
+      --fg2:       #b8c0d4;
+      --fg3:       #7c859e;
+      --scan:      rgba(245,166,35,0.025);
+      --font-hud:  'Syne', sans-serif;
+      --font-mono: 'Space Mono', monospace;
       --font-body: 'DM Sans', sans-serif;
 
       --radius:    8px;
@@ -63,30 +56,29 @@
 
     /* ── LIGHT MODE — porcelain + teal ── */
     [data-theme="light"] {
-      --void:   #f0f4f8;
-      --deep:   #e2e8f2;
-      --hull:   #dde5f0;
+      --void:   #f4f5f8;
+      --deep:   #e9ebf1;
+      --hull:   #eef0f5;
       --panel:  #ffffff;
-      --panel2: #f5f8fc;
-      --rim:    rgba(66,153,225,0.13);
-      --rim2:   rgba(66,153,225,0.22);
-      --wire:   rgba(66,153,225,0.06);
-      --arc:    #465fff;          /* blue-600: strong on white */
-      --arc-dim:   rgba(49,130,206,0.09);
-      --arc-glow:  rgba(49,130,206,0.20);
-      --pulse:     #63b3ed;
-      --gold:      #d97706;
-      --gold-dim:  rgba(217,119,6,0.10);
+      --panel2: #f5f6fa;
+      --rim:    rgba(245,166,35,0.14);
+      --rim2:   rgba(245,166,35,0.24);
+      --wire:   rgba(245,166,35,0.06);
+      --arc:    #b35900;
+      --arc-dim:   rgba(245,166,35,0.10);
+      --arc-glow:  rgba(245,166,35,0.20);
+      --pulse:     #d97706;
+      --gold:      #b35900;
       --emerald:   #16a34a;
       --emerald-dim: rgba(22,163,74,0.10);
       --crimson:   #e53e3e;
       --crimson-dim: rgba(229,62,62,0.08);
-      --violet:    #7c3aed;
-      --violet-dim: rgba(124,58,237,0.08);
+      --violet:    #2563eb;
+      --violet-dim: rgba(37,99,235,0.08);
       --fg:     #1a202c;
       --fg2:    #2d3748;
       --fg3:    #718096;
-      --scan:   rgba(49,130,206,0.02);
+      --scan:   rgba(245,166,35,0.03);
     }
 
     /* ── RESET ── */

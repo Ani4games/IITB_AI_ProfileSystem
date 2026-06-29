@@ -25,16 +25,16 @@ DB_SLOTS = {
 }
 
 # ── AI ────────────────────────────────────────────────────────────────────────
-AI_MODE      = "llamacpp"  # "ollama", "local", or "mock"
+AI_MODE      = os.getenv("AI_MODE")  
 # OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 # OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434")
 LOCAL_MODEL_NAME   = os.getenv("LOCAL_MODEL_NAME",   "Qwen/Qwen2.5-0.5B-Instruct")
 LOCAL_MODEL_DEVICE = os.getenv("LOCAL_MODEL_DEVICE",  "cpu")
-LOCAL_MODEL_TEMP   = float(os.getenv("LOCAL_MODEL_TEMP", "0.15"))
-GGUF_MODEL_PATH = "qwen2.5-0.5b-instruct.Q4_K_M.gguf"
+LOCAL_MODEL_TEMP   = os.getenv("LOCAL_MODEL_TEMP")
+GGUF_MODEL_PATH = os.getenv("GGUF_MODEL_PATH")
 # ── Flask ─────────────────────────────────────────────────────────────────────
-SECRET_KEY              = os.getenv("SECRET_KEY", "iitbnf-dev-secret-change-in-prod")
-SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV") == "production"
+SECRET_KEY              = os.getenv("SECRET_KEY", "your-production-secret-key-here")
+SESSION_COOKIE_SECURE = os.getenv("FLASK_ENV")
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 PERMANENT_SESSION_LIFETIME = timedelta(hours=2)
