@@ -56,6 +56,33 @@ USER_CAT_KEYWORDS = ['user category','what is phd user','what is mtech',
                      'inup','industry user','pdf user','project staff',
                      'type of user','user type']
 
+# Keywords that signal the user wants the LIVE equipment list (names from DB)
+# rather than the static category overview.
+EQUIPMENT_LIST_KEYWORDS = [
+    'list all equipment', 'list equipment', 'show all equipment',
+    'show equipment', 'all tools', 'all machines', 'all instruments',
+    'name of equipment', 'names of equipment', 'which equipment do you have',
+    'which tools are there', 'what machines are there',
+]
+
+# Keywords that signal a question about ONE specific named tool
+# (status, capability, working condition) rather than the full catalog.
+TOOL_DETAIL_KEYWORDS = [
+    'tell me about', 'what is', 'how does', 'what does',
+    'is working', 'is down', 'status of', 'working condition',
+    'specs of', 'capability of', 'used for',
+]
+
+# Known tool/category name fragments — used to detect that a question is
+# about a SPECIFIC instrument rather than the facility in general.
+TOOL_NAME_HINTS = [
+    'pecvd', 'lpcvd', 'sputter', 'evaporat', 'rie', 'icp', 'wet bench',
+    'wet etch', 'sem', 'tem', 'afm', 'xrd', 'xps', 'edx',
+    'furnace', 'rta', 'anneal', 'profilometer', 'ellipsometer',
+    'mask aligner', 'spin coater', 'e-beam', 'ebeam lithograph',
+    'lithograph', 'iv measurement', 'cv measurement',
+]
+
 
 def _has_any(question: str, keywords: list) -> bool:
     q = question.lower()
@@ -78,6 +105,15 @@ def route_facility(question: str) -> str | None:
 
         if 'how many equipment' in q or 'total equipment' in q or 'how many tool' in q:
             return _live_equipment_count()
+
+        # ── Live equipment LIST (real tool names from DB) ───────────────────
+        if _has_any(q, EQUIPMENT_LIST_KEYWORDS):
+            return _live_equipment_list()
+
+        # ── Specific named tool — live status/detail lookup ─────────────────
+        tool_hint = next((h for h in TOOL_NAME_HINTS if h in q), None)
+        if tool_hint and _has_any(q, TOOL_DETAIL_KEYWORDS + ['equipment', 'tool', 'machine']):
+            return _live_tool_detail(tool_hint)
 
         if any(k in q for k in ['working day', 'work day', 'working hour', 'work hour',
                                 'opening hour', 'open hour', 'timing', 'what time',
@@ -253,3 +289,70 @@ def _live_equipment_count() -> str:
         f"{r['working'] or 0} currently operational, "
         f"{r['down'] or 0} currently down for maintenance."
     )
+
+
+def _live_equipment_list() -> str:
+    """
+    Returns the full live list of equipment names grouped by category,
+    pulled directly from slotbooking.resources. Falls back to the static
+    category overview if the DB query fails or returns nothing.
+    """
+    try:
+        rows = slots_query("""
+            SELECT name, category, isworking
+            FROM resources
+            ORDER BY category, name
+        """) or []
+    except Exception as e:
+        logger.error("[FacilityRouter] _live_equipment_list DB error: %s", e)
+        rows = []
+
+    if not rows:
+        return _equipment_overview()
+
+    grouped: dict[str, list[str]] = {}
+    for r in rows:
+        cat = r.get("category") or "Other"
+        tag = r["name"] if r.get("isworking") else f"{r['name']} (down)"
+        grouped.setdefault(cat, []).append(tag)
+
+    lines = [f"IITBNF currently has {len(rows)} pieces of registered equipment:\n"]
+    for cat, names in grouped.items():
+        lines.append(f"  {cat}: " + ", ".join(names))
+    lines.append(
+        "\nFor details on a specific instrument, ask e.g. "
+        "\"tell me about the PECVD\" or \"is the SEM working?\"."
+    )
+    return "\n".join(lines)
+
+
+def _live_tool_detail(tool_hint: str) -> str:
+    """
+    Returns live details (status, category, location, operator) for a
+    specific tool matched by a keyword hint (e.g. 'pecvd', 'sem', 'afm').
+    Combines the live DB record with the static catalog description when
+    available, so the answer covers both "what it does" and "is it working".
+    """
+    try:
+        rows = slots_query(
+            "SELECT name, category, location, type_of_tool, "
+            "operator_name, isworking FROM resources "
+            "WHERE LOWER(name) LIKE %s LIMIT 5",
+            (f"%{tool_hint}%",)
+        ) or []
+    except Exception as e:
+        logger.error("[FacilityRouter] _live_tool_detail DB error: %s", e)
+        rows = []
+
+    if not rows:
+        return None  # let the caller fall through to RAG/static catalog
+
+    lines = []
+    for r in rows:
+        status = "operational" if r.get("isworking") else "currently down"
+        loc = f" Located in {r['location']}." if r.get("location") else ""
+        op = f" Operator: {r['operator_name']}." if r.get("operator_name") else ""
+        lines.append(
+            f"{r['name']} ({r.get('category') or 'equipment'}) is {status}.{loc}{op}"
+        )
+    return "\n".join(lines)

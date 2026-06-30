@@ -369,41 +369,53 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
     has_compound_marker = bool(re.search(r'\band\b|\balso\b', clean_message, re.I))
     if has_compound_marker and year_count < 2:
         parts = re.split(r'\band\b|\balso\b', clean_message, flags=re.I)
-        if len(parts) < 2:
-            pass
-        else:
-            if len(parts) == 2:
-                answers = []
-                person_name = ctx.get("name", "")
-                for part in parts:
-                    part = part.strip()
-                    if not part:
-                        continue
-                    if person_name and person_name.lower() not in part.lower():
-                        part += f"{person_name}'s {part.lstrip('the').lstrip('their')}"
-                    # Try all tiers for each part
-                    a = structured_route(part, ctx)
-                    if not a:
-                        fast = tier0_lookup(part, ctx)
-                        if fast:
-                            a = fast["answer"]
-                    if not a and len(part.split()) > 2:  # only call facility for substantive parts
-                        a = route_facility(part)
-                    if not a:
-                        a = route_facility(part)    
-                    if not a:
+        # Guard: a split part with fewer than 3 words (e.g. "team?" left over
+        # from "designation and team?") is too fragile to route on its own —
+        # treat the whole message as a single question instead of compounding.
+        MIN_PART_WORDS = 3
+        usable_parts = [p.strip() for p in parts if p.strip()]
+        parts_too_short = any(len(p.split()) < MIN_PART_WORDS for p in usable_parts)
+
+        if len(usable_parts) == 2 and not parts_too_short:
+            answers = []
+            person_name = ctx.get("name", "")
+            for part in usable_parts:
+                # Prepend (not append) the person's name when the part doesn't
+                # already mention them, with a proper space — the old code
+                # appended without a leading space, producing malformed
+                # strings like "team?Dr. Sharma's team?" fed into routers.
+                routed_part = part
+                if person_name and person_name.lower() not in part.lower():
+                    routed_part = f"{person_name}'s {part}"
+                # Try all tiers for each part
+                a = structured_route(routed_part, ctx)
+                if not a:
+                    fast = tier0_lookup(routed_part, ctx)
+                    if fast:
+                        a = fast["answer"]
+                if not a:
+                    a = route_facility(routed_part)
+                if not a:
                     # Return explicit "not found" so both parts always surface
-                        a = f"No data found for: '{part.strip()}'" 
-                    if a:
-                        answers.append(a)
-                if len(answers) >= 1:
-                    return {"answer": answers[0] + "\n\n" + answers[1],
-                            "mode": "compound", "label": "Compound Question",
-                            "confidence": "medium", "success": True,
-                            "tier": 1, "slm_available": slm_ok}
-                elif len(answers) == 1:
-                    # Only one part answered — return it but don't claim compound success
-                    pass  # fall through to normal processing
+                    a = f"No data found for: '{part}'"
+                answers.append(a)
+
+            # Both parts always produce an entry now (real answer or explicit
+            # "not found"), so len(answers) == 2 is guaranteed here — but we
+            # still guard defensively instead of indexing blindly.
+            if len(answers) == 2:
+                labeled = (
+                    f"Regarding \"{usable_parts[0].strip()}\":\n{answers[0]}\n\n"
+                    f"Regarding \"{usable_parts[1].strip()}\":\n{answers[1]}"
+                )
+                return {"answer": labeled,
+                        "mode": "compound", "label": "Compound Question",
+                        "confidence": "medium", "success": True,
+                        "tier": 1, "slm_available": slm_ok}
+            elif len(answers) == 1:
+                # Only one part answered — fall through to normal processing
+                # using the original, unsplit question.
+                pass
     is_question = (
         any(clean_message.strip().lower().startswith(w) for w in QUESTION_STARTERS)
         or clean_message.strip().endswith("?")

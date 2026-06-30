@@ -1,0 +1,121 @@
+IITBNF EQUIPMENT CATALOG
+=========================
+This document describes the major equipment categories and instruments
+available at the IIT Bombay Nanofabrication Facility (IITBNF). It is used
+by the AI Assistant to answer detailed questions about facility tools,
+their capabilities, and typical use cases.
+
+DEPOSITION SYSTEMS
+------------------
+PECVD (Plasma Enhanced Chemical Vapor Deposition): Used to deposit thin
+films such as silicon nitride, silicon dioxide, and amorphous silicon at
+relatively low substrate temperatures using RF plasma to enhance the
+chemical reaction. Common applications include passivation layers, hard
+masks, and dielectric layers in MEMS and semiconductor devices.
+
+LPCVD (Low Pressure Chemical Vapor Deposition): Deposits high-quality,
+uniform thin films (polysilicon, silicon nitride, silicon dioxide) at
+low pressure and higher temperatures than PECVD, producing denser films
+with better step coverage. Commonly used for gate oxides and structural
+layers in MEMS.
+
+Sputtering Systems: Physical vapor deposition technique that deposits
+metal and dielectric thin films (aluminum, gold, titanium, platinum,
+tungsten, oxides) using ion bombardment of a target material. Used for
+metal contacts, interconnects, and seed layers.
+
+Thermal/E-beam Evaporation: Deposits metal films by heating source
+material in vacuum until it evaporates and condenses on the substrate.
+Used for lift-off metallization, ohmic contacts, and optical coatings.
+
+LITHOGRAPHY SYSTEMS
+--------------------
+Spin Coaters: Apply uniform thin layers of photoresist or other polymer
+solutions onto substrates by spinning at controlled speeds. A foundational
+step before optical or e-beam lithography.
+
+Mask Aligners: Used for photolithography — UV exposure of photoresist
+through a photomask aligned with existing wafer patterns. Supports contact,
+proximity, and projection exposure modes depending on resolution needs.
+
+E-beam Lithography: Direct-write lithography system using a focused
+electron beam to pattern resist without a physical mask, enabling
+nanometer-scale feature definition for research-grade and prototype
+devices.
+
+ETCHING SYSTEMS
+----------------
+RIE (Reactive Ion Etching): Combines chemical reactivity of plasma species
+with physical ion bombardment to anisotropically etch silicon, oxides,
+nitrides, and polymers with high directionality.
+
+ICP Etching (Inductively Coupled Plasma): High-density plasma etching
+system capable of deep, high-aspect-ratio etches (e.g., deep silicon
+etching, Bosch process) used for MEMS structures and through-silicon vias.
+
+Wet Etching Bench: Manual and semi-automated wet chemical etching stations
+for isotropic etching of oxides, metals, and silicon using standard wet
+chemistries (BHF, KOH, TMAH, metal etchants).
+
+CHARACTERIZATION SYSTEMS
+--------------------------
+SEM (Scanning Electron Microscope): Provides high-resolution surface
+imaging down to nanometer scale using a focused electron beam, used for
+inspecting feature dimensions, surface morphology, and fracture cross
+sections.
+
+TEM (Transmission Electron Microscope): Provides atomic-to-nanometer
+scale imaging of thin samples by transmitting electrons through the
+specimen, used for crystal structure and defect analysis.
+
+AFM (Atomic Force Microscope): Maps surface topography at sub-nanometer
+vertical resolution using a cantilever probe, used for roughness
+measurement and nanoscale surface characterization without requiring
+a vacuum environment.
+
+XRD (X-Ray Diffraction): Determines crystal structure, phase composition,
+and strain in thin films and substrates by analyzing diffraction patterns
+of X-rays.
+
+XPS (X-ray Photoelectron Spectroscopy): Surface-sensitive technique used
+to determine elemental composition and chemical bonding states within
+the top few nanometers of a sample.
+
+EDX (Energy Dispersive X-ray Spectroscopy): Often paired with SEM, used
+for elemental composition analysis of a sample via characteristic X-rays
+emitted under electron bombardment.
+
+THERMAL PROCESSING SYSTEMS
+-----------------------------
+Diffusion Furnaces: Used for high-temperature processes such as thermal
+oxidation, dopant diffusion, and annealing of silicon wafers in controlled
+atmospheres.
+
+RTA (Rapid Thermal Annealing): Provides fast, controlled heating and
+cooling cycles for short-duration high-temperature processes such as
+dopant activation and silicide formation, minimizing dopant diffusion
+compared to furnace annealing.
+
+METROLOGY SYSTEMS
+-------------------
+Profilometers: Measure surface topography and step height profiles using
+either contact (stylus) or non-contact (optical) methods, commonly used
+to verify etch depth or film thickness.
+
+Ellipsometers: Measure thin film thickness and optical constants (refractive
+index, extinction coefficient) by analyzing the change in polarization of
+reflected light.
+
+IV/CV Measurement Systems: Used to characterize electrical properties of
+devices and test structures — current-voltage and capacitance-voltage
+behavior of diodes, transistors, and capacitor structures.
+
+ACCESS AND BOOKING NOTES
+---------------------------
+Each piece of equipment has a designated System Owner responsible for its
+operational status and maintenance coordination. Access to most equipment
+requires an approved Tool Permission, granted by the relevant System Owner
+or Faculty Incharge after training. Equipment usage must be booked through
+the slotbooking portal, and a session report should be submitted after
+each use describing observations, parameters used, and any issues
+encountered.
