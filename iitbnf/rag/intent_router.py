@@ -59,9 +59,10 @@ _RULES = [
     ), "compare_attend"),
 
     (re.compile(
-        r"(\bcompare\b|\bvs\b|\bversus\b|\bdifference between\b|\bchange from\b|\bmore regular\b|\bless regular\b)"
-        r".{0,40}(slot|equipment|request|booking|reservation)",
-        re.I
+    r"\b20\d{2}\b.{0,30}\b(and|vs|versus)\b.{0,10}\b20\d{2}\b.{0,40}(slot|equipment|request|booking|reservation)"
+    r"|(\bcompare\b|\bvs\b|\bversus\b|\bdifference between\b|\bchange from\b)"
+    r".{0,40}(slot|equipment|request|booking|reservation)",
+    re.I
     ), "compare_slot"),
 
     # Generic compare fallback (no keyword after compare verb):

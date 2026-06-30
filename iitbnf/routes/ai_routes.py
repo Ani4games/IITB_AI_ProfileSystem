@@ -9,9 +9,9 @@ Routes:
 import json
 import queue
 import threading
-from flask import Blueprint, request, jsonify, Response, stream_with_context
+from flask import Blueprint,session, request, jsonify, Response, stream_with_context
 from auth import login_required, is_full_access
-from models.ai import generate_llm_report, _build_staff_context, _build_lab_context
+from models.ai import _build_staff_context, _build_lab_context
 bp = Blueprint("ai", __name__)
 
 @bp.route("/api/ai/stream")
@@ -30,9 +30,6 @@ def ai_stream():
                        e.g. "give me a quick summary" / "executive briefing"
                        Falls back to ?mode=short if message is absent.
     """
-    if not is_full_access():
-        return Response("data: [ERROR] Access restricted.\n\n",
-                        mimetype="text/event-stream"), 403
 
     profile_type = request.args.get("profile_type", "staff")
     profile_id   = request.args.get("profile_id",   type=int)
@@ -65,13 +62,17 @@ def ai_stream():
     token_queue = queue.Queue()
     SENTINEL    = object()   # signals end of stream
 
+
+    requester_full_access = is_full_access()
+    requester_memberid    = session.get("memberid")
     def inference_worker():
         """Runs in background thread — pushes tokens into the queue."""
         try:
             if message:
                 # ── NEW: autonomous mode — agent detects intent from message ─
                 from rag.agent import agent_stream
-                for token in agent_stream(message, ctx):
+                for token in agent_stream(message, ctx, requester_is_full_access=requester_full_access,
+                    requester_memberid=requester_memberid,):
                     token_queue.put(token)
             else:
                 # ── LEGACY: mode passed directly from frontend ────────────────

@@ -31,6 +31,26 @@ from llm import is_llm_available
 SLM_UNAVAILABLE_MSG = (
     "⚠ SLM not available at the moment — switching to direct lookup mode.\n\n"
 )
+ACCESS_DENIED_MSG = (
+    "I'm not able to share that information here. "
+    "Is there anything else you would like to ask?"
+)
+
+# Intents that expose personal/HR data and require full_access (or the
+# caller asking about their own profile).
+_RESTRICTED_INTENTS = {
+    "attendance", "attendance_monthly", "attendance_year", "attendance_general",
+    "attendance_regularity", "attendance_summary",
+    "compare_attend", "compare_slot", "compare",
+    "leave", "monthly_report", "general_profile",
+    "equipment_count", "equipment_year", "equipment_list",
+    "reservation", "session_report", "cancellation",
+    "permission", "system_owner", "training",
+    "publication", "project", "logbook", "overall_profile", "is_active",
+}
+
+# Intents that are safe for anyone logged in — facility-level, no personal data.
+_PUBLIC_SAFE_INTENTS = {"facility_info", "admin_stats"}
 def _answer_without_slm(question: str, ctx: dict) -> str:
     """
     Best-effort answer using only the 4 tiers (no SLM).
@@ -96,6 +116,45 @@ MODE_LABELS = {
     "short":     "Quick Summary",
     "executive": "Executive Briefing",
 }
+
+import random
+
+_GREETING_PATTERN = re.compile(
+    r"^\s*(hi+|hello+|hey+|yo|sup|good\s*(morning|afternoon|evening)|"
+    r"howdy|greetings|hiya)\s*[!.,?]*\s*$",
+    re.I
+)
+
+_GREETING_RESPONSES = [
+    "Hello! I'm here to help — ask me anything about {name}'s profile.",
+    "Hi there! Feel free to ask about attendance, equipment usage, publications, or anything else on record for {name}.",
+    "Hey! What would you like to know about {name}?",
+    "Good day! Ask me a question about {name}'s profile and I'll do my best to answer.",
+]
+
+def _is_greeting(message: str) -> bool:
+    """
+    Detects short greeting-only messages so they don't fall through
+    to the composer summary fallback in agent_generate().
+    """
+    text = message.strip()
+    if len(text) > 30:
+        return False
+    return bool(_GREETING_PATTERN.match(text))
+
+
+def _greeting_response(ctx: dict) -> dict:
+    name = ctx.get("name", "this profile")
+    template = random.choice(_GREETING_RESPONSES)
+    return {
+        "answer": template.format(name=name),
+        "mode": "greeting",
+        "label": "Greeting",
+        "confidence": "high",
+        "success": True,
+        "tier": 0,
+        "slm_available": is_llm_available(),
+    }
 def normalize_question(question: str) -> str:
     question = question.replace("’", "'").replace("`", "'")
     question = question.replace("'s's", "'s")
@@ -306,14 +365,33 @@ def _handle_monthly_attendance(clean_message: str, ctx: dict, slm_ok: bool) -> d
         return {"answer": answer, "mode": "attendance_monthly_comparison",
                 "label": "Monthly Attendance Comparison", "confidence": "high",
                 "success": True, "tier": 1, "slm_available": slm_ok}
+    
+def _caller_can_access(ctx: dict, requester_is_full_access: bool, requester_memberid) -> bool:
+    """
+    True if the caller is allowed to see personal/HR data in ctx.
+    Either the caller has full_access (staff), or they're asking about
+    their own profile.
+    """
+    if requester_is_full_access:
+        return True
+    # Match caller's session memberid against the profile being viewed.
+    profile_member_id = ctx.get("member_id") or ctx.get("slot_uid")
+    if requester_memberid is not None and profile_member_id is not None:
+        try:
+            return int(requester_memberid) == int(profile_member_id)
+        except (TypeError, ValueError):
+            return False
+    return False
 # REPLACE agent_stream() in agent.py:
-def agent_stream(user_message: str, ctx: dict):
+def agent_stream(user_message: str, ctx: dict, requester_is_full_access: bool = True,
+                  requester_memberid=None):
     """
     Streaming wrapper around agent_generate.
     Yields string tokens suitable for SSE consumption.
     Called by ai_routes.py ai_stream() and admin_chat() endpoints.
     """
-    result = agent_generate(user_message, ctx)
+    result = agent_generate(user_message, ctx, requester_is_full_access=requester_is_full_access,
+        requester_memberid=requester_memberid,)
     answer = result.get("answer", "")
     mode   = result.get("mode", "unknown")
     
@@ -332,7 +410,10 @@ _qa_response_cache = {} # module-level — survives across calls
 
 # REPLACE agent_generate() in agent.py:
 
-def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
+def agent_generate(user_message: str, ctx: dict, history: list = None,requester_is_full_access: bool = True,
+                    requester_memberid=None) -> dict:
+    if _is_greeting(user_message):
+        return _greeting_response(ctx)
     intent = detect_intent(user_message)
     slm_ok = is_llm_available()
 
@@ -439,7 +520,12 @@ def agent_generate(user_message: str, ctx: dict, history: list = None) -> dict:
     if is_question:        
         intent_label, intent_method = classify_intent(clean_message)
         logger.info("[Agent] intent=%s method=%s query=%r", intent_label, intent_method, clean_message[:60])
-
+        if intent_label in _RESTRICTED_INTENTS and not _caller_can_access(
+            ctx, requester_is_full_access, requester_memberid
+        ):
+            return {"answer": ACCESS_DENIED_MSG, "mode": "access_denied",
+                    "label": "Access Restricted", "confidence": "high",
+                    "success": True, "tier": 0, "slm_available": slm_ok}
         # ── FACILITY INFO: early exit regardless of regex/minilm method ──────────
         # Must be checked before the MiniLM wiring block because facility_info
         # can be detected by regex, and the normal tier waterfall (structured_route,

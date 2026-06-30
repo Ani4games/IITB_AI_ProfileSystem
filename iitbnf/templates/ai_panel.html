@@ -523,7 +523,7 @@
 .ai-chat-send-btn:hover { opacity: .85; }
 .ai-chat-message-list {
   flex: 1; overflow-y: auto;
-  padding: .85rem .8rem;
+  padding: .85rem .8rem; min-height: 0;
   display: flex; flex-direction: column; gap: .55rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(245,166,35,.15) transparent;
@@ -702,7 +702,7 @@
 
       <!-- CHAT SCREEN (shown once messages exist) -->
       <div id="ai-qa-chat-screen"
-        style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+        style="display:none;flex:1;flex-direction:column;overflow:hidden; min-height: 0;">
 
         <!-- MESSAGE LIST -->
         <div id="ai-qa-message-list" class="ai-chat-message-list"></div>

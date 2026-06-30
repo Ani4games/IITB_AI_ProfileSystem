@@ -272,59 +272,90 @@ def _build_chat_prompt(question: str, ctx: dict, history: list = None) -> str:
     )
 
 
+# Keywords near a number → which ctx field that number is allowed to come from.
+_TOPIC_FIELD_MAP = {
+    "attendance_pct":  (r"attendance|%|percent", ("attendance_pct",)),
+    "days_present":    (r"days? present|working days?", ("days_present", "working_days")),
+    "eq_requests":     (r"equipment (usage )?requests?|slot booking", ("eq_requests", "eq_slot_booked", "eq_approved", "eq_pending", "eq_rejected")),
+    "papers":          (r"publications?|papers?", ("papers",)),
+    "projects":        (r"projects?", ("projects", "active_projects")),
+    "leaves_taken":    (r"leave days?", ("leaves_taken",)),
+}
+
+
 def _validate_response(response: str, ctx: dict) -> str:
     """
     Post-process model output to catch obvious hallucinations.
-    
+
     Checks:
     1. Any number in the response should exist somewhere in ctx values.
-    2. Any name that looks like a person's name should be in ctx.
+    2. A number near a topic keyword (e.g. "attendance") should come from
+       the matching ctx field, not be borrowed from an unrelated field
+       (e.g. eq_requests bleeding into an attendance sentence).
     3. Response should not be longer than 3x the prompt's data.
-    
+
     On failure: strips the suspicious sentence rather than blocking entirely.
     """
     if not response or not ctx:
         return response
-    
-    # Collect all numeric values from ctx
+
+    # Collect all numeric values from ctx, tagged by source field
     ctx_numbers = set()
-    for v in ctx.values():
+    field_numbers: dict[str, set[str]] = {}
+    for k, v in ctx.items():
         if v is None:
             continue
-        # Extract numbers from ctx values
-        for match in re.findall(r'\b\d+(?:\.\d+)?\b', str(v)):
-            ctx_numbers.add(match)
-    
-    # Check each sentence for numbers not in ctx
+        nums = set(re.findall(r'\b\d+(?:\.\d+)?\b', str(v)))
+        ctx_numbers.update(nums)
+        if nums:
+            field_numbers[k] = nums
+
     sentences = re.split(r'(?<=[.!?])\s+', response.strip())
     clean_sentences = []
-    
+
     for sentence in sentences:
         numbers_in_sentence = re.findall(r'\b\d+(?:\.\d+)?\b', sentence)
-        
-        # Skip validation for sentences with no numbers — low hallucination risk
+
         if not numbers_in_sentence:
             clean_sentences.append(sentence)
             continue
-        
-        # Check if all numbers in sentence appear in ctx
-        # Allow small numbers (0-10) as they are likely counts/ordinals
+
         suspicious = [
             n for n in numbers_in_sentence
             if n not in ctx_numbers and float(n) > 10
         ]
-        
-        if suspicious:
+
+        # ── NEW: topic/field mismatch check ──────────────────────────────
+        # If the sentence mentions a known topic keyword, every number in
+        # that sentence must belong to one of the fields allowed for that
+        # topic — catches cases like "300 ... attendance" where 300 is a
+        # real ctx number but attached to the wrong fact.
+        topic_mismatch = False
+        for field, (keyword_pat, allowed_fields) in _TOPIC_FIELD_MAP.items():
+            if re.search(keyword_pat, sentence, re.I):
+                allowed_numbers = set()
+                for af in allowed_fields:
+                    allowed_numbers.update(field_numbers.get(af, set()))
+                for n in numbers_in_sentence:
+                    if float(n) > 1 and n not in allowed_numbers and n in ctx_numbers:
+                        # number is real, but not one of the fields this
+                        # topic is allowed to reference
+                        topic_mismatch = True
+                        break
+                if topic_mismatch:
+                    break
+
+        if suspicious or topic_mismatch:
             import logging
             logging.getLogger(__name__).warning(
-                "[LLM] Possible hallucination — numbers %s not in ctx, "
-                "dropping sentence: %s", suspicious, sentence[:80]
+                "[LLM] Possible hallucination — numbers %s not in ctx or "
+                "topic mismatch=%s, dropping sentence: %s",
+                suspicious, topic_mismatch, sentence[:80]
             )
-            # Replace with a safe fallback rather than dropping entirely
             clean_sentences.append("(Data not available for this field.)")
         else:
             clean_sentences.append(sentence)
-    
+
     return " ".join(clean_sentences)
 # ── RAG config constants (used by retrieve.py and debug_ai.py) ────────────────
 RAG_K     = 5

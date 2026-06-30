@@ -123,7 +123,7 @@
     /* ── Right chat panel ────────────────────────────────────────── */
     .ai-chat-panel {
       display: flex; flex-direction: column;
-      height: 100%; overflow: hidden;
+      height: 100%; overflow: hidden; min-height: 0;
       background: var(--bg);
     }
     .ai-chat-header {
@@ -175,7 +175,7 @@
 
     /* ── Message list ────────────────────────────────────────────── */
     .ai-message-list {
-      flex: 1; overflow-y: auto;
+      flex: 1; overflow-y: auto; min-height: 0;
       padding: 1.25rem;
       display: flex; flex-direction: column; gap: .65rem;
       scrollbar-width: thin;
